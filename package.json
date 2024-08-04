@@ -1,0 +1,162 @@
+{
+  "name": "goon",
+  "productName": "Goon",
+  "version": "0.0.1",
+  "description": "Multiple Movie/Photo Viewer",
+  "build": {
+    "appId": "com.samanthajo.goon",
+    "asar": true,
+    "mac": {
+      "category": "public.app-category.lifestyle"
+    },
+    "files": [
+      "package.json",
+      "main.js",
+      "**/node_modules/**/*",
+      "out/**/*",
+      "app/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "resources",
+        "to": "."
+      }
+    ]
+  },
+  "main": "main.js",
+  "scripts": {
+    "build-app": "babel --out-dir out --source-maps inline src",
+    "watch-app": "babel --watch --out-dir out --source-maps inline --ignore \"src/js/pages/web/*.js\" src",
+    "build-web": "webpack --mode production",
+    "watch-web": "webpack --mode development --watch",
+    "watch": "concurrently \"npm run watch-app\" \"npm run watch-web\"",
+    "build": "npm run build-app && npm run build-web",
+    "start": "cross-env NODE_ENV=development electron main.js",
+    "startp": "cross-env NODE_ENV=production electron main.js",
+    "unit-tests": "mocha --require source-map-support/register --recursive out/**/*.test.js",
+    "integration-tests": "mocha --require source-map-support/register --recursive test/integration/**/*.test.js",
+    "lint": "eslint \"src/**\"",
+    "test": "npm run lint && npm run build && npm run unit-tests && npm run integration-tests",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder --publish never",
+    "publish": "electron-builder --publish always"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/samanthajo2/goon.git"
+  },
+  "keywords": [
+    "Goon",
+    "image",
+    "images",
+    "video",
+    "videos"
+  ],
+  "babel": {
+    "plugins": [
+      [
+        "@babel/plugin-proposal-decorators",
+        {
+          "legacy": true
+        }
+      ],
+      [
+        "@babel/plugin-proposal-class-properties",
+        {
+          "loose": true
+        }
+      ],
+      [
+        "@babel/plugin-proposal-private-property-in-object",
+        {
+          "loose": true
+        }
+      ],
+      [
+        "@babel/plugin-proposal-private-methods",
+        {
+          "loose": true
+        }
+      ]
+    ],
+    "presets": [
+      [
+        "@babel/preset-env",
+        {
+          "targets": {
+            "electron": "4"
+          }
+        }
+      ],
+      "@babel/preset-react"
+    ]
+  },
+  "author": "samanthajo",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/samanthajo2/goon/issues"
+  },
+  "homepage": "https://github.com/samanthajo2/goon#readme",
+  "devDependencies": {
+    "@babel/cli": "^7.24.8",
+    "@babel/core": "^7.24.9",
+    "@babel/eslint-parser": "^7.24.8",
+    "@babel/plugin-proposal-class-properties": "^7.18.6",
+    "@babel/plugin-proposal-decorators": "^7.24.7",
+    "@babel/plugin-proposal-private-methods": "^7.18.6",
+    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
+    "@babel/preset-env": "^7.24.8",
+    "@babel/preset-react": "^7.24.7",
+    "ajv": "^8.17.1",
+    "babel-loader": "^8.3.0",
+    "chai": "^4.4.1",
+    "concurrently": "^6.5.1",
+    "cross-env": "^7.0.3",
+    "electron": "^22.3.27",
+    "electron-builder": "^23.6.0",
+    "eslint": "^8.57.0",
+    "eslint-config-airbnb": "^19.0.4",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-jsx-a11y": "^6.9.0",
+    "eslint-plugin-optional-comma-spacing": "0.0.4",
+    "eslint-plugin-react": "^7.35.0",
+    "mocha": "^9.2.2",
+    "node-cleanup": "^2.1.2",
+    "sinon": "^12.0.1",
+    "source-map-support": "^0.5.21",
+    "temp": "^0.9.4",
+    "webpack": "^5.93.0",
+    "webpack-cli": "^4.10.0"
+  },
+  "dependencies": {
+    "@electron/remote": "^2.1.2",
+    "asar": "^3.2.0",
+    "chalk": "^4.1.2",
+    "chokidar": "^3.6.0",
+    "debug": "^4.3.5",
+    "electron-updater": "^4.6.5",
+    "es6-promisify": "^7.0.0",
+    "exifreader": "^4.23.3",
+    "express": "^4.19.2",
+    "graceful-fs": "^4.2.11",
+    "hjson": "^3.2.2",
+    "immutability-helper": "^3.1.1",
+    "keycode": "^2.2.1",
+    "lodash": "^4.17.21",
+    "lodash.throttle": "^4.1.1",
+    "mime-types": "^2.1.35",
+    "mobx": "^6.13.1",
+    "mobx-react": "^7.6.0",
+    "moment": "^2.30.1",
+    "optionator": "^0.9.4",
+    "other-window-ipc": "^1.3.1",
+    "prop-types": "^15.8.1",
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
+    "react-list": "^0.8.17",
+    "react-measure": "^2.5.2",
+    "react-reflex": "^4.2.6",
+    "rimraf": "^3.0.2",
+    "unzipit": "^1.4.3"
+  }
+}

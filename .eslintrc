@@ -1,0 +1,101 @@
+{
+    "env": {
+        "browser": true,
+        "commonjs": true,
+        "es6": true,
+        "node": true,
+        "mocha": true
+    },
+    "parser": "@babel/eslint-parser",
+    "parserOptions": {
+        "ecmaFeatures": {
+            "jsx": true
+        },
+        "sourceType": "module"
+    },
+    "plugins": [
+        "optional-comma-spacing"
+    ],
+    "extends": [
+      "airbnb",
+      "eslint:recommended",
+      "plugin:react/recommended"
+     ],
+    "rules": {
+        "camelcase": "off",   // want to be able to use g_xxx and s_xxx
+        "max-len": "off",
+        "prefer-destructuring": "off",
+        "no-use-before-define": ["error", { "functions": false }],
+        "no-plusplus": 0,               // WAT?
+        "key-spacing": ["error", { "beforeColon": false, "afterColon": true, "mode": "minimum" }],
+        "no-nested-ternary": 0,
+        "no-unneeded-ternary": "off",     // seriously FUCK YOU!
+        "no-multi-spaces": "off",         // ["error", { "ignoreEOLComments": true }],
+        "no-underscore-dangle": "off",    // used for private members
+        "react/no-multi-comp": "off",     // being fucking pendantic about intimately related class is stoopid
+        "no-bitwise": "off", //["error", { "int32Hint": true }],
+        "no-mixed-operators": "off",      // What the fuck?
+        "no-restricted-syntax": "off",    // serious FUCK OFF! ugh!
+        "no-await-in-loop": "off",        // FUCK YOU MORE!
+        "jsx-a11y/no-static-element-interactions": "off", // NOPE!
+        "jsx-a11y/alt-text": "off",
+        "jsx-a11y/media-has-caption": "off",
+        "jsx-a11y/click-events-have-key-events": "off",
+        "jsx-a11y/label-has-for": "off",
+        "jsx-a11y/accessible-emoji": "off",  // this is fucking stupid. accessibility software can look up the meaning of emoji. Gees people are stupid.
+        "react/self-closing-comp": "off",
+        "react/jsx-boolean-value": "off", // ["error", "always"],
+        "object-curly-spacing": "off",    // ["error", "never"],
+        "object-curly-newline": "off",
+        "comma-dangle": "off",
+        "optional-comma-spacing/optional-comma-spacing": ["error", {"after": true}],
+        "array-bracket-spacing": "off",
+        "space-in-parens": "off",
+        "arrow-body-style": ["error", "as-needed"],
+        "arrow-parens": "off",
+        "no-else-return": "off",
+        "object-shorthand": "off",
+        "class-methods-use-this": "off",
+        "no-param-reassign": "off",
+        "no-lonely-if": "off",
+        "quote-props": "off",
+        "no-shadow": "off",               // not entirely convinced this is important when not using `var`
+        "no-lone-blocks": "off",          // I like to organize my code!
+        "no-floating-decimal": "off",     // Fuck you
+        "default-case-last": "off",
+
+        "no-console": "off",              // Maybe turn this on
+        "react/prop-types": "off",        // TURN THIS ON
+        "react/function-component-definition": "off",
+        "lines-between-class-members": "off",  // FUCK YOU!
+        "operator-linebreak": "off",           // FUCK YOU!
+        "max-classes-per-file": "off",         // FUCK YOU! FUCKING FUCK!
+        "no-multiple-empty-lines": "off",      // Triple fuck you! Fucking waste of dev time to deal with this assholes!
+        "import/no-useless-path-segments": "off", // BUGGY! Gives bad results
+        "import/prefer-default-export": "off",  // FUCK OFF!
+        "react/destructuring-assignment": "off",  // More fUck you! It's actually *LESS READABLE* dickheads!
+        "react/jsx-one-expression-per-line": "off",  // FUCKING STUPID! How about one-operator-per-line as an example. Gees!
+        "jsx-a11y/control-has-associated-label": "off",
+        "function-paren-newline": "off",
+        "function-call-argument-newline": "off",
+
+        // don't the why the FUCK these are needed
+        "react/no-namespace": "off",
+        "react/prefer-exact-props": "off",
+        "react/no-arrow-function-lifecycle": "off",
+        "react/no-invalid-html-attribute": "off",
+        "react/no-unused-class-component-methods": "off",
+        "import/no-import-module-exports": "off",
+        "import/no-relative-packages": "off"
+    },
+    "overrides": [
+        {
+            "files": [
+                "*.test.js"
+            ],
+            "rules": {
+                "import/no-extraneous-dependencies": "off"
+            }
+        }
+    ]
+}
