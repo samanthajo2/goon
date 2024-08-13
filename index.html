@@ -13,6 +13,7 @@
     *, *:before, *:after {
       box-sizing: inherit;
     }
+    .note,
     a {
       display: block;
       text-decoration: none;
@@ -20,6 +21,9 @@
       background: #888;
       padding: .5em;
       border: 5px solid black;
+    }
+    .note {
+      margin-top: 1em;
     }
     a:hover {
       text-decoration: none;
@@ -127,6 +131,14 @@
 
         </div>
         <div><a href="#download">Click for other platforms.</a></div>
+        <div><div class="note">Note: On MacOS: The app is neither signed nor notarized.<br><br>
+        To run it, double click the <code>Goon.&lt;version&gt;.dmg</code> and drag the app somewhere.
+        Then open a terminal and type<br><br>
+        <pre><code>
+          xattr -d -r com.apple.quarantine path/to/Goon.app
+        </code></pre>
+        You should now be able to run it.
+        </div></div>
       </div></div>
       <div><div>
         <h1>Split Screen</h1>
