@@ -23,16 +23,19 @@ jobs:
             name: "Windows",
             os: windows-latest,
             artifact: win-x64,
+            ext: exe,
           }
         - {
             name: "Ubuntu",
             os: ubuntu-latest,
             artifact: linux-x64,
+            ext: AppImage,
           }
         - {
             name: "MacOS",
             os: macos-latest,
             artifact: mac-arm64,
+            ext: dmg,
           }
 
     steps:
@@ -67,8 +70,7 @@ jobs:
             ./dist/Goon*.dmg
             ./dist/Goon*.exe
             ./dist/Goon*.AppImage
-            ./dist/Goon*.snap
-          overwrite: true
+          name: Goon-${{ matrix.config.artifact }}.${{ matrix.config.ext }}
 
       - name: Release
         uses: softprops/action-gh-release@v2
