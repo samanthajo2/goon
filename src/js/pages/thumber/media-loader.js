@@ -18,6 +18,7 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
+/* global VideoFrame */
 
 import path from 'path';
 import * as filters from '../../lib/filters';
@@ -59,6 +60,7 @@ export default function createMediaLoader(options) {
   const maxSeekTime = options.maxSeekTime;
   let resolveFn;
   let rejectFn;
+  let videoFrame;
 
   function resolve(elem, width, height) {
     const fn = resolveFn;
@@ -76,16 +78,21 @@ export default function createMediaLoader(options) {
 
   video.addEventListener('loadedmetadata', (e) => {
     const seekTime = Math.min(maxSeekTime, e.target.duration / 2);
+    logger('loadedmetadata: seekTime =', seekTime);
     e.target.currentTime = seekTime;
     e.target.muted = true;
   });
   video.addEventListener('seeked', (e) => {
+    logger('seeked: play()');
     e.target.play();
   });
   video.addEventListener('playing', (e) => {
-    logger('ready:', e.target.src);
-    e.target.pause();
-    resolve(e.target, e.target.videoWidth, e.target.videoHeight);
+    logger('paying: ready:', e.target.src);
+    video.requestVideoFrameCallback(() => {
+      videoFrame = new VideoFrame(video);
+      video.pause();
+      resolve(videoFrame, video.videoWidth, video.videoHeight);
+    });
   });
   // video.addEventListener('pause', (e) => {
   //   e.target.removeAttribute('src');
@@ -111,6 +118,10 @@ export default function createMediaLoader(options) {
     logger('load:', filename);
     if (resolveFn) {
       throw new Error('in use');
+    }
+    if (videoFrame) {
+      videoFrame.close();
+      videoFrame = undefined;
     }
     const p = new Promise((resolve, reject) => {
       resolveFn = resolve;

@@ -64,6 +64,8 @@ function start(args) {
     hideTimeoutDuration: isDevMode ? 5000000000 : 5000,  // 5 seconds
   };
 
+  //g.window.show();
+
   const hide = _.debounce(() => {
     if (g.visible) {
       g.visible = false;
