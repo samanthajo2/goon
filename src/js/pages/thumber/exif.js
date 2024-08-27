@@ -29,7 +29,8 @@ function load(url, callback) {
       try {
         tags = exifReader.load(data);
         const orientation = tags.Orientation;
-        if (orientation) {
+        // eslint-disable-next-line no-constant-condition
+        if (orientation && false) {
           tags = {
             image: {
               Orientation: orientation.value,

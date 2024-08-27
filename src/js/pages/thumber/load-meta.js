@@ -19,6 +19,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+/*
 import * as filters from '../../lib/filters';
 import * as exif from './exif';
 import { urlFromFilename } from '../../lib/utils';
@@ -33,27 +34,29 @@ const orientationREs = [
   /right.*bottom/i, // orientation: 7, },
   /left.*bottom/i,  // orientation: 8, },
 ];
+*/
 
-export default function loadMeta(filename, type) {
-  return new Promise((resolve /* , reject */) => {
-    if (filters.isMimeJpeg(type)) {
-      exif.load(urlFromFilename(filename), (error, exifData) => {
-        if (error) {
-          console.warn('could not read exif for:', filename, error);
-        }
-        let orientation = exifData && exifData.image ? (exifData.image.Orientation || 0) : 0;
-        for (let i = 0; i < orientationREs.length; ++i) {
-          if (orientationREs[i].test(orientation)) {
-            orientation = i + 1;
-            break;
-          }
-        }
-
-        resolve({orientation: orientation | 0}); // convert string to number by | 0 vs parseInt which returns NaN for bad values
-      });
-    } else {
-      resolve({orientation: 0});
-    }
-  });
+export default function loadMeta(/* filename, type */) {
+  return Promise.resolve({orientation: 0});
+  // return new Promise((resolve /* , reject */) => {
+  //   if (filters.isMimeJpeg(type)) {
+  //     exif.load(urlFromFilename(filename), (error, exifData) => {
+  //       if (error) {
+  //         console.warn('could not read exif for:', filename, error);
+  //       }
+  //       let orientation = exifData && exifData.image ? (exifData.image.Orientation || 0) : 0;
+  //       for (let i = 0; i < orientationREs.length; ++i) {
+  //         if (orientationREs[i].test(orientation)) {
+  //           orientation = i + 1;
+  //           break;
+  //         }
+  //       }
+  //
+  //       resolve({orientation: orientation | 0}); // convert string to number by | 0 vs parseInt which returns NaN for bad values
+  //     });
+  //   } else {
+  //     resolve({orientation: 0});
+  //   }
+  // });
 }
 
