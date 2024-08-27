@@ -444,12 +444,14 @@ export default class App extends React.Component {
       this._deleteFile(fileInfo);
     }
   }
-  _deleteFolder() {
+  async _deleteFolder() {
     this.setState({
       showDeleteFolderPrompt: false,
     });
     const filename = this.state.contextFolderInfo.filename;
-    if (!shell.trashItem(filename)) {
+    try {
+      await shell.trashItem(filename);
+    } catch (e) {
       this.setState((prevState) => ({
           showForceDelete: true,
           forceDeleteFilename: filename,
@@ -457,12 +459,14 @@ export default class App extends React.Component {
         }));
     }
   }
-  _deleteFile() {
+  async _deleteFile() {
     this.setState({
       showDeleteFilePrompt: false,
     });
     const filename = this.state.contextFileInfo.filename;
-    if (!shell.trashItem(filename)) {
+    try {
+      await shell.trashItem(filename);
+    } catch (e) {
       this.setState({
         showForceDelete: true,
         forceDeleteFilename: filename,

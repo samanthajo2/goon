@@ -186,6 +186,12 @@ ipcMain.on('setupMenus', setupMenus);
 ipcMain.on('prefs', (event, prefs) => {
   updatePrefs(prefs);
 });
+ipcMain.on('showItemInFolder', (event, fullPath) => {
+  shell.showItemInFolder(fullPath);
+});
+ipcMain.on('openPath', (event, fullPath) => {
+  shell.openPath(fullPath);
+});
 
 const staticOptions = {
   fallthrough: true,

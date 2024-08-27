@@ -21,11 +21,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import React from 'react';
 import path from 'path';
-import {shell} from 'electron';  // eslint-disable-line
+import {ipcRenderer} from 'electron';  // eslint-disable-line
 import {ContextMenu, MenuItem} from '../../lib/ui/context-menu';
 import bind from '../../lib/bind';
 import debug from '../../lib/debug';
 import ForwardableEvent from '../../lib/forwardable-event';
+
+const logger = debug('FileContextMenu');
+function showItem(filename) {
+  logger('show item:', filename);
+  ipcRenderer.send('showItemInFolder', filename);
+}
 
 export default class FileContextMenu extends React.Component {
   constructor(props) {
@@ -40,7 +46,7 @@ export default class FileContextMenu extends React.Component {
     this._logger = debug('FileContextMenu');
   }
   _handleOpen() {
-    shell.showItemInFolder(this.props.file.archiveName ? this.props.file.archiveName : this.props.file.filename);
+    showItem(this.props.file.archiveName ? this.props.file.archiveName : this.props.file.filename);
   }
   _handleDelete() {
     if (this.props.file.archiveName) {

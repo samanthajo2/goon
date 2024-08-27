@@ -112,7 +112,7 @@
     "chai": "^4.4.1",
     "concurrently": "^6.5.1",
     "cross-env": "^7.0.3",
-    "electron": "^22.3.27",
+    "electron": "^32.0.1",
     "electron-builder": "^23.6.0",
     "eslint": "^8.57.0",
     "eslint-config-airbnb": "^19.0.4",

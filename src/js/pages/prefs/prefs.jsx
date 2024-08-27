@@ -662,8 +662,8 @@ export default class Prefs extends React.Component {
             <div>
               <button
                 type="button"
-                onClick={() => {
-                  shell.openItem(this.props.options.userDataDir);
+                onClick={async () => {
+                  await shell.openPath(this.props.options.userDataDir);
                 }}
               >
                 Open Cache in Explorer/Finder

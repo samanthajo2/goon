@@ -20,11 +20,22 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
+import {ipcRenderer} from 'electron';  // eslint-disable-line
 import {shell} from 'electron';  // eslint-disable-line
 import {ContextMenu, MenuItem} from '../../lib/ui/context-menu';
 import bind from '../../lib/bind';
 import debug from '../../lib/debug';
 import ForwardableEvent from '../../lib/forwardable-event';
+
+const logger = debug('FolderContextMenu');
+function showItem(filename, archive) {
+  logger('show item:', filename);
+  if (archive) {
+    ipcRenderer.send('showItemInFolder', filename);
+  } else {
+    ipcRenderer.send('openPath', filename);
+  }
+}
 
 export default class FolderContextMenu extends React.Component {
   constructor(props) {
@@ -39,11 +50,7 @@ export default class FolderContextMenu extends React.Component {
     this._logger = debug('FolderContextMenu');
   }
   _handleOpen() {
-    if (this.props.folder.archive) {
-      shell.showItemInFolder(this.props.folder.filename);
-    } else {
-      shell.openItem(this.props.folder.filename);
-    }
+    showItem(this.props.folder.filename, this.props.folder.archive);
   }
   _handleDelete() {
     this.props.eventBus.dispatch(new ForwardableEvent('deleteFolder'), this.props.folder);
