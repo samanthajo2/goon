@@ -107,6 +107,7 @@ export default class Viewer extends React.Component {
       '_gotoPrev',
       '_rotate',
       '_changeStretchMode',
+      '_cyclePlaybackSpeed',
       '_handleResize',
       '_setVideoTime',
       '_hideInfo',
@@ -204,6 +205,7 @@ export default class Viewer extends React.Component {
     actionListener.on('setPlaybackSpeed3', createSetPlaybackRateFn(0.5 )); // 3  0.5
     actionListener.on('setPlaybackSpeed4', createSetPlaybackRateFn(0.33)); // 4  0.33
     actionListener.on('setPlaybackSpeed5', createSetPlaybackRateFn(0.25)); // 5  0.25
+    actionListener.on('cyclePlaybackSpeed', this._cyclePlaybackSpeed);
     actionListener.on('toggleSlideshow', (fe) => { this.toggleSlideshow(fe.domEvent); });
     actionListener.on('rotate', (fe) => { fe.stopPropagation(); this._rotate(fe.domEvent); });
     actionListener.on('changeStretchMode', (fe) => { this._changeStretchMode(fe.domEvent); });
@@ -225,6 +227,12 @@ export default class Viewer extends React.Component {
     const video = this._viewVideo;
     video.playbackRate = rate;
     this.props.viewerState.videoState.playbackRate = rate;
+  }
+  _cyclePlaybackSpeed() {
+    const speeds = [1, 0.66, 0.5, 0.33, 0.25];
+    const video = this._viewVideo;
+    const ndx = (speeds.indexOf(video.playbackRate) + 1) % speeds.length;
+    this._setPlaybackRate(speeds[ndx]);
   }
   @action _handleLoadedData() {
     const {viewerState} = this.props;
