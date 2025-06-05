@@ -66,14 +66,14 @@ export default function createMediaLoader(options) {
     const fn = resolveFn;
     resolveFn = undefined;
     rejectFn = undefined;
-    fn({ elem, width, height });
+    fn?.({ elem, width, height });
   }
 
   function reject(...args) {
     const fn = rejectFn;
     resolveFn = undefined;
     rejectFn = undefined;
-    fn(...args);
+    fn?.(...args);
   }
 
   video.addEventListener('loadedmetadata', (e) => {
