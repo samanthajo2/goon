@@ -25,7 +25,6 @@ import otherWindowIPC from 'other-window-ipc';
 import fs from 'graceful-fs';
 import path from 'path';
 import _ from 'lodash';
-import crypto from 'crypto';
 
 import createLimitedResourceManager from '../../lib/limited-resource-manager';
 import createMediaLoader from './media-loader';
@@ -41,7 +40,6 @@ import MediaManagerServer from './media-manager-server';
 import ImageLoader from './image-loader';
 import WatcherManager from '../../lib/watcher/watcher-manager';
 import createThrottledReaddir from '../../lib/readdir-throttler';
-import {checkPassword} from '../../lib/password-utils';
 import stacktraceLog from '../../lib/stacktrace-log'; // eslint-disable-line
 import '../../lib/title';
 
@@ -54,7 +52,7 @@ function start(args) {
   log('start');
   const g = {
     dataDir: args.userDataDir ? args.userDataDir : path.join(appdata.localAppDataDir, 'Goon'),
-    maxParallelDownloads: 1, //4,
+    maxParallelDownloads: 4,
     maxSeekTime: 30,
     // TODO: fix
     maxWidth: 256,

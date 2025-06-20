@@ -21,6 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import React from 'react';
 import bind from '../../lib/bind';
+import {ipcRenderer} from 'electron';
 import ForwardableEvent from '../../lib/forwardable-event';
 import gridModes from './grid-modes';
 
@@ -31,6 +32,7 @@ export default class Thumbnail extends React.PureComponent {
       this,
       '_viewImage',
       '_handleContextMenu',
+      '_handleDragStart',
     );
   }
   _viewImage() {
@@ -41,7 +43,11 @@ export default class Thumbnail extends React.PureComponent {
   _handleContextMenu(event) {
     this.props.eventBus.dispatch(new ForwardableEvent('fileContextMenu', event), this.props.info);
   }
+  _handleDragStart(event) {
+    event.preventDefault();
+    ipcRenderer.send('dragStart', this.props.info.filename);
+  }
   render() {
-    return gridModes.value(this.props.gridMode).render(this.props, this._viewImage, this._handleContextMenu);
+    return gridModes.value(this.props.gridMode).render(this.props, this._viewImage, this._handleContextMenu, this._handleDragStart);
   }
 }

@@ -99,7 +99,7 @@ export default function createMediaLoader(options) {
   //   e.target.load();
   // });
   video.addEventListener('error', (e) => {
-    console.warn('could not load:', e.target.src, e);
+    console.warn('could not load:', e.target.src, e.message);
     e.target.removeAttribute('src');
     e.target.load();
     reject(e.target);
@@ -110,7 +110,7 @@ export default function createMediaLoader(options) {
     resolve(e.target, e.target.naturalWidth, e.target.naturalHeight);
   });
   image.addEventListener('error', (e) => {
-    console.warn('could not load:', e.target.src, e);
+    console.warn('could not load:', e.target.src, e.message);
     reject(e.target);
   });
 

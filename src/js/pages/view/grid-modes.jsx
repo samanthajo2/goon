@@ -258,21 +258,21 @@ function renderName(props, info) {
   return `${date}${name}${dims}`;
 }
 
-function renderNoFrame(props, onClick, onContextMenu) {
+function renderNoFrame(props, onClick, onContextMenu, onDragStart) {
   const info = props.info;
   const style = gridModes.value(props.gridMode).getStyle(props);
   const baseType = `mime-${info.type.split('/')[0]}`;
   const mimeType = `mime-${info.type.replace(s_slashRE, '-')}`;
   const className = cssArray('thumbnail', baseType, mimeType);
   return (
-    <div onClick={onClick} onContextMenu={onContextMenu} className={className} style={style}>
+    <div draggable="true" onClick={onClick} onDragStart={onDragStart} onContextMenu={onContextMenu} className={className} style={style}>
       <div className="thumbinfo">
         <div className="name">{renderName(props, info)}</div>
       </div>
     </div>
   );
 }
-function renderWithFrame(props, onClick, onContextMenu) {
+function renderWithFrame(props, onClick, onContextMenu, onDragStart) {
   const info = props.info;
   const pos = props.position;
   const style = gridModes.value(props.gridMode).getStyle(props);
@@ -288,7 +288,7 @@ function renderWithFrame(props, onClick, onContextMenu) {
   return (
     <div>
       <div className="thumbnail-frame" style={frameStyle}></div>
-      <div onClick={onClick} onContextMenu={onContextMenu} className={className} style={style}>
+      <div draggable="true" onClick={onClick} onContextMenu={onContextMenu} onDragStart={onDragStart} className={className} style={style}>
         <div className="thumbinfo">
           <div className="name">{renderName(props, info)}</div>
         </div>

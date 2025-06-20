@@ -42,6 +42,8 @@ import compareFoldersToCache from './compare-folders-to-cache';
 
 const {windowTrackerInit} = require('../lib/remote-helpers');
 
+const {nativeImage} = electron;
+
 electronRemoteMain.initialize();
 // import {windowTrackerInit} from '../../../src/js/lib/remote-helpers';
 
@@ -143,6 +145,10 @@ if (args.compareFoldersToCache) {
 // move windows to other file
 windowTrackerInit(windows);
 
+// TODO: use better icon. must be square. See docs
+const iconPath = path.join(app.getAppPath(), 'app', 'images', 'drag-64.png');
+const dragIcon = nativeImage.createFromPath(iconPath);
+
 ipcMain.on('start', (event) => {
   const windowInfo = getWindowInfo(event.sender) || {};
   event.sender.send('start', args, windowInfo.state);
@@ -191,6 +197,9 @@ ipcMain.on('showItemInFolder', (event, fullPath) => {
 });
 ipcMain.on('openPath', (event, fullPath) => {
   shell.openPath(fullPath);
+});
+ipcMain.on('dragStart', (event, file) => {
+  event.sender.startDrag({ file, icon: dragIcon });
 });
 
 const staticOptions = {
