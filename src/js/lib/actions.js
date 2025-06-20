@@ -65,6 +65,7 @@ const actions = {
   cycleSortMode:      { hint: 'sort mode',       icon: 'sort-by-path.svg',    desc: 'change sort mode', },
   toggleFullscreen:   { hint: 'fullscreen',      icon: '???.svg',             desc: 'toggle fullscreen', },
   newWindow:          { hint: 'new window',      icon: '???.svg',             desc: 'open a new window', },
+  playAll:            { hint: 'play all',        icon: 'play-all.svg',        desc: 'play/pause all videos', },
 };
 Object.values(actions).forEach((a) => { a.icon = `images/buttons/${a.icon}`; });
 

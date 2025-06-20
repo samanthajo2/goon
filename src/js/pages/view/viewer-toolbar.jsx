@@ -94,6 +94,7 @@ class Que extends React.Component {
       <div className={videoClasses}>
         {/* this._makeButton('fastBackward') */}
         <button type="button" onClick={actionFuncs.togglePlay} data-tooltip={actions.togglePlay.hint}><img src={videoState.playing ? 'images/buttons/pause.svg' : 'images/buttons/play.svg'} /></button>
+        <button type="button" onClick={actionFuncs.playAll} data-tooltip={actions.playAll.hint}><img src="images/buttons/play-all.svg" /></button>
         <div className="cue">
           <Range
             value={videoState.time / videoState.duration * 10000}

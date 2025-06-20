@@ -28,6 +28,7 @@ import bind from '../../lib/bind';
 import debug from '../../lib/debug';
 import VPair from './vpair';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
+import ActionEvent from '../../lib/action-event';
 import ActionListener from '../../lib/action-listener';
 import {getRotatedXY} from '../../lib/rotatehelper';
 import {px} from '../../lib/utils';
@@ -39,6 +40,11 @@ window.Ynode = Yoga.Node.create(window.Yconfig);
 const assert = console.assert.bind(console);
 const sliderSize = 5;
 const splitMinSize = 10;
+
+const dummyEvent = {
+  preventDefault: () => {},
+  stopPropagation: () => {},
+};
 
 function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
@@ -346,6 +352,7 @@ export default class ViewSplit extends React.Component {
       '_saveLayout',
       '_activateNextView',
       '_activatePrevView',
+      '_playAll',
       // '_forwardAction',
     );
 
@@ -382,6 +389,7 @@ export default class ViewSplit extends React.Component {
     this._actionListener.on('deletePane', this._deletePane);
     this._actionListener.on('nextView', this._activateNextView);
     this._actionListener.on('prevView', this._activatePrevView);
+    this._actionListener.on('playAll', this._playAll);
   }
   componentDidMount() {
     this.props.setCurrentView(this);
@@ -512,6 +520,14 @@ export default class ViewSplit extends React.Component {
     assert(two);
     this._setCurrentVPairAndTwo(vpair, two);
   }
+  _playAll(forwardableEvent) {
+    forwardableEvent.stopPropagation();
+    for (const vpair of Object.entries(this._vpairs)) {
+      const action = {action: 'togglePlay'};
+      const event = new ActionEvent(action, dummyEvent);
+      vpair[1].getEventBus().dispatch(event);
+    }
+  }
   _bumpCurrentId() {
     this._saveLayout();
     this.setState((prevState) => ({
@@ -629,11 +645,11 @@ export default class ViewSplit extends React.Component {
           left: px(two.sliderPos),
           top: px(bounds.top),
         };
-        const sliderCursorHorizonal = horizontal ? !rot90 : rot90;
-        this._logger('sliderCurH:', sliderCursorHorizonal, rot90);
+        const sliderCursorHorizontal = horizontal ? !rot90 : rot90;
+        this._logger('sliderCurH:', sliderCursorHorizontal, rot90);
         return (
           <div
-            className={`split-slider split-slider-${sliderCursorHorizonal ? 'horizontal' : 'vertical'}`}
+            className={`split-slider split-slider-${sliderCursorHorizontal ? 'horizontal' : 'vertical'}`}
             style={style}
             key={two.id}
             onMouseDown={this._makeSliderMouseDownHandler(two.id)}

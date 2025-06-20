@@ -54,7 +54,7 @@ function start(args) {
   log('start');
   const g = {
     dataDir: args.userDataDir ? args.userDataDir : path.join(appdata.localAppDataDir, 'Goon'),
-    maxParallelDownloads: 4,
+    maxParallelDownloads: 1, //4,
     maxSeekTime: 30,
     // TODO: fix
     maxWidth: 256,
