@@ -188,7 +188,7 @@ export default class Viewer extends React.Component {
     actionListener.on('setLoop', () => { this._loop(); });
     actionListener.on('gotoPrev', (fe) => { this._gotoPrev(fe.domEvent); });
     actionListener.on('gotoNext', (fe) => { this._gotoNext(fe.domEvent); });
-    actionListener.on('togglePlay', (fe) => { this._togglePlay(fe.domEvent); });
+    actionListener.on('togglePlay', (fe) => { this._togglePlay(fe); });
     actionListener.on('fastForward', () => { this._cueOrNextPrev(this.props.prefs.misc.stepForwardDuration); });
     actionListener.on('fastBackward', () => { this._cueOrNextPrev(-this.props.prefs.misc.stepBackwardDuration); });
     actionListener.on('scrollUp', (fe) => { // up
@@ -398,9 +398,12 @@ export default class Viewer extends React.Component {
     videoState.playing = false;
   }
 
-  _togglePlay() {
+  _togglePlay(action) {
     const video = this._viewVideo;
-    if (video.paused) {
+    const play = action.action.force === undefined
+      ? video.paused
+      : action.action.force;
+    if (play) {
       this._play();
     } else {
       this._pause();

@@ -239,6 +239,7 @@ export default class App extends React.Component {
     this._actionListener.on('cycleSortMode', this._handleCycleSortMode);
     this._actionListener.on('cycleGridMode', this._handleCycleGridMode);
     this._actionListener.on('toggleFullscreen', toggleFullscreen);
+
     this._actionListener.on('newWindow', () => {
       ipcRenderer.send('openwindow', 'view');
     });

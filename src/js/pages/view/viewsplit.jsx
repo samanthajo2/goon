@@ -329,6 +329,8 @@ Two.NONE = 0;
 Two.HORIZONTAL = 1;
 Two.VERTICAL = 2;
 
+let g_playAll = false;
+
 export default class ViewSplit extends React.Component {
   constructor(props) {
     super(props);
@@ -522,8 +524,9 @@ export default class ViewSplit extends React.Component {
   }
   _playAll(forwardableEvent) {
     forwardableEvent.stopPropagation();
+    g_playAll = !g_playAll;
     for (const vpair of Object.entries(this._vpairs)) {
-      const action = {action: 'togglePlay'};
+      const action = {action: 'togglePlay', force: g_playAll};
       const event = new ActionEvent(action, dummyEvent);
       vpair[1].getEventBus().dispatch(event);
     }
