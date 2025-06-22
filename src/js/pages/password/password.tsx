@@ -23,37 +23,47 @@ import React from 'react';
 import { render as reactRender } from 'react-dom';
 import {ipcRenderer} from 'electron';  // eslint-disable-line
 import crypto from 'crypto';
-import stacktraceLog from '../../lib/stacktrace-log.js';  // eslint-disable-line
+//import stacktraceLog from '../../lib/stacktrace-log.js';  // eslint-disable-line
 import '../../lib/title';
 import {cssArray} from '../../lib/css-utils';
 import {checkPassword} from '../../lib/password-utils';
 import Modal from '../../lib/ui/modal';
 
 // const isDevMode = process.env.NODE_ENV === 'development';
+interface PasswordState {
+  error: boolean;
+};
 
-class Password extends React.Component {
-  constructor(props) {
+interface PasswordProps {
+  password: string;
+};
+
+class Password extends React.Component<PasswordProps, PasswordState> {
+  state: PasswordState = {
+    error: false,
+  };
+  private input: React.RefObject<HTMLInputElement>;
+
+  constructor(props: PasswordProps) {
     super(props);
-    this.state = {
-      error: false,
-    };
+    this.input = React.createRef();
   }
   componentDidMount() {
     // no idea why but autoFocus didn't work
     // neither did ref={(input) => { if (input) { input.focus(); }}
-    this.input.focus();
+    this.input.current?.focus();
   }
   render() {
     return (
       <Modal>
-        <div className={(cssArray('msg').addIf(this.state.error, 'error'))}>
+        <div className={(cssArray('msg').addIf(this.state.error, 'error')).toString()}>
           <div>Password</div>
           <input
             type="password"
-            ref={(input) => { this.input = input; }}
-            onKeyPress={(event) => {
+            ref={this.input}
+            onKeyDown={(event) => {
               if (event.key === 'Enter') {
-                checkPassword(crypto, this.props.password, event.target.value.trim(), (isMatch) => {
+                checkPassword(crypto, this.props.password, this.input.current?.value.trim(), (isMatch: boolean) => {
                   if (isMatch) {
                     ipcRenderer.send('unlock');
                   } else {
