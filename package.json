@@ -59,7 +59,6 @@
   "devDependencies": {
     "@tsconfig/recommended": "^1.0.10",
     "chai": "^4.4.1",
-    "concurrently": "^6.5.1",
     "cross-env": "^7.0.3",
     "electron": "^36.4.0",
     "electron-builder": "^23.6.0",
