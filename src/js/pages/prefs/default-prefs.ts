@@ -19,12 +19,57 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import _ from 'lodash';
 import hjson from 'hjson';
+import { ActionId } from '../../lib/actions';
+import { cloneDeep } from '../../lib/utils';
+
+export type KeyConfig = {
+  keyCode: number,
+  modifiers?: string,
+  action: ActionId,
+};
+
+export type ToolbarPosition = 'top' | 'bottom' | 'swapTop' | 'swapBottom';
+
+type Preferences = {
+  version: number,
+  folders: string[],
+  thumbnails: {
+    scanSize: number,
+  },
+  misc: {
+    stepForwardDuration: number,
+    stepBackwardDuration: number,
+    fullPathOnSeparator: boolean,
+    indentByFolderDepth: boolean,
+    scanContinuously: boolean,
+    showThumber: boolean,
+    showBad: boolean,
+    filterSmallImages: boolean,
+    toolbarPosition: ToolbarPosition,
+    password: string,
+    checkForUpdates: boolean,
+    showDates: boolean,
+    showDimensions: boolean,
+    promptOnDeleteFile: boolean,
+    promptOnDeleteFolder: boolean,
+    enableWeb: boolean,
+    // oops!
+    enableRendevous: boolean,
+    showEmpty: boolean,
+  },
+  slideshowDuration: {
+    image: number,
+    'image/gif': number,
+    video: number,
+    default: number,
+  },
+  keyConfig: KeyConfig[],
+};
 
 const s_prefsVersion = 2;
 
-const defaultPrefs = {
+const defaultPrefs: Preferences = {
   version: s_prefsVersion,
   folders: [],
   thumbnails: {
@@ -100,17 +145,26 @@ const defaultPrefs = {
   ],
 };
 
-function getPrefs(prefs) {
+function applyDefaults<T extends Record<string, any>>(dst: T, defaults: T): void {
+  for (const [key, value] of Object.entries(defaults)) {
+    const k = key as keyof T;
+    if (typeof dst[k] === 'undefined') {
+      dst[k] = value;
+    }
+  }
+}
+
+function getPrefs(prefs: Preferences) {
   if (!prefs) {
-    return _.cloneDeep(defaultPrefs);
+    return cloneDeep(defaultPrefs);
   }
 
   // add in missing prefs (if prefs is old)
-  prefs = _.cloneDeep(prefs);
+  prefs = cloneDeep(prefs);
   for (const [topKey, topValue] of Object.entries(defaultPrefs)) {
-    const midPrefs = prefs[topKey];
+    const midPrefs = (prefs as any)[topKey];
     if (!midPrefs) {
-      prefs[topKey] = _.cloneDeep(topValue);
+      (prefs as any)[topKey] = cloneDeep(topValue);
     } else if (!Array.isArray(topValue)) {
       for (const [midKey, midValue] of Object.entries(topValue)) {
         if (midPrefs[midKey] === undefined) {
@@ -123,45 +177,48 @@ function getPrefs(prefs) {
   return prefs;
 }
 
-function assert(cond, ...msg) {
+function assert(cond: boolean, ...msg: string[]) {
   if (!cond) {
     throw new Error([...msg].join(' '));
   }
 }
 
-function convertVersion0To1OrThrow(prefs) {
+function convertVersion0To1OrThrow(prefs: Preferences): Preferences {
   assert(prefs.version === undefined);
-  _.defaults(prefs, defaultPrefs);
-  _.defaults(prefs.misc, defaultPrefs.misc);
+  applyDefaults(prefs, defaultPrefs);
+  applyDefaults(prefs.misc, defaultPrefs.misc);
   prefs.version = 1;
   return prefs;
 }
 
-function convertVersion1To2OrThrow(prefs) {
+function convertVersion1To2OrThrow(prefs: Preferences): Preferences {
   assert(prefs.version === 1);
-  _.defaults(prefs, defaultPrefs);
-  _.defaults(prefs.misc, defaultPrefs.misc);
-  prefs.misc.toolbarPosition = prefs.misc.toolbarOnBottom ? 'bottom' : 'top';
-  delete prefs.toolbarOnBottom;
+  applyDefaults(prefs, defaultPrefs);
+  applyDefaults(prefs.misc, defaultPrefs.misc);
+  prefs.misc.toolbarPosition = (prefs.misc as unknown as {toolbarOnBottom: boolean}).toolbarOnBottom ? 'bottom' : 'top';
+  delete (prefs as any).toolbarOnBottom;
   prefs.version = 2;
   return prefs;
 }
 
 
-const versionConverters = {
-  '0': convertVersion0To1OrThrow,
-  '1': convertVersion1To2OrThrow,
-};
+const versionConverters = new Map<number, (prefs: Preferences) => Preferences>([
+  [0, convertVersion0To1OrThrow],
+  [1, convertVersion1To2OrThrow],
+]);
 
-function loadPrefs(prefsPath, fs) {
+function loadPrefs(prefsPath: string, fs: {
+  existsSync: (filename: string) => boolean,
+  readFileSync: (filename: string, options?: {encoding: string}) => Buffer | string,
+}) {
   let error;
-  let prefs;
+  let prefs = cloneDeep<Preferences>(defaultPrefs);
   if (fs.existsSync(prefsPath)) {
     try {
-      const str = fs.readFileSync(prefsPath, {encoding: 'utf8'});
-      prefs = hjson.parse(str);
+      const str = fs.readFileSync(prefsPath, {encoding: 'utf8'}) as string;
+      prefs = hjson.parse(str) as Preferences;
       while (prefs.version !== s_prefsVersion) {
-        const converter = versionConverters[prefs.version || 0];
+        const converter = versionConverters.get(prefs.version ?? 0);
         if (!converter) {
           throw new Error('bad version');
         }

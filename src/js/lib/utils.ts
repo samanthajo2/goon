@@ -250,7 +250,7 @@ const getActualFilename = fsIsCaseSensitive
   ? getActualFilenameCaseSensitive
   : getActualFilenameCaseInsensitive;
 
-function removeChildFolders(folderNames: string[]) {
+export function removeChildFolders(folderNames: string[]) {
   const fullNames = folderNames.map((name) => path.normalize(path.resolve(name)));
   const filteredNames: string[] = [];
   for (const fullName of fullNames) {
@@ -275,7 +275,7 @@ function removeChildFolders(folderNames: string[]) {
   return filteredNames;
 }
 
-function fileExistsSync(filename: string) {
+export function fileExistsSync(filename: string) {
   try {
     const stat = fs.statSync(filename);
     return !!stat;
@@ -284,12 +284,15 @@ function fileExistsSync(filename: string) {
   }
 }
 
+export function cloneDeep<T>(src: T): T {
+  return JSON.parse(JSON.stringify(src));
+}
+
 export {
   areFilesSame,
   createBasename,
   dirsToPrefixMap,
   euclideanModulo,
-  fileExistsSync,
   filenameFromUrl,
   filterNonExistingDirs,
   getActualFilename,
@@ -298,7 +301,6 @@ export {
   getObjectsByKeys,
   isFileInfoSame,
   px,
-  removeChildFolders,
   resizeCanvasToDisplaySize,
   urlFromFilename,
 };
