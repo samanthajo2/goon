@@ -87,7 +87,6 @@
     "debug": "^4.3.5",
     "electron-updater": "^4.6.5",
     "es6-promisify": "^7.0.0",
-    "exifreader": "^4.23.3",
     "express": "^4.19.2",
     "graceful-fs": "^4.2.11",
     "hjson": "^3.2.2",

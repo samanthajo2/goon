@@ -20,7 +20,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import createLogger from '../../lib/debug';
-import loadMeta from './load-meta';
 
 // Manages a bunch of ThumbLoaders
 //
@@ -119,7 +118,7 @@ export default function createThumbnailMaker(options) {
     try {
       // get the loader first. It acts as a throttle on loadMeta as well
       loaderHndl = await mediaLoaderMgr();
-      const metaInfo = await loadMeta(filename, type);
+      const metaInfo = {orientation: 0};
       const imgInfo = await loaderHndl.resource(filename, type);
       const isAtLeastOnePixel = imgInfo.width > 0 && imgInfo.height > 0;
       if (!isAtLeastOnePixel) {
