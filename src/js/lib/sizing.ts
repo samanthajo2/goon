@@ -22,7 +22,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 /**
  * scale so height fits dest
  */
-function fitHeight(srcWidth, srcHeight, dstWidth, dstHeight) {
+function fitHeight(srcWidth: number, srcHeight: number, dstWidth: number, dstHeight: number) {
   return {
     width: srcWidth * dstHeight / srcHeight | 0,
     height: dstHeight,
@@ -32,7 +32,7 @@ function fitHeight(srcWidth, srcHeight, dstWidth, dstHeight) {
 /**
  * scale so width fits dest
  */
-function fitWidth(srcWidth, srcHeight, dstWidth/* , dstHeight */) {
+function fitWidth(srcWidth: number, srcHeight: number, dstWidth: number, dstHeight: number) {
   return {
     width: dstWidth,
     height: srcHeight * dstWidth / srcWidth | 0,
@@ -42,7 +42,7 @@ function fitWidth(srcWidth, srcHeight, dstWidth/* , dstHeight */) {
 /**
  * leave as is
  */
-function actualSize(srcWidth, srcHeight/* , dstWidth, dstHeight */) {
+function actualSize(srcWidth: number, srcHeight: number, dstWidth: number, dstHeight: number) {
   return {
     width: srcWidth,
     height: srcHeight,
@@ -51,7 +51,7 @@ function actualSize(srcWidth, srcHeight/* , dstWidth, dstHeight */) {
 /**
  * scale so the dest is entirely covered
  */
-function cover(srcWidth, srcHeight, dstWidth, dstHeight) {
+function cover(srcWidth: number, srcHeight: number, dstWidth: number, dstHeight: number) {
   const size = fitWidth(srcWidth, srcHeight, dstWidth, dstHeight);
   if (size.height < dstHeight) {
     return fitHeight(srcWidth, srcHeight, dstWidth, dstHeight);
@@ -63,7 +63,7 @@ function cover(srcWidth, srcHeight, dstWidth, dstHeight) {
 /**
  * scale so the dest is 100% in which ever dimension fits
  */
-function stretch(srcWidth, srcHeight, dstWidth, dstHeight) {
+function stretch(srcWidth: number, srcHeight: number, dstWidth: number, dstHeight: number) {
   const size = fitWidth(srcWidth, srcHeight, dstWidth, dstHeight);
   if (size.height > dstHeight) {
     return fitHeight(srcWidth, srcHeight, dstWidth, dstHeight);
@@ -75,7 +75,7 @@ function stretch(srcWidth, srcHeight, dstWidth, dstHeight) {
 /**
  * scale down if larger than dest
  */
-function constrain(srcWidth, srcHeight, dstWidth, dstHeight) {
+function constrain(srcWidth: number, srcHeight: number, dstWidth: number, dstHeight: number) {
   if (srcWidth > dstWidth || srcHeight > dstHeight) {
     return stretch(srcWidth, srcHeight, dstWidth, dstHeight);
   } else {

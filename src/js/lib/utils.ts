@@ -25,14 +25,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import _ from 'lodash';
 
 const driveRE = /^[A-Z]:[\\/]/i;
 const uncRE = /^\/\/[^/]+\/[^/]+|\\\\[^\\]+\\[^\\]+/;
 const backslashRE = /\\/g;
-function urlFromFilename(filename) {
+function urlFromFilename(filename: string): string {
   // this smells
-  if (filename.substr(0, 5).toLowerCase() === 'blob:') {
+  if (filename.substring(0, 5).toLowerCase() === 'blob:') {
     return filename;
   }
 
@@ -45,7 +44,7 @@ function urlFromFilename(filename) {
 // const slashDriveRE = /^[\\/][A-Z]:[\\/]/i;
 const hashToEndRE = /#.*$/;
 const questionToEndRE = /\?.*$/;
-function filenameFromUrl(url) {
+function filenameFromUrl(url: string): string {
   if (url.substr(0, 5).toLowerCase() === 'blob:') {
     throw new Error(`${url} is a blob`);
   }
@@ -64,7 +63,7 @@ function filenameFromUrl(url) {
   return filename;
 }
 
-function resizeCanvasToDisplaySize(canvas, devicePixelRatio) {
+function resizeCanvasToDisplaySize(canvas: HTMLCanvasElement, devicePixelRatio: number) {
   devicePixelRatio = devicePixelRatio || 1;
   devicePixelRatio = Math.max(1, devicePixelRatio);
   const width  = canvas.clientWidth  * devicePixelRatio | 0;
@@ -77,7 +76,7 @@ function resizeCanvasToDisplaySize(canvas, devicePixelRatio) {
   return false;
 }
 
-function getIndexToInsert(array, filename) {
+function getIndexToInsert(array: {filename: string}[], filename: string) {
   // switch to binary search
   let ndx;
   for (ndx = 0; ndx < array.length; ++ndx) {
@@ -88,18 +87,18 @@ function getIndexToInsert(array, filename) {
   return ndx;
 }
 
-function px(v) {
+function px(v: number) {
   return `${v}px`;
 }
 
-function getActualFilenameCaseSensitive(filename) {
+function getActualFilenameCaseSensitive(filename: string): string {
   if (!fs.existsSync(filename)) {
     throw new Error(`${filename} does not exist`);
   }
   return filename;
 }
 
-function getActualFilenameCaseInsensitiveImpl(filename) {
+function getActualFilenameCaseInsensitiveImpl(filename: string): string {
   const lcFilename = path.basename(filename).toLowerCase();
   // handles passing in `c:\\`
   if (!lcFilename) {
@@ -121,19 +120,19 @@ function getActualFilenameCaseInsensitiveImpl(filename) {
     throw new Error(`${filename} does not exist`);
   }
 
-  const realname = matches[0];
+  const realName = matches[0];
   if (dirname !== '.') {
     if (dirname.endsWith('/') || dirname.endsWith('\\')) {
-      return path.join(dirname, realname);
+      return path.join(dirname, realName);
     } else {
-      return path.join(getActualFilenameCaseInsensitiveImpl(dirname), realname);
+      return path.join(getActualFilenameCaseInsensitiveImpl(dirname), realName);
     }
   } else {
-    return realname;
+    return realName;
   }
 }
 
-function getActualFilenameCaseInsensitive(filename) {
+function getActualFilenameCaseInsensitive(filename: string): string {
   filename = filename.replace(/\\/g, '/');
   if (!fs.existsSync(filename)) {
     throw new Error(`${filename} does not exist`);
@@ -141,19 +140,21 @@ function getActualFilenameCaseInsensitive(filename) {
   return getActualFilenameCaseInsensitiveImpl(filename);
 }
 
-function isFileInfoSame(oldInfo, newInfo) {
+type FileInfo = {
+  size: number,
+  mtime: number,
+  isDirectory: boolean,
+};
+function isFileInfoSame(oldInfo: FileInfo, newInfo: FileInfo) {
   return oldInfo.size === newInfo.size &&
          oldInfo.mtime === newInfo.mtime &&
          oldInfo.isDirectory === newInfo.isDirectory;
 }
 
 /**
- * @param {Object.<string, FileInfo>} oldFiles
- * @param {Object.<string, FileInfo>} newFiles
  * return true if objects are the same
  */
-
-function areFilesSame(oldFiles, newFiles) {
+function areFilesSame(oldFiles: Record<string, FileInfo>, newFiles: Record<string, FileInfo>): boolean {
   const newNames = Object.keys(newFiles);
   const oldNames = Object.keys(oldFiles);
   if (newNames.length !== oldNames.length) {
@@ -177,60 +178,60 @@ function areFilesSame(oldFiles, newFiles) {
   return true;
 }
 
-function getDifferentFilenames(oldFiles, newFiles) {
-  const oldNames = Object.keys(oldFiles);
-  const newNames = Object.keys(newFiles);
+function getDifferentFilenames(oldFiles: Record<string, FileInfo>, newFiles: Record<string, FileInfo>) {
+  const oldNames = new Set(Object.keys(oldFiles));
+  const newNames = new Set(Object.keys(newFiles));
 
-  const removedNames = _.difference(oldNames, newNames);
-  const addedNames = _.difference(newNames, oldNames);
+  const removedNames = [...oldNames.difference(newNames)];
+  const addedNames = [...newNames.difference(oldNames)];
 
-  const sameNames = _.intersection(newNames, oldNames);
+  const sameNames = newNames.intersection(oldNames)
 
-  const changedNames = sameNames.filter((name) => {
+  const changedNames = new Set(sameNames.keys().filter((name) => {
     const oldInfo = oldFiles[name];
     const newInfo = newFiles[name];
     return !isFileInfoSame(oldInfo, newInfo);
-  });
+  }));
 
   return {
     added: addedNames,
     removed: removedNames,
-    changed: changedNames,
-    same: _.difference(sameNames, changedNames),
+    changed: [...changedNames],
+    same: [...sameNames.difference(changedNames)],
   };
 }
 
-function getObjectsByKeys(objects, keys) {
-  const obj = {};
+function getObjectsByKeys<T>(objects: Record<string, T>, keys: string[]): Record<string, T> {
+  const obj: Record<string, T> = {};
   keys.forEach((key) => {
     obj[key] = objects[key];
   });
   return obj;
 }
 
-function euclideanModulo(n, m) {
+function euclideanModulo(n: number, m: number) {
   return ((n % m) + m) % m;
 }
 
-function createBasename(dataDir, prefix, filePath) {
+function createBasename(dataDir: string, prefix: string, filePath: string) {
   const hash = crypto.createHash('sha256');
   hash.update(filePath, 'utf8');
   return path.join(dataDir, `${prefix}-${hash.digest('hex')}`);
 }
 
-// used to make some prefix a browser can use the prefx to reference
+// used to make some prefix a browser can use the prefix to reference
 // a path to media
-function dirsToPrefixMap(dirs) {
-  const map = {};
+function dirsToPrefixMap(dirs: string[]) {
+  const map: { [key: string]: string} = {};
   dirs.forEach((dir) => {
     map[dir] = createBasename('', 'folder', dir);
   });
   return map;
 }
 
-// We need to trap beacuse some paths will fail rather than just
+// We need to trap because some paths will fail rather than just
 // generate an error :(
-function filterNonExistingDirs(dirs) {
+function filterNonExistingDirs(dirs: string[]) {
   return dirs.filter((dir) => {
     try {
       const stat = fs.statSync(dir);
@@ -249,9 +250,9 @@ const getActualFilename = fsIsCaseSensitive
   ? getActualFilenameCaseSensitive
   : getActualFilenameCaseInsensitive;
 
-function removeChildFolders(folderNames) {
+function removeChildFolders(folderNames: string[]) {
   const fullNames = folderNames.map((name) => path.normalize(path.resolve(name)));
-  const filteredNames = [];
+  const filteredNames: string[] = [];
   for (const fullName of fullNames) {
     let parentExists = false;
     for (let i = 0; i < filteredNames.length; ++i) {
@@ -274,7 +275,7 @@ function removeChildFolders(folderNames) {
   return filteredNames;
 }
 
-function fileExistsSync(filename) {
+function fileExistsSync(filename: string) {
   try {
     const stat = fs.statSync(filename);
     return !!stat;

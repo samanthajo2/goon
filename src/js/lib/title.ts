@@ -19,20 +19,9 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import path from 'path';
+import { name } from '../../../package.json';
 
-const foo = {};
-if (process.platform.toLowerCase() === 'darwin') {
-  foo.homeDir         = process.env.HOME;
-  foo.appDataDir      = path.join(process.env.HOME, 'Library', 'Application Support');
-  foo.localAppDataDir = foo.appDataDir;
-} else if (process.platform.substring(0, 3).toLowerCase() === 'win') {
-  foo.homeDir         = process.env.USERPROFILE;
-  foo.appDataDir      = process.env.APPDATA;
-  foo.localAppDataDir = process.env.LOCALAPPDATA || process.env.APPDATA;
-} else {
-  foo.homeDir         = process.env.HOME;
-  foo.appDataDir      = process.env.HOME;
-  foo.localAppDataDir = foo.appDataDir;
-}
-export default foo;
+window.addEventListener('load', () => {
+  document.title = `${name} : ${document.title}`;
+});
+

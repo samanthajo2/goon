@@ -19,47 +19,31 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import _ from 'lodash';
-
-function addClass(elem, className) {
-  elem.className = _.pull(elem.className.split(' '), className).concat(className).join(' ');
-}
-
-function removeClass(elem, className) {
-  elem.className = _.pull(elem.className.split(' '), className).join(' ');
-}
-
-function exists(a) {
+function exists(a: any) {
   return !!a;
 }
 
 class CSSArray {
-  constructor(...args) {
+  _classes: string[];
+  constructor(...args: string[]) {
     this._classes = [...args].filter(exists);
   }
-  add(...classNames) {
-    this._classes = [...this._classes, [...classNames].filter(exists)];
+  add(...classNames: string[]) {
+    this._classes = [...this._classes, ...[...classNames].filter(exists)];
     return this;
   }
-  addIf(cond, ...classNames) {
+  addIf(cond: boolean, ...classNames: string[]) {
     if (cond) {
-      this.add([...classNames].filter(exists));
+      this.add(...[...classNames].filter(exists));
     }
     return this;
   }
-  remove(...classNames) {
-    for (const className of classNames) {
-      for (;;) {
-        const ndx = this._classes.indexOf(className);
-        if (ndx < 0) {
-          break;
-        }
-        this._classes.splice(ndx, 1);
-      }
-    }
+  remove(...classNames: string[]) {
+    const names = new Set(classNames);
+    this._classes = this._classes.filter(n => !names.has(n));
     return this;
   }
-  removeIf(cond, ...classNames) {
+  removeIf(cond: boolean, ...classNames: string[]) {
     if (cond) {
       this.remove(...classNames);
     }
@@ -70,17 +54,15 @@ class CSSArray {
   }
 }
 
-function cssArray(...args) {
+function cssArray(...args: string[]) {
   return new CSSArray(...args);
 }
 
-function hsl(h, s, l) {
+function hsl(h: number, s: number, l: number) {
   return `hsl(${h * 360 | 0}, ${s * 100 | 0}%, ${l * 100 | 0}%)`;
 }
 
 export {
-  addClass,
-  removeClass,
   CSSArray,
   cssArray,
   hsl,

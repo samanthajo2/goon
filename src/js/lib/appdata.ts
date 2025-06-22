@@ -19,10 +19,29 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import { name } from '../../../../../package.json';
+import path from 'path';
 
-window.addEventListener('load', () => {
-  const title = document.querySelector('title');
-  title.textContent = `${name} : ${title.textContent}`;
-});
-
+type AppPaths = {
+  homeDir: string,
+  appDataDir: string,
+  localAppDataDir: string,
+}
+const appPaths: AppPaths = {
+  homeDir: 'unset',
+  appDataDir: 'unset',
+  localAppDataDir: 'unset',
+};
+if (process.platform.toLowerCase() === 'darwin') {
+  appPaths.homeDir         = process.env.HOME!;
+  appPaths.appDataDir      = path.join(process.env.HOME!, 'Library', 'Application Support');
+  appPaths.localAppDataDir = appPaths.appDataDir;
+} else if (process.platform.substring(0, 3).toLowerCase() === 'win') {
+  appPaths.homeDir         = process.env.USERPROFILE!;
+  appPaths.appDataDir      = process.env.APPDATA!;
+  appPaths.localAppDataDir = process.env.LOCALAPPDATA || process.env.APPDATA!;
+} else {
+  appPaths.homeDir         = process.env.HOME!;
+  appPaths.appDataDir      = process.env.HOME!;
+  appPaths.localAppDataDir = appPaths.appDataDir;
+}
+export default appPaths;

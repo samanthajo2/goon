@@ -19,7 +19,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-export default function wait(ms) {
+export default function wait(ms = 0) {
   if (!ms) {
     return new Promise((resolve) => {
       process.nextTick(resolve);
@@ -35,7 +35,7 @@ export const waitRaf = () => new Promise(resolve => {
   requestAnimationFrame(resolve);
 });
 
-export async function setRAF(fn, count) {
+export async function setRAF(fn: () => void, count: number) {
   while (count > 0) {
     --count;
     await waitRaf();
