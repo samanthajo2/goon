@@ -58,7 +58,6 @@
   "homepage": "https://github.com/samanthajo2/goon#readme",
   "devDependencies": {
     "@tsconfig/recommended": "^1.0.10",
-    "ajv": "^8.17.1",
     "chai": "^4.4.1",
     "concurrently": "^6.5.1",
     "cross-env": "^7.0.3",
