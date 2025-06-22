@@ -543,12 +543,15 @@ export default class App extends React.Component {
       return undefined;
     }
     if (this._viewerStateHolder.state && this._viewerStateHolder.state.viewing) {
+      const view = this._currentView;
+      const anyPlaying = view ? view.anyPlaying() : false;
       return (
         <ViewerToolbar
           actions={this._actionFuncs}
           inEventBus={this._viewerToolbarEventBus}
           outEventBus={this._eventBus}
           viewerStateHolder={this._viewerStateHolder}
+          anyPlaying={anyPlaying}
         />
       );
     }

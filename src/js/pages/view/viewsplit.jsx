@@ -20,6 +20,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
+import { observable, action } from 'mobx';
+import {observer} from 'mobx-react';
 import Measure from 'react-measure';
 import _ from 'lodash';
 import {ipcRenderer} from 'electron';  // eslint-disable-line
@@ -285,7 +287,7 @@ class Two {
     if (this.children.length === 2) {
       const newFirstSize = fudge(newSize * this.sliderPercent);
       const newSecondSize = newSize - newFirstSize - sliderSize;
-      // console.log(''.padStart(window.depth * 2), 'slide2ndChildSlidr:', 'new2ndSize:', newSecondSize)
+      // console.log(''.padStart(window.depth * 2), 'slide2ndChildSlider:', 'new2ndSize:', newSecondSize)
       this.children[1]._slideSliderForNewSize(newSecondSize, delta, this.splitType, !keepFirstSize);
       // --window.depth;
     }
@@ -329,8 +331,10 @@ Two.NONE = 0;
 Two.HORIZONTAL = 1;
 Two.VERTICAL = 2;
 
-let g_playAll = false;
-
+// This is the class that manages all the "views". There's only one.
+// Then there are a collection of Two (a thing that is split or not)
+// And a collection of VPair (this shows either an ImageGrid or Viewer).
+@observer
 export default class ViewSplit extends React.Component {
   constructor(props) {
     super(props);
@@ -360,9 +364,12 @@ export default class ViewSplit extends React.Component {
 
     this._saveLayout = _.debounce(this._saveLayout, 500);
 
+    // a Two is a view. It contains 2 views, one of which may be
+    // hidden.
     const two = new Two();
     this._root = two;
     this._currentTwo = two;
+    // Maps a two id to a VPair
     this._vpairs = {};
     this._twos = {};
 
@@ -378,6 +385,8 @@ export default class ViewSplit extends React.Component {
         height: -1,
       },
     };
+
+    this._viewers = observable([]);
 
     this._eventBus = new ForwardableEventDispatcher();
     this._eventBus.debugId = this._logger.getPrefix();
@@ -418,6 +427,10 @@ export default class ViewSplit extends React.Component {
   getImagegridState() {
     return this._currentView.getImagegridState();
   }
+  // Used by toolbar for playAll button
+  anyPlaying() {
+    return this._viewers.some(vs => vs.videoState.playing);
+  }
   _saveLayout() {
     ipcRenderer.send('saveSplitLayout', this._root.dump());
   }
@@ -443,8 +456,15 @@ export default class ViewSplit extends React.Component {
       treeVersion: prevState.treeVersion + 1,
     }));
   }
+  @action _addViewer(viewerState) {
+    this._viewers.push(viewerState);
+  }
+  @action _removeViewer(viewerState) {
+    this._viewers = this._viewers.filter(s => s !== viewerState);
+  }
   _registerVPair(vpair) {
     this._vpairs[vpair.props.twoId] = vpair;
+    this._addViewer(vpair.getViewerState());
   }
   _unregisterVPair(vpair) {
     delete this._vpairs[vpair.props.twoId];
@@ -524,9 +544,9 @@ export default class ViewSplit extends React.Component {
   }
   _playAll(forwardableEvent) {
     forwardableEvent.stopPropagation();
-    g_playAll = !g_playAll;
+    const anyPlaying = this.anyPlaying();
     for (const vpair of Object.entries(this._vpairs)) {
-      const action = {action: 'togglePlay', force: g_playAll};
+      const action = {action: 'togglePlay', force: !anyPlaying};
       const event = new ActionEvent(action, dummyEvent);
       vpair[1].getEventBus().dispatch(event);
     }

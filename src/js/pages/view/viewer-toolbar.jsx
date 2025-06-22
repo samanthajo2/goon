@@ -86,15 +86,15 @@ class Que extends React.Component {
     this.props.videoState.volume = event.target.value / event.target.max;
   }
   render() {
-    const {videoState, actions: actionFuncs} = this.props;
+    const {videoState, actions: actionFuncs, anyPlaying} = this.props;
     const {cyclePlaybackSpeed: cyclePlaybackSpeedAction} = actions;
     const videoClasses = new CSSArray('video-controls');
     videoClasses.addIf(!this.props.active, 'disabled');
     return (
       <div className={videoClasses}>
         {/* this._makeButton('fastBackward') */}
+        <button type="button" onClick={actionFuncs.playAll} data-tooltip={actions.playAll.hint}><img src={anyPlaying ? 'images/buttons/pause-all.svg' : 'images/buttons/play-all.svg'} /></button>
         <button type="button" onClick={actionFuncs.togglePlay} data-tooltip={actions.togglePlay.hint}><img src={videoState.playing ? 'images/buttons/pause.svg' : 'images/buttons/play.svg'} /></button>
-        <button type="button" onClick={actionFuncs.playAll} data-tooltip={actions.playAll.hint}><img src={videoState.playing ? 'images/buttons/pause-all.svg' : 'images/buttons/play-all.svg'} /></button>
         <div className="cue">
           <Range
             value={videoState.time / videoState.duration * 10000}
@@ -195,6 +195,7 @@ export default class ViewerToolbar extends React.Component {
           actions={this.props.actions}
           videoState={viewerState.videoState}
           outEventBus={this.props.outEventBus}
+          anyPlaying={this.props.anyPlaying}
         />
         <div className="button-group">
           {this._makeButton('toggleSlideshow')}
