@@ -1,3 +1,8 @@
+## Drag and Drop
+
+You can drag thumbnails out of Goon and onto the finder/explorer (will copy the file) or to other apps.
+This is particular useful for img2txt since it's easier to browse images with Goon than with Finder/Explorer
+
 ## Default keys
 
 You can of course change the keys to whatever you'd like
