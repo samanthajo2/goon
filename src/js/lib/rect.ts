@@ -19,20 +19,27 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-function right(rect) {
+type Rect = {
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+}
+
+function right(rect: Rect) {
   return rect.x + rect.width;
 }
 
-function bottom(rect) {
+function bottom(rect: Rect) {
   return rect.y + rect.height;
 }
 
-function contains(rect, x, y) {
+function contains(rect: Rect, x: number, y: number) {
   return x >= rect.x && x < right(rect) &&
          y >= rect.y && y < bottom(rect);
 }
 
-function intersect(rect1, rect2) {
+function intersect(rect1: Rect, rect2: Rect) {
   return !(empty(rect1) ||
            empty(rect2) ||
            right(rect1) <= rect2.x ||
@@ -42,7 +49,7 @@ function intersect(rect1, rect2) {
 }
 
 // doesn't handle rects with width or height < 0
-function intersection(rect1, ...rects) {
+function intersection(rect1: Rect, ...rects: Rect[]) {
   const rect = {...rect1};
   for (const other of [...rects]) {
     const rectRight = right(rect);
@@ -62,7 +69,7 @@ function intersection(rect1, ...rects) {
 }
 
 // doesn't handle rects with width or height <= 0
-function union(rect1, ...rects) {
+function union(rect1: Rect, ...rects: Rect[]) {
   const rect = {...rect1};
   for (const other of [...rects]) {
     const rectRight = right(rect);
@@ -79,7 +86,7 @@ function union(rect1, ...rects) {
   return rect;
 }
 
-function empty(rect) {
+function empty(rect: Rect) {
   return rect.width <= 0 || rect.height <= 0;
 }
 
