@@ -1,17 +1,82 @@
 TODO
 ================================================================================
 
+High Priority
+================================================================================
+
+* [ ] Switch to typescript
+
+    Coming back to this code it's difficult to see what to change and where info is.
+    Switching to TypeScript should help if we require types.
+
+* [ ] Try to get rid of React
+
+    I chose React because it seems common and likely to get more contributions.
+    I also chose it because I thought there might be more libraries/widgets
+    I could use. But, I'm finding React fucking sucks because every update breaks
+    stuff and I don't want to have to spend hours/days having to fix it all when
+    I could be spending that time adding features. This entire project died for
+    a couple of years because of this issue. I'd sit down to work on it, see all
+    the complaints from old deps. Spent 3-8 hours trying to get deps updated and
+    thinks that broke fixed. Give up in frustration, revert, entire day lost,
+    no progress on what I actually wanted to work on!
+
+* [ ] Fix the most obvious issues
+
+  * [ ] Resizing thumbnail size messes up the scroll position
+
+      This just needs the right call somewhere as resizing the window fixes it.
+
+  * [ ] Consider replacing Yoga
+
+      I want this to be easier and maybe it's not too hard. Yoga is the system
+      currently used to do the pane splitting system. The problem is it's confusing
+      as things aren't equal. It only works with pairs so if you have 3 panes like
+      `[   ][   ][   ]` you really have one pane that's split in 2, and in one of
+      those 2 panes you have a split in 2. `[[[   ][   ]][    ]]`. If you close
+      the left most one you get `[        ][   ]` because the inner split on the
+      left was unsplit. The right was effected. If you close the right most you
+      get `[[       ][       ]]` because outer pane's right side was removed
+      which let the left side expand. It's just completely unintuitive.
+
+      Alternatives are things like
+
+      * https://golden-layout.com/
+      * https://nomcopter.github.io/react-mosaic/
+      * https://github.com/caplin/FlexLayout
+       
+      It's not clear what problems will come up. We don't want visible tabs for
+      example.
+
+  * [ ] Fix the stalling issues
+
+      Sometimes when scanning it gets stuck 
+
+  * [ ] Fix the folder inaccessable issue
+
+      If you add 2 folders to scan and the first one fails the 2nd is never looked at
+
+* [ ] Fix the scorll position issue
+
+   I am not sure how to fix this. It's listed below. The issue is, if you have 1000 thumbnails
+   and they fit in 5 columns. Then you resize the window or change the thumbnail size and now
+   they fit in 4. Ideally you'd like the thumbnails you were looking at to still be visible.
+   Right now they won't because with 5 columns, say there are 500 thumbnails above your current
+   position. That's 100 rows. When you switch to 4 columes there are now 125 rows above you but
+   your scroll position is still at 100 rows down. You need to scroll down to 125 rows down.
+   It's also not clear which thumbnails to try to keep on the screen. The top left most? The center?
+
 -- Just because I want to --
 ================================================================================
 
-[X] Use File at a time Zip lib
+* [X] Use File at a time Zip lib
 
     current zip lib (jszip) has to unzip entire zip before we get any data.
     This makes viewing slow.
     
     Switched to unzipit but now there's a new issue (see next) 
 
-[X] Unzip entire file
+* [X] Unzip entire file
 
     I switched to unzipit for the issue above BUT, the new issue
     is switching between images in a single zip takes too long.
@@ -39,43 +104,43 @@ TODO
     to change priorities and remove requests. IIRC that's not
     there now. Well, the queue is but the rest is not.
 
-[ ] Use File at a time Rar lib
+* [ ] Use File at a time Rar lib
 
     current rar lib has to unrar entire rar before we get any data.
     This makes viewing slow
 
-[ ] split at same location.
+* [ ] split at same location.
 
     In other words when you split a view both splits should look the same,
     same scroll location.
     
-[ ] Fix delete on network
+* [ ] Fix delete on network
 
-[ ] Allow saving current collection of panes, zoom, speed, loops,
-[ ] When sizing window keep left column same size (unless it won't fit)
-[ ] Be able to move picture larger than screen
-[ ] Save loops per video
-[ ] Save currently viewed images (entire state of app)
+* [ ] Allow saving current collection of panes, zoom, speed, loops,
+* [ ] When sizing window keep left column same size (unless it won't fit)
+* [ ] Be able to move picture larger than screen
+* [ ] Save loops per video
+* [ ] Save currently viewed images (entire state of app)
 
     This should really save entire state. For each pane
     what image, slideshow on or off, video playing or not
     at which speed, which zoom, which stretch mode, which
     rotation, which loop settings.
-[ ] fix image flash. Issue is src and other settings happen separately?
+* [ ] fix image flash. Issue is src and other settings happen separately?
 
-[ ] Support VR through WebVR
+* [ ] Support VR through WebVR
 
     run a webserver from goon
 
-    [ ] Display in A-Frame (or other WebVR)
+    * [ ] Display in A-Frame (or other WebVR)
 
         I'm serving A-Frame and the demo works
 
-    [ ] Get a single grid up that you can scroll through
+    * [ ] Get a single grid up that you can scroll through
 
-    [ ] Make a single viewer work
+    * [ ] Make a single viewer work
 
-    [ ] Figure out a UI
+    * [ ] Figure out a UI
 
         Not sure grids and panes make sense in VR. Maybe there should
         just be one grid you can make appear/disappear. You can then
@@ -88,7 +153,7 @@ TODO
         Seems like you'd also want to be able to size images, and of course
         rotate, etc..
 
-    [ ] Support 180/360/3D videos
+    * [ ] Support 180/360/3D videos
 
         I'm not sure A-Frame supports this. I know it supports 360 videos.
         I don't know if it supports 360 3D or 180 3D.
@@ -103,7 +168,7 @@ TODO
 
         This is kind of a killer.
 
-    [ ] VR Issues
+    * [ ] VR Issues
 
         *   no HTTPS so not sure what stuff Chrome is going to block :(
 
@@ -150,7 +215,7 @@ TODO
             connects they need to know the PIN to generate their own
             token.
             
-    [ ] Use Desktop VR directly in Electron
+    * [ ] Use Desktop VR directly in Electron
     
         Originaly I got a daydream. I had no hope of running this app on
         Daydream so having Goon just serve to the browser made sense to
@@ -161,11 +226,11 @@ TODO
 -- MVP --
 ================================================================================
 
-[ ] fix filters . Typed a word and 4 folders showed on left but only 1 on right
+* [ ] fix filters . Typed a word and 4 folders showed on left but only 1 on right
 
     it's a display issue, sizing the window makes them appear on the right
 
-[ ] fix flashing playback, scrollbars (not sure how to repo)
+* [ ] fix flashing playback, scrollbars (not sure how to repo)
 
     sometimes when playing a video the display flashes some elements
     in and out. It seems like some strange CSS bug where something is
@@ -176,7 +241,7 @@ TODO
     giving the time a fixed width would fix it but I can't repo
     the issue on demand so I can't check the fix works.
 
-[ ] figure out electron thrash
+* [ ] figure out electron thrash
 
     when loading a large collection the collection itself loads relatively
     quickly but Electron is busy doing internal bookkeeping for several seconds
@@ -191,7 +256,7 @@ TODO
     instead of passing down the mobx object. That *seems* to have fixed
     it but I'm not sure.
 
-[ ] Fix scroll position issues
+* [ ] Fix scroll position issues
 
     Scroll several folders of images down, view image, close viewer.
     Notice you're no longer scrolled to the same spot.
@@ -206,11 +271,11 @@ TODO
 ================================================================================
 
 
-[ ] Add toolbar icon to sync list to current pane
+* [ ] Add toolbar icon to sync list to current pane
 
     no. Just put left arrow at top of group
 
-[ ] Show parent folders
+* [ ] Show parent folders
 
     As it is only folders that have files in them get shown so if you have
 
@@ -256,7 +321,7 @@ TODO
     So for now hacked in a showEmpty prefs but you have to refresh the view
     Otherwise can fix later.
 
-[ ] handle scanning errors better?
+* [ ] handle scanning errors better?
 
     Every time we run we scan the folders and check for changes.
     That can take a long time if there are lots of folders
@@ -266,7 +331,7 @@ TODO
     bad. We should notice the error and stop scanning that
     folder.
 
-[ ] fix updating folders issue
+* [ ] fix updating folders issue
 
     Every time prefs changes we send new folders to the thumber.
     If those folders don't exist then thumber will delete their
@@ -274,16 +339,16 @@ TODO
     It should not delete folders unless they've been removed
     from prefs. Fix that.
 
-[ ] speed up delete
+* [ ] speed up delete
 
     right now delete just deletes the local file and then it
     takes a few seconds to be noticed. Change it so the file
     is deleted AND delete it from the internal DB immediately
     assuming the delete succeeds
 
-[ ] Look into switching to Axosoft/nsfw from chokidar
+* [ ] Look into switching to Axosoft/nsfw from chokidar
 
-[ ] fix scanning speed
+* [ ] fix scanning speed
 
     for some reason scanning gets extremely slow. Electron seems
     to be doing nothing so it's not at all clear where the time
@@ -296,23 +361,23 @@ TODO
     solution which already contains all the data we need per
     file including size and attributes.
 
-[ ] add loading message for image/video since it can take a while
+* [ ] add loading message for image/video since it can take a while
     for archives and videos.
 
     Idea: Use CSS animation that blank or subtle?
     but after 1 second shows a spinner?
 
-[ ] add at least one integration test (test that resizing works)
+* [ ] add at least one integration test (test that resizing works)
     just so there is a framework to start adding tests
 
-[ ] fix the scroll skip
+* [ ] fix the scroll skip
 
     I'm pretty sure this just means the size of items passed
     to react-list are slightly off.
 
-[ ] profile scroll (as in fix the jank)
+* [ ] profile scroll (as in fix the jank)
 
-[ ] Make up,down,left,right in ImageGrid navigate grid
+* [ ] Make up,down,left,right in ImageGrid navigate grid
 
     up/down should go to image above or below current image
     left/right should go to image mostly left of or mostly right of image
@@ -346,7 +411,7 @@ TODO
     to next/prev when in viewer mode and left right when in
     imagegrid mode
 
-[ ] change viewNdx to viewFilename and change currentImageNdx to just filename
+* [ ] change viewNdx to viewFilename and change currentImageNdx to just filename
 
     I feel like I did this before and took it out. Maybe I was just lazy.
     The issue right now is if images get inserted before the current index
@@ -357,18 +422,18 @@ TODO
     image 101 but if 50 images were inserted before image 100 you're now actually
     viewing image 150 but it goes to 101.
 
-[ ] fix archive filename encoding
+* [ ] fix archive filename encoding
 
     archive internal filenames may not be utf-8. Maybe some
     library exists to guess the encoding
 
-[ ] use different icon for rotate image vs rotate UI
+* [ ] use different icon for rotate image vs rotate UI
 
-[ ] toggle full zoom of current pane
+* [ ] toggle full zoom of current pane
 
-[ ] add zoom reset
+* [ ] add zoom reset
 
-[ ] try to keep same images on screen as size or rotation changes.
+* [ ] try to keep same images on screen as size or rotation changes.
 
     I'm not sure how to do this. Like one idea would be to try to find
     the top image that's visible and before changing size and after
@@ -378,7 +443,7 @@ TODO
     Need to decide what to do after a split of the viewer on returning
     to the imagegrid.
 
-[ ] when exiting the viewer put the imagegrid at the location of the
+* [ ] when exiting the viewer put the imagegrid at the location of the
     last viewed item? Should this be optional? I think this should be
     the default. As it is, if you split the viewer you're returned
     somewhere not even close to where you started. Or maybe you should
@@ -387,13 +452,13 @@ TODO
 -- not-MVP --
 ================================================================================
 
-[ ] fix deleting subfolders.
+* [ ] fix deleting subfolders.
 
     After deleting subfolders sometimes a few remain.
     AFAIK the viewer is confused but the thumber is not. 
     Need to figure out why
 
-[ ] fix updating pictures.
+* [ ] fix updating pictures.
 
     Issue is I edited a picture to be a different aspect and
     for some reason it didn't get it right. It did the next
@@ -408,14 +473,14 @@ TODO
     no one edits the files and (2) we should implement refresh
     and if we do you can also solve it that way.
 
-[ ] explain hover stuff (made diagram, not happy with it)
-[ ] Option to not continuously scan (default is continuous)
+* [ ] explain hover stuff (made diagram, not happy with it)
+* [ ] Option to not continuously scan (default is continuous)
 
-[ ] move menu accelerators to actions
-[ ] add context menu to viewer images
+* [ ] move menu accelerators to actions
+* [ ] add context menu to viewer images
 
-[ ] restore imagegrid to current image
-[ ] Save Scroll positions?
+* [ ] restore imagegrid to current image
+* [ ] Save Scroll positions?
 
     Can't really because it takes time to load? Or maybe like browser
     scroll when you can? In other words, we restore, then load thumbs,
@@ -430,7 +495,7 @@ TODO
 
 
 
-[ ] Save View State Layouts
+* [ ] Save View State Layouts
 
     Note sure where in the UI this would fit but it would
     be nice to be able to save certain layouts with certain
@@ -445,9 +510,9 @@ TODO
     that state. When selecting a collection or get prompted (set to collection's last saved layout?)
     or ???
 
-[ ] space shows image
-[ ] Add auto-update
-[ ] hidden folders
+* [ ] space shows image
+* [ ] Add auto-update
+* [ ] hidden folders
 
     *   Need to check by prefix so children are hidden
     *   Can't mark on FolderStateHelper because that gets re-written
@@ -459,7 +524,7 @@ TODO
     in folders and in imagegrids. Don't rerun filter. Also flatten
     FolderState.
 
-[ ] Collections
+* [ ] Collections
 
     I'm trying to decide if I'd use collections myself or not.
     What I find is that if I load my entire media set it's
@@ -508,42 +573,42 @@ TODO
 
     If I do implement collections here's a few ideas
 
-    [ ] right click thumbnail to add
-    [ ] right click folder/title to add folder (should add live folder and tree)
-    [ ] While viewing right click to add.
+    * [ ] right click thumbnail to add
+    * [ ] right click folder/title to add folder (should add live folder and tree)
+    * [ ] While viewing right click to add.
         Adds with current orientation, zoom, loop settings. This orientation should be
         relative (the viewer is already relative so probably no problem)
-    [ ] right click thumbnail to remove (unless it's "all" playlist)
-    [ ] make sure it skips missing files
-    [ ] drag to reorder.
-    [ ] drag from imagegrid pane to playlist pane
-    [ ] drag from viewer pane to playlist pane
-    [ ] drag from imagegrid to viewer pane
-[ ] show video speed on toolbar
-[ ] right click folder to start slideshow on just that folder tree
-[ ] figure out how to flicker less when editing filter
+    * [ ] right click thumbnail to remove (unless it's "all" playlist)
+    * [ ] make sure it skips missing files
+    * [ ] drag to reorder.
+    * [ ] drag from imagegrid pane to playlist pane
+    * [ ] drag from viewer pane to playlist pane
+    * [ ] drag from imagegrid to viewer pane
+* [ ] show video speed on toolbar
+* [ ] right click folder to start slideshow on just that folder tree
+* [ ] figure out how to flicker less when editing filter
 
     one idea, don't render results until a few moments, a few
     results, or all results are in, which ever comes with in
     say 100ms or 200ms
 
-[ ] option to use orientation for width/height search?
-[ ] show zoom amount
+* [ ] option to use orientation for width/height search?
+* [ ] show zoom amount
 
     either as a flash over image OR under zoom/behind zoom slider in toolbar
 
-[ ] Fix focus issues
-[ ] show slideshow state on toolbar
-[ ] show loop markers on que
-[ ] consolidate que code (the que above the video vs the que in the toolbar)
-[ ] have toolbar zoom icon change based on zoom mode
-[ ] have toolbar loop icon change based on loop mode
-[ ] make zoom notched at 100%
-[ ] Option to Reset (delete all data)
+* [ ] Fix focus issues
+* [ ] show slideshow state on toolbar
+* [ ] show loop markers on que
+* [ ] consolidate que code (the que above the video vs the que in the toolbar)
+* [ ] have toolbar zoom icon change based on zoom mode
+* [ ] have toolbar loop icon change based on loop mode
+* [ ] make zoom notched at 100%
+* [ ] Option to Reset (delete all data)
 
-[ ] Option: Thumbnail generation size
-[ ] add icons for zoom modes
-[ ] consider scanning for existence
+* [ ] Option: Thumbnail generation size
+* [ ] add icons for zoom modes
+* [ ] consider scanning for existence
 
     User starts viewer, then turns on share, shouldn't have to
     restart viewer?
@@ -551,7 +616,7 @@ TODO
     Maybe just in prefs, if a folder does not exist
     then have have a "check again" button?
 
-[ ] Plugins
+* [ ] Plugins
 
     I'd like this to be very plugin friendly. Ideally I'd like
     to borrow the VSCode plugin installer if possible and just
@@ -575,14 +640,14 @@ TODO
 
     1. Plugin the main viewer (3 panes, toolbar, folders, imagegrid)
 
-[ ] Archive plugin API
+* [ ] Archive plugin API
 
     * open
     * getlist?
     * getfile
     * close
 
-[ ] Video plugin API
+* [ ] Video plugin API
 
     * open
     * seek
@@ -592,25 +657,25 @@ TODO
     * setPosition
     * getLength
 
-[ ] UI plugin API
+* [ ] UI plugin API
 
     * Menus?
     * Actions
     * Keymapper
 
-[ ] Prefs API
+* [ ] Prefs API
 
     * get key
     * set key
 
 
-  [ ] Plugins
+  * [ ] Plugins
 
-[ ] Drag to move files/folders (rename)
-[ ] option to go to next instead of loop for videos
-    [ ] for playlist always go to next? User can add multiple times for loop
-    [ ] 3 options. loop, go to next, go to next if longer than XX seconds
-[ ] separate actual folder layout from display?
+* [ ] Drag to move files/folders (rename)
+* [ ] option to go to next instead of loop for videos
+    * [ ] for playlist always go to next? User can add multiple times for loop
+    * [ ] 3 options. loop, go to next, go to next if longer than XX seconds
+* [ ] separate actual folder layout from display?
     Maybe this is a playlist? Let's say I have a folder of an artist
     and they have 5 subfolders each with 100 images. I want to be able
     to make another folder or playlist or something that just contains
@@ -621,7 +686,7 @@ TODO
     them? Have to figure out how to keep paths working if they
     cross paths. Also if user moves a folder
 
-[ ] figure out jank
+* [ ] figure out jank
 
     Even without `ReactList` it's really janky to scroll. Why?
     In that case there's just a large page of thumbnails. They're all
@@ -629,27 +694,27 @@ TODO
     Images are shared. So, why does it jank?
     One idea, maybe it's `file://`. Try serving background files?
 
-[ ] put separators between base folders?
+* [ ] put separators between base folders?
 
     Like Picasa
 
-[ ] prefs
+* [ ] prefs
 
     Just need to send prefs through IPC to update React state
 
-    [X] pick folders
-    [X] clear cache
-    [X] set ff/rew amounts
-    [ ] show base separators or merge?
-    [ ] max height of thumbnail (this is to prevent tall images from messing up display)
-    [ ] clip thumbs too big or shrink to fit (cover or constrain)
-    [ ] set theme?
-    [ ] set padding size
-    [ ] min sizes
+    * [X] pick folders
+    * [X] clear cache
+    * [X] set ff/rew amounts
+    * [ ] show base separators or merge?
+    * [ ] max height of thumbnail (this is to prevent tall images from messing up display)
+    * [ ] clip thumbs too big or shrink to fit (cover or constrain)
+    * [ ] set theme?
+    * [ ] set padding size
+    * [ ] min sizes
 
-[ ] add default keys for Windows vs Mac vs Linux instead of just one set
-[ ] command line clear cache
-[ ] plugins
+* [ ] add default keys for Windows vs Mac vs Linux instead of just one set
+* [ ] command line clear cache
+* [ ] plugins
 
     grab code from Atom or VSCode if possible to make it easy to install
     published plugins.
@@ -671,20 +736,20 @@ TODO
     Note: About browsing other sites, It's NOT ok to do that in electron. Electron does not get security updates like Chrome does so if you want to visit the live internet you really should be using Chrome or maybe the new Firefox. It's possible we could use a plugin in firefox
     or chrome and talk via IPC/RPC
 
-[ ] generate gif thumbnails for gifs and videos?
+* [ ] generate gif thumbnails for gifs and videos?
 
     There's a bunch of issue here. One is they take tons of memory.
     Another is they take tons of time. Yet another is how stuff
     is organized currently is thumbnails share an image. (though the
     viewer doesn't care about that). Anyway, something to consider
 
-[ ] add support for other video formats
+* [ ] add support for other video formats
 
     either enable in electron source or use ffmpeg in webassembly.
     Note: To play via ffmpeg in webassembly requires work to sync
     video and audio. Probably requires padding audio via Web Audio API
 
-[ ] consider folder view
+* [ ] consider folder view
 
     for comic viewers - show covers. It's not clear what the UI should be.
     Maybe the folder view on the left becomes thumbnails and you just expand
@@ -692,26 +757,26 @@ TODO
     Maybe option to make viewers in separate windows? Double click a folder or
     right click ("open in new window") or Ctrl/Cmd click
 
-[ ] allow collapsing of folder
+* [ ] allow collapsing of folder
 
     if you have tree view in folders maybe you should be able to collapse children?
 
-[ ] allow collapsing of imagegrid
+* [ ] allow collapsing of imagegrid
 
     Click the header to collapse an imagegrid
 
     save state? When viewing a large collection
     I find it's hard to navigate. How to fix?
 
-    [ ] Use collections. User can add each folder/tre to a collection
+    * [ ] Use collections. User can add each folder/tre to a collection
         then select a collection in toolbar
 
-    [ ] Allow collapsing by tree. Collapse a parent all children disappear
+    * [ ] Allow collapsing by tree. Collapse a parent all children disappear
 
         next-prev need to work through this
 
-[ ] allow imagegrid to be nested?
-[ ] should have bottom ui for images?
+* [ ] allow imagegrid to be nested?
+* [ ] should have bottom ui for images?
 
     when showing video there are play controls.
     they disappear when showing an image.
@@ -721,7 +786,7 @@ TODO
 NOTES
 ================================================================================
 
-[ ] Should we change the file watcher stuff
+* [ ] Should we change the file watcher stuff
 
     It started with a per folder watcher. The problem with
     a per folder watcher is the watcher holds a lock on the
@@ -740,21 +805,21 @@ NOTES
 DONE
 ================================================================================
 
-[X] Add toolbar icon for playback speed
-[X] fix Modal on rotation
-[X] fix context menu on rotation
-[X] make it possible to delete archives
-[X] make it possible to delete folders
-[X] add optional confirmation and prefs
-    [X] confirm on delete file y/n
-    [X] confirm on delete archive y/n
-    [X] confirm on delete folder y/n
-    [X] confirm on delete tree (show tree?)
-[X] switch to "move to trash", if fail use delete[X] add refresh options
-[X] on start if no folders bring prefs to front
-[X] Option: Thumbnail display size
-[X] sort by filename or by date
-[X] make filter more responsive
+* [X] Add toolbar icon for playback speed
+* [X] fix Modal on rotation
+* [X] fix context menu on rotation
+* [X] make it possible to delete archives
+* [X] make it possible to delete folders
+* [X] add optional confirmation and prefs
+    * [X] confirm on delete file y/n
+    * [X] confirm on delete archive y/n
+    * [X] confirm on delete folder y/n
+    * [X] confirm on delete tree (show tree?)
+* [X] switch to "move to trash", if fail use delete* [X] add refresh options
+* [X] on start if no folders bring prefs to front
+* [X] Option: Thumbnail display size
+* [X] sort by filename or by date
+* [X] make filter more responsive
 
     I think the problem is filtering itself is fast
     so in a moment we filter pretty much everything
@@ -765,23 +830,23 @@ DONE
     note: didn't actually do this but it seems responsive enough for now.
     A few recent changes seems to have made it more responsive.
 
-[X] show progress on view
+* [X] show progress on view
 
     [O] total folders/archives waiting to be scanned
-    [X] maybe which ones are currently being scanned
+    * [X] maybe which ones are currently being scanned
     [O] maybe a list of them?
-    [X] could make it so all folders are sent to view with flag about being updated or not.
+    * [X] could make it so all folders are sent to view with flag about being updated or not.
         viewer could optionally show empty but pending folders.
-        [ ] option to show empty folders
-        [ ] option to show empty folders only if pending
+        * [ ] option to show empty folders
+        * [ ] option to show empty folders only if pending
 
-[X] consider making a queue of folders to scan (fs.readdir) and only 
+* [X] consider making a queue of folders to scan (fs.readdir) and only 
     scanning 1 to 2 at a time. Also consider putting folders with
     no folder data at the top of the queue
 
-[X] fix password
-[X] fix indented folder names
-[X] fix scanning archives
+* [X] fix password
+* [X] fix indented folder names
+* [X] fix scanning archives
 
     archives are currently only scanned if their size/time is
     different than their parent's record of them. Unfortunately
@@ -791,36 +856,36 @@ DONE
     Should pass an event back that they were scanned so parent
     can record when.
 
-[X] consider making it when you close the last window it saves that state.
+* [X] consider making it when you close the last window it saves that state.
 
     As it is, on quit the window state is saved. When you close the last
     window we quit so we save a state with no windows which means the
     next time you launch the window starts in the default place.
 
-[X] fix sort (sort doesn't seem right)
+* [X] fix sort (sort doesn't seem right)
     sort by name I think is putting the folder that contains the file with the lowest
     name at top. It should sort by folders, the inside a folder by name.
 
-[X] help
-[X] web
-[X] fix issue with slideshow targeting wrong pane
-[X] figure out white flash on large collection?
-[X] handle errors in viewer, requestMedia
-[X] figure out why windows only scans first folder
-[X] add option to show dates on hover (useful for debugging sort)
-[X] figure out why delete does not work
-[X] Fix issue that you can't move folders because watcher has them locked
-   [X] Use tree based watcher? fails then just have refresh button
-   [X] Check can delete folders (except root is fine)
-[X] make menus disappear fullscreen on windows
-[X] toolbar not at menubar
-[X] check watch paths for parents
-[X] fix toolbar when short
-[X] save zoom and grid modes
-[X] mark height = 0 as error
-[X] sort by date
-[X] in grid-fit mode add frame
-[X] Why do we need to render both ImageGrids and Viewer?
+* [X] help
+* [X] web
+* [X] fix issue with slideshow targeting wrong pane
+* [X] figure out white flash on large collection?
+* [X] handle errors in viewer, requestMedia
+* [X] figure out why windows only scans first folder
+* [X] add option to show dates on hover (useful for debugging sort)
+* [X] figure out why delete does not work
+* [X] Fix issue that you can't move folders because watcher has them locked
+   * [X] Use tree based watcher? fails then just have refresh button
+   * [X] Check can delete folders (except root is fine)
+* [X] make menus disappear fullscreen on windows
+* [X] toolbar not at menubar
+* [X] check watch paths for parents
+* [X] fix toolbar when short
+* [X] save zoom and grid modes
+* [X] mark height = 0 as error
+* [X] sort by date
+* [X] in grid-fit mode add frame
+* [X] Why do we need to render both ImageGrids and Viewer?
 
     ATM, ImageGrids holds the state of displayed images so
     in order to view the NEXT or PREV image we ask ImageGrids.
@@ -837,67 +902,67 @@ DONE
 
     Would be much faster to resize with no ImageGrid
 
-[X] fix debounce of hiding thumber
-[X] add pagesize to thumbnail data?
-[X] search date:>2007 date:<2006
-[X] Save layout
-[X] fix date filter ??
-[X] fix same react key issue in imagegrid (suspect it's from bad files)
-[X] password
-[X] figure out why bad thumbnails on large collection
-[X] check jank (seems to be a macOS issue. Rebooted)
-[X] fix archives AGAIN >:( (re-scanning fixed. Not sure what problem was)
+* [X] fix debounce of hiding thumber
+* [X] add pagesize to thumbnail data?
+* [X] search date:>2007 date:<2006
+* [X] Save layout
+* [X] fix date filter ??
+* [X] fix same react key issue in imagegrid (suspect it's from bad files)
+* [X] password
+* [X] figure out why bad thumbnails on large collection
+* [X] check jank (seems to be a macOS issue. Rebooted)
+* [X] fix archives AGAIN >:( (re-scanning fixed. Not sure what problem was)
 
-[X] Save Window Size and Locations
-    [X] Check if works if 2 -> 1 monitor
-    [X] Switch to just making sure window is partly on screen?
-[X] toolbar (or need to remove current one)
-    [X] Toolbar should change depending on if it's a
-        [X] ImageGrid
-            [X] zoom
-            [X] filter
-            [X] help
-        [X] Viewer
-            [X] zoom
-            [X] zoom mode
-            [X] rotate
-            [X] slideshow toggle
-            [X] loop toggle
-            [X] next/prev
-            [X] (movie cue)?
-            [X] exit?
-            [X] help
-    [X] filters (gif/vids/images) (just use search?)
-    [X] thumb display size (just use zoom, if viewer or not viewer)
-    [X] search
-        [X] search should allow expressions
-        [X] search foo*bar
-        [X] search width:>1000  (note default would be width:>minSize)
-        [X] search aspect:>.5
-        [X] search aspect:landscape
-        [X] search type:image
-        [X] search size:>10mb
-        [X] search "a b" (spaces)
-        [X] search folder:party
-        [X] search filename:somename
-[X] have folder-db add folderName and baseName
-[X] make sure archive files have size/mtimeMs etc.
-[X] add loading message?
-[X] allow using key+modifier
-[X] change key binding to wait for "Set"
-[X] show missing (filter or prefs)
-[X] Fix small/missing thumbnails SW/F
-[X] Filter small/missing thumbnails
-[X] fix archives
-[X] tool bar at bottom option
-[X] make it harder to bring down menus (can't)
-[X] fix vid speed
-[X] fix resizing viewer
-[X] speed up resizing response
-[X] Fix Thumber issue when fullscreen
-[X] ignore folders that don't exist (when initializing thumber)
-[X] ignore __MACOS folder in .zip file
-[X] Live filter
+* [X] Save Window Size and Locations
+    * [X] Check if works if 2 -> 1 monitor
+    * [X] Switch to just making sure window is partly on screen?
+* [X] toolbar (or need to remove current one)
+    * [X] Toolbar should change depending on if it's a
+        * [X] ImageGrid
+            * [X] zoom
+            * [X] filter
+            * [X] help
+        * [X] Viewer
+            * [X] zoom
+            * [X] zoom mode
+            * [X] rotate
+            * [X] slideshow toggle
+            * [X] loop toggle
+            * [X] next/prev
+            * [X] (movie cue)?
+            * [X] exit?
+            * [X] help
+    * [X] filters (gif/vids/images) (just use search?)
+    * [X] thumb display size (just use zoom, if viewer or not viewer)
+    * [X] search
+        * [X] search should allow expressions
+        * [X] search foo*bar
+        * [X] search width:>1000  (note default would be width:>minSize)
+        * [X] search aspect:>.5
+        * [X] search aspect:landscape
+        * [X] search type:image
+        * [X] search size:>10mb
+        * [X] search "a b" (spaces)
+        * [X] search folder:party
+        * [X] search filename:somename
+* [X] have folder-db add folderName and baseName
+* [X] make sure archive files have size/mtimeMs etc.
+* [X] add loading message?
+* [X] allow using key+modifier
+* [X] change key binding to wait for "Set"
+* [X] show missing (filter or prefs)
+* [X] Fix small/missing thumbnails SW/F
+* [X] Filter small/missing thumbnails
+* [X] fix archives
+* [X] tool bar at bottom option
+* [X] make it harder to bring down menus (can't)
+* [X] fix vid speed
+* [X] fix resizing viewer
+* [X] speed up resizing response
+* [X] Fix Thumber issue when fullscreen
+* [X] ignore folders that don't exist (when initializing thumber)
+* [X] ignore __MACOS folder in .zip file
+* [X] Live filter
 
     need to refactor to insert live.
 
@@ -934,8 +999,8 @@ DONE
       refill. That way while typing we just see results immediately
 
     Problem, pending events needs to be cancels
-[X] Use orientation for aspect search
-[X] Refactor Viewer/Player
+* [X] Use orientation for aspect search
+* [X] Refactor Viewer/Player
 
     The viewer/player pre-date React. As such they have all kinds
     of issues related to state. Things like stretchMode, rotation,
@@ -951,52 +1016,52 @@ DONE
     The only property that can't be state is the currentTime
     it's updated by the browser.
 
-[X] rotate ui, no toolbar, no folders, no toolbar + no folders
-[X] Make hiding folders work
-[X] Save Prefs
-[X] figure out why it shows inspectors
-[X] open cache in finder/explorer button in prefs
-[X] prevent selection
-[X] Option for no thumber
-[X] Make UI for base folders
-[X] on viewer if no folders suggest adding in prefs
-[x] Fix context menu under separator
-[x] move key config to prefs
-[X] Fix sizing issue
-[X] fix active tab indicator
-   [X] add more obvious one
-[X] add transitions to video controls
-[X] show title with transition always?
-[X] highlight thumbnail
-[ ] fix panes
+* [X] rotate ui, no toolbar, no folders, no toolbar + no folders
+* [X] Make hiding folders work
+* [X] Save Prefs
+* [X] figure out why it shows inspectors
+* [X] open cache in finder/explorer button in prefs
+* [X] prevent selection
+* [X] Option for no thumber
+* [X] Make UI for base folders
+* [X] on viewer if no folders suggest adding in prefs
+* [X] Fix context menu under separator
+* [X] move key config to prefs
+* [X] Fix sizing issue
+* [X] fix active tab indicator
+   * [X] add more obvious one
+* [X] add transitions to video controls
+* [X] show title with transition always?
+* [X] highlight thumbnail
+* [ ] fix panes
 
-    [ ] if viewer is open keep it open
-    [ ] split in middle
-    [ ] remove current pane without losing other panes
+    * [ ] if viewer is open keep it open
+    * [ ] split in middle
+    * [ ] remove current pane without losing other panes
 
         The problem is react is remaking the panes
         Maybe they need specific keys? Or maybe
         need to save components? No idea
-[ ] hover (just needs `[data-tooltip]` css)
-[x] hide video controls if showing image
-[x] Make thumber show/hide if it's not in use
-[x] open new panes
+* [ ] hover (just needs `[data-tooltip]` css)
+* [X] hide video controls if showing image
+* [X] Make thumber show/hide if it's not in use
+* [X] open new panes
 
-    [x] activate panes
-    [x] close panes
+    * [X] activate panes
+    * [X] close panes
 
-[x] change keys to commands
-[x] fix viewer on resize
-[x] make gif and video marks be css
-[x] add react list helper
-[x] open new view windows
+* [X] change keys to commands
+* [X] fix viewer on resize
+* [X] make gif and video marks be css
+* [X] add react list helper
+* [X] open new view windows
 
     need to figure out how to start views separate from thumber.
 
-[x] handle archives
+* [X] handle archives
 
-    [x] making thumbnails
-    [x] handle viewing
+    * [X] making thumbnails
+    * [X] handle viewing
 
         Plan is to unzip to blobs (already have code for this). Need to allow
         one blob in memory per viewer. Hard part is currently when you click
@@ -1030,18 +1095,18 @@ DONE
 Rejected
 ================================================================================
 
-[ ] Consider refactoring so that zoom/grid/sort/filter is per view instead of per window
+* [ ] Consider refactoring so that zoom/grid/sort/filter is per view instead of per window
 
     zoom and grid are easy. sort and filter are semi-easy except the folder state
     has to move from app to vpair.
 
     no one would use this. You can use collections
 
-[ ] Clicking on thumber thumbnail views that media?
+* [ ] Clicking on thumber thumbnail views that media?
 
     Not useful. Thumbnails don't stay long enough
 
-[ ] option to rotate controls (for mouse vs trackpad)
+* [ ] option to rotate controls (for mouse vs trackpad)
 
     for the mouse this is going to require a software mouse pointer!!!
 
@@ -1063,7 +1128,7 @@ Rejected
     monitors is work where as turning laptops is easy so I think
     there is no point.
 
-[ ] split same state.
+* [ ] split same state.
 
     In other words when you split a view both splits should look the same,
     If it's viewing show the same view?
@@ -1071,7 +1136,7 @@ Rejected
     If you're splitting you most likely want to view something else
     in the split so no reason to do this.
 
-[ ] change filters to be more like expressions, allow using them as expressions for
+* [ ] change filters to be more like expressions, allow using them as expressions for
     example
 
         (type:image & width:>256 & aspect:>1) | (type:video & width:<256)
