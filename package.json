@@ -58,6 +58,8 @@
   "homepage": "https://github.com/samanthajo2/goon#readme",
   "devDependencies": {
     "@tsconfig/recommended": "^1.0.10",
+    "@types/react": "^17.0.87",
+    "@types/react-dom": "^17.0.26",
     "chai": "^4.5.0",
     "cross-env": "^7.0.3",
     "electron": "^36.5.0",
