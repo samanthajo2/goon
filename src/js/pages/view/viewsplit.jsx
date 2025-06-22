@@ -25,7 +25,6 @@ import {observer} from 'mobx-react';
 import Measure from 'react-measure';
 import _ from 'lodash';
 import {ipcRenderer} from 'electron';  // eslint-disable-line
-import Yoga from '../../../../app/3rdparty/Yoga.bundle';
 import bind from '../../lib/bind';
 import debug from '../../lib/debug';
 import VPair from './vpair';
@@ -35,9 +34,7 @@ import ActionListener from '../../lib/action-listener';
 import {getRotatedXY} from '../../lib/rotatehelper';
 import {px} from '../../lib/utils';
 
-window.Yoga = Yoga;
-window.Yconfig = Yoga.Config.create();
-window.Ynode = Yoga.Node.create(window.Yconfig);
+/* global Yoga */
 
 const assert = console.assert.bind(console);
 const sliderSize = 5;

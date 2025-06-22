@@ -23,7 +23,7 @@ import path from 'path';
 import fs from 'fs';
 
 const baseResourcesPaths = [
-  path.join(__dirname, '..', '..', '..', 'app'),
+  path.join(__dirname, '..', '..', '..', '..', '..', 'app'),
 ];
 console.log(baseResourcesPaths[0]);
 if (process.resourcesPath) {

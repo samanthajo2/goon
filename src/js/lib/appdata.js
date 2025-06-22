@@ -21,16 +21,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import path from 'path';
 
+const foo = {};
 if (process.platform.toLowerCase() === 'darwin') {
-  exports.homeDir         = process.env.HOME;
-  exports.appDataDir      = path.join(process.env.HOME, 'Library', 'Application Support');
-  exports.localAppDataDir = exports.appDataDir;
+  foo.homeDir         = process.env.HOME;
+  foo.appDataDir      = path.join(process.env.HOME, 'Library', 'Application Support');
+  foo.localAppDataDir = foo.appDataDir;
 } else if (process.platform.substring(0, 3).toLowerCase() === 'win') {
-  exports.homeDir         = process.env.USERPROFILE;
-  exports.appDataDir      = process.env.APPDATA;
-  exports.localAppDataDir = process.env.LOCALAPPDATA || process.env.APPDATA;
+  foo.homeDir         = process.env.USERPROFILE;
+  foo.appDataDir      = process.env.APPDATA;
+  foo.localAppDataDir = process.env.LOCALAPPDATA || process.env.APPDATA;
 } else {
-  exports.homeDir         = process.env.HOME;
-  exports.appDataDir      = process.env.HOME;
-  exports.localAppDataDir = exports.appDataDir;
+  foo.homeDir         = process.env.HOME;
+  foo.appDataDir      = process.env.HOME;
+  foo.localAppDataDir = foo.appDataDir;
 }
+export default foo;

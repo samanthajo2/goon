@@ -1,8 +1,29 @@
 {
-    "compilerOptions": {
-        "experimentalDecorators": true,
-        "allowJs": true
-    }
+  "extends": "@tsconfig/recommended/tsconfig.json",
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "commonjs",
+    "outDir": "out/js",
+    "moduleResolution": "node",
+    "declaration": true,
+    "typeRoots": [
+      "./node_modules/@types",
+    ],
+    "experimentalDecorators": true,
+    "emitDeclarationOnly": false,
+    "allowJs": true,
+    "jsx": "react",
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.js",
+    "src/**/*.jsx",
+  ],
+  "exclude": [
+    "app/**/*",
+    "node_modules",
+    "out",
+    "examples/3rdparty/**/*.js",
+    "test/mocha.js",
+  ],
 }
-
-

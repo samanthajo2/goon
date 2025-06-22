@@ -336,7 +336,7 @@ function saveProgramStateIfLastWindow() {
 }
 
 function createWindow(url, options) {
-  url = url || `file://${__dirname}/../../../app/index.html`;
+  url = url || `file://${__dirname}/../../../../../app/index.html`;
   if (isDevMode) {
     url = `${url}?react_perf`;
   }
@@ -451,7 +451,7 @@ function createOneOfAKindWindow(id, url, options) {
     }
 
     debug('createOneOfAKindWindow:', url);
-    window.loadURL(`file://${__dirname}/../../../${url}`);
+    window.loadURL(`file://${__dirname}/../../../../../${url}`);
 
     catchNavigation(window);
 

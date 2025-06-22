@@ -45,7 +45,7 @@ import '../../lib/title';
 
 const isDevMode = process.env.NODE_ENV === 'development';
 
-const {windowTrackerIsAnyWindowFullScreen} = req('./out/js/lib/remote-helpers');
+const {windowTrackerIsAnyWindowFullScreen} = req('./out/js/src/js/lib/remote-helpers');
 
 function start(args) {
   const log = debug('Thumber');
