@@ -484,7 +484,9 @@ export default class App extends React.Component {
         this._logger(e);
       });
     } else {
-      fs.unlink(this.state.forceDeleteFilename);
+      fs.unlink(this.state.forceDeleteFilename, (err) => {
+        this._logger(e);
+      });
     }
   }
   _handleFileContextMenu(forwardableEvent, fileInfo) {
