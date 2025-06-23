@@ -464,6 +464,7 @@ export default class ViewSplit extends React.Component {
     this._addViewer(vpair.getViewerState());
   }
   _unregisterVPair(vpair) {
+    this._removeViewer(vpair.getViewerState());
     delete this._vpairs[vpair.props.twoId];
   }
   _splitHorizontalImpl(forwardableEvent, newOnRight) {
