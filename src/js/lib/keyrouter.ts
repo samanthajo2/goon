@@ -21,7 +21,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import keycode from 'keycode';
 
-function getMods(e) {
+type KeyInfo = {
+  keyCode: number;
+  modifiers: string;
+};
+
+type KeyConfig = {
+  keyCode: number;
+  modifiers?: string;
+  handler: (event: Event) => void;
+};
+
+function getMods(e: KeyboardEvent): string {
   const alt   = (e.altKey   ? 'a' : '');
   const ctrl  = (e.ctrlKey  ? 'c' : '');
   const shift = (e.shiftKey ? 's' : '');
@@ -29,8 +40,8 @@ function getMods(e) {
   return `${alt}${ctrl}${meta}${shift}`;
 }
 
-function prepMods(mods) {
-  const chars = Array.prototype.map.call(mods.toLowerCase(), (c) => c);
+function prepMods(mods: string): string {
+  const chars = Array.prototype.map.call(mods.toLowerCase(), (c: string) => c);
   chars.sort();
   return chars.join('');
 }
@@ -39,26 +50,26 @@ function prepMods(mods) {
  * Routes keys based on keycode and modifier
  */
 export default class KeyRouter {
+  private keyToAction: Record<string, KeyConfig>;
+
   constructor() {
     this.keyToAction = {};
   }
+
   /**
    * gets a key
-   * @param {Event} e the key event
-   * @return {ActionInfo}
+   * @param {KeyboardEvent} e the key event
+   * @return {KeyConfig | undefined}
    */
-  getActionForKey(e) {
+  getActionForKey(e: KeyboardEvent): KeyConfig | undefined {
     const keyId = `${e.keyCode}:${getMods(e)}`;
     return this.keyToAction[keyId];
   }
 
   /**
-   * @param {number} keyCode the keycode
-   * @param {string} [mods] the modifiers where
-   *   's' = shift, 'c' = ctrl, 'a' = alt, 'm' = meta (apple key, windows key)
-   * @param {function(Event}) handler the funciton to call when key is pressed
+   * @param {KeyConfig[]} keyConfig the key configuration array
    */
-  registerKeys(keyConfig) {
+  registerKeys(keyConfig: KeyConfig[]): void {
     this.keyToAction = {};
     keyConfig.forEach((key) => {
       const keyCode = key.keyCode;
@@ -69,7 +80,7 @@ export default class KeyRouter {
   }
 }
 
-function keyInfoToId(keyInfo) {
+export function keyInfoToId(keyInfo: KeyInfo): string {
   return keyInfo.keyCode.toString() + keyInfo.modifiers || '';
 }
 
@@ -79,8 +90,8 @@ const meta = process.platform.startsWith('win')
     ? '⌘'
     : 'meta';
 
-function modifiersToString(mods) {
-  const parts = [];
+function modifiersToString(mods: string): string[] {
+  const parts: string[] = [];
   if (mods) {
     if (mods.indexOf('c') >= 0) {
       parts.push('ctrl');
@@ -98,7 +109,7 @@ function modifiersToString(mods) {
   return parts;
 }
 
-function keyInfoToString(keyInfo) {
+export function keyInfoToString(keyInfo: KeyInfo): string {
   const mods = modifiersToString(keyInfo.modifiers);
   const key = keycode(keyInfo.keyCode) || `0x${keyInfo.keyCode.toString(16)}`;
   if (mods.indexOf(key) < 0) {
@@ -107,15 +118,9 @@ function keyInfoToString(keyInfo) {
   return mods.join('+');
 }
 
-function eventToKeyInfo(event) {
+export function eventToKeyInfo(event: KeyboardEvent): KeyInfo {
   return {
     keyCode: event.keyCode,
     modifiers: getMods(event),
   };
 }
-
-export {
-  eventToKeyInfo,
-  keyInfoToId,
-  keyInfoToString,
-};
