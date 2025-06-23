@@ -52,9 +52,13 @@ High Priority
 
       Sometimes when scanning it gets stuck 
 
-  * [ ] Fix the folder inaccessable issue
+  * [ ] Fix the folder inaccessible issue
 
       If you add 2 folders to scan and the first one fails the 2nd is never looked at
+
+  * [ ] Fix rotated zoom
+
+      If you rotate an image it doesn't correctly obey the zoom rules.
 
 * [ ] Fix the scorll position issue
 
