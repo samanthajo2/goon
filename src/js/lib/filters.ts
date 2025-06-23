@@ -21,124 +21,104 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import path from 'path';
 
-const imageExtensions = {
-  '.jpg': true,
-  '.jpeg': true,
-  '.png': true,
-  '.gif': true,
-  '.webp': true,
-  '.svg': true,
-};
+const imageExtensions = new Set([
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.gif',
+  '.webp',
+  '.svg',
+]);
 
-const audioExtensions = {
-  '.mp3': true,
-  '.ogg': true,
-  '.wav': true,
-};
+const audioExtensions = new Set([
+  '.mp3',
+  '.ogg',
+  '.wav',
+]);
 
-const videoExtensions = {
-  '.webm': true,
-  '.mkv': true,
-  '.mp4': true,
-  '.m4v': true,
-  '.ogv': true,
-};
+const videoExtensions = new Set([
+  '.webm',
+  '.mkv',
+  '.mp4',
+  '.m4v',
+  '.ogv',
+]);
 
-const zipExtensions = {
-  '.zip': true,
-  '.cbz': true,
-};
+const zipExtensions = new Set([
+  '.zip',
+  '.cbz',
+]);
 
-const rarExtensions = {
-  '.rar': true,
-  '.cbr': true,
-};
+const rarExtensions = new Set([
+  '.rar',
+  '.cbr',
+]);
 
-function isDotFile(filename) {
+export function isDotFile(filename: string): boolean {
   return filename.startsWith('.') || path.basename(filename).startsWith('.');
 }
 
-function isImageExtension(filename) {
-  return !isDotFile(filename) && imageExtensions[path.extname(filename).toLowerCase()];
+export function isImageExtension(filename: string): boolean {
+  return !isDotFile(filename) && imageExtensions.has(path.extname(filename).toLowerCase());
 }
 
-function isVideoExtension(filename) {
-  return !isDotFile(filename) && videoExtensions[path.extname(filename).toLowerCase()];
+export function isVideoExtension(filename: string): boolean {
+  return !isDotFile(filename) && videoExtensions.has(path.extname(filename).toLowerCase());
 }
 
-function isAudioExtension(filename) {
-  return !isDotFile(filename) && audioExtensions[path.extname(filename).toLowerCase()];
+export function isAudioExtension(filename: string): boolean {
+  return !isDotFile(filename) && audioExtensions.has(path.extname(filename).toLowerCase());
 }
 
-function isMediaExtension(filename) {
+export function isMediaExtension(filename: string): boolean {
   return isImageExtension(filename) || isVideoExtension(filename) || isAudioExtension(filename);
 }
 
-function isGif(filename) {
+export function isGif(filename: string): boolean {
   return !isDotFile(filename) && path.extname(filename).toLowerCase() === '.gif';
 }
 
-function isRar(filename) {
-  return !isDotFile(filename) && rarExtensions[path.extname(filename).toLowerCase()];
+export function isRar(filename: string): boolean {
+  return !isDotFile(filename) && rarExtensions.has(path.extname(filename).toLowerCase());
 }
 
-function isZip(filename) {
-  return !isDotFile(filename) && zipExtensions[path.extname(filename).toLowerCase()];
+export function isZip(filename: string): boolean {
+  return !isDotFile(filename) && zipExtensions.has(path.extname(filename).toLowerCase());
 }
 
-function isArchive(filename) {
+export function isArchive(filename: string): boolean {
   return isZip(filename) || isRar(filename);
 }
 
-function isMimeVideo(mimeType) {
+export function isMimeVideo(mimeType: string): boolean {
   return mimeType.startsWith('video/');
 }
 
-function isMimeJpeg(mimeType) {
+export function isMimeJpeg(mimeType: string): boolean {
   return mimeType === 'image/jpeg';
 }
 
-function isMimeSvg(mimeType) {
+export function isMimeSvg(mimeType: string): boolean {
   return mimeType.startsWith('image/svg');
 }
 
-function isMimeImage(mimeType) {
+export function isMimeImage(mimeType: string): boolean {
   return mimeType.startsWith('image/');
 }
 
-function isMimeAudio(mimeType) {
+export function isMimeAudio(mimeType: string): boolean {
   return mimeType.startsWith('audio/');
 }
 
-function isMimeGif(mimeType) {
+export function isMimeGif(mimeType: string): boolean {
   return mimeType === 'image/gif';
 }
 
-function isMimeMedia(mimeType) {
+export function isMimeMedia(mimeType: string): boolean {
   return isMimeVideo(mimeType) || isMimeImage(mimeType) || isMimeAudio(mimeType);
 }
 
-function isArchiveFilenameWeCareAbout(filename) {
+export function isArchiveFilenameWeCareAbout(filename: string): boolean {
   return isMediaExtension(filename)
       && filename.indexOf('__MACOS') < 0;   // hacky I know ...
 }
-
-export {
-  isAudioExtension,
-  isArchive,
-  isArchiveFilenameWeCareAbout,
-  isDotFile,
-  isGif,
-  isImageExtension,
-  isMediaExtension,
-  isMimeGif,
-  isMimeJpeg,
-  isMimeImage,
-  isMimeAudio,
-  isMimeMedia,
-  isMimeSvg,
-  isMimeVideo,
-  isRar,
-  isVideoExtension,
-  isZip,
-};
