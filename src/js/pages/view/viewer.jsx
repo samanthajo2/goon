@@ -50,12 +50,12 @@ const modeNames = [
 ];
 
 const modeInfo = {
-  'actualSize': { desc: 'actual size', image: 'images/stretch-none.svg', },
-  'fitWidth':   { desc: 'fit width',   image: 'images/stretch-horizontal.svg', },
-  'fitHeight':  { desc: 'fit height',  image: 'images/stretch-vertical.svg', },
-  'constrain':  { desc: 'constrain',   image: 'images/stretch-both.svg', },
-  'stretch':    { desc: 'stretch',     image: 'images/stretch-both.svg', },
-  'cover':      { desc: 'cover',       image: 'images/stretch-both.svg', },
+  'actualSize': { desc: 'actual size',                             image: 'images/stretch-none.svg', },
+  'fitWidth':   { desc: 'fit width',                               image: 'images/stretch-horizontal.svg', },
+  'fitHeight':  { desc: 'fit height',                              image: 'images/stretch-vertical.svg', },
+  'constrain':  { desc: 'constrain (actual size unless too big)',  image: 'images/stretch-both.svg', },
+  'stretch':    { desc: 'stretch (scale fits in container)',       image: 'images/stretch-stretch.svg', },
+  'cover':      { desc: 'cover (scale so container is covered)',   image: 'images/stretch-cover.svg', },
 };
 
 function throttle(fn, timeout) {
@@ -86,6 +86,141 @@ function throttle(fn, timeout) {
   };
 
   return tFn;
+}
+
+function assert(cond, msg) {
+  if (!cond) {
+    throw new Error(`Assertion failed: ${msg}`);
+  }
+}
+
+// this should be a number between 0 and 7
+function isRotated90(rotation) {
+  assert(rotation >= 0 && rotation <= 7, 'rotation must be between 0 and 7');
+  return rotation % 2 === 1;
+}
+
+function computeTransformAtCenter({fileInfo, size, containerSize, zoom, rotation}) {
+  const [srcWidth, srcHeight] = isRotated90(rotation)
+      ? [fileInfo.height, fileInfo.width]
+      : [fileInfo.width, fileInfo.height];
+  const sx = size.width  / srcWidth;
+  const sy = size.height / srcHeight;
+  const scale = Math.max(sx, sy) * zoom;
+
+  // If we did nothing, no scale, no translation, it would be here
+  //
+  //     +----+-------+
+  //     |    |       |
+  //     |    |       |
+  //     |    |       |
+  //     +----+       |
+  //     |            |
+  //     +------------+
+  //
+  // After scaling it could be one of these because it scales around the center of the image
+  //
+  //                         +------+
+  //     +------------+      |+-----+------+
+  //     |+--+        |      ||     |      |
+  //     ||  |        |      ||     |      |
+  //     ||  |        |  or  ||     |      |
+  //     |+--+        |      ||     |      |
+  //     |            |      ++-----+      |
+  //     +------------+       +------------+
+  //
+  //
+  const displayCenterX = containerSize.width / 2;
+  const displayCenterY = containerSize.height / 2;
+
+  const [imgDisplayWidth, imgDisplayHeight] = isRotated90(rotation)
+    ? [size.height, size.width]
+    : [size.width, size.height];
+
+  const origCenterX = fileInfo.width / 2;
+  const origCenterY = fileInfo.height / 2;
+
+  const x = displayCenterX - origCenterX;
+  const y = displayCenterY - origCenterY;
+
+  const newLeft = origCenterX + x - (imgDisplayWidth / 2);
+  const newTop  = origCenterY + y - (imgDisplayHeight / 2);
+
+  return {
+    x: x,
+    y: y,
+    scale: scale,
+    s: {
+      x: sx,
+      y: sy,
+      w: fileInfo.width * scale,
+      h: fileInfo.height * scale,
+    },
+    displayCenter: {
+      x: displayCenterX,
+      y: displayCenterY,
+    },
+    imgDisplay: {
+      w: imgDisplayWidth,
+      h: imgDisplayHeight,
+    },
+    orig: {
+      centerX: origCenterX,
+      centerY: origCenterY,
+      w:   fileInfo.width,
+      h:   fileInfo.height,
+    },
+    newMin: {
+      x: newLeft,
+      y: newTop,
+    },
+  };
+}
+
+function moveIfOffScreen(t, axis) {
+  if (t.newMin[axis] < 0) {
+    t[axis] -= t.newMin[axis];
+  }
+}
+
+function adjustToCenter(t, axis, dim, winSize, winScroll) {
+  let scrollBy = 0;
+  let delta = t.imgDisplay[dim] - winSize;
+  if (delta > 0) {
+    t[axis] -= delta / 2;
+  }
+  if (t.newMin[axis] < 0) {
+    scrollBy = -t.newMin[axis];
+  } else {
+    const newMax = t.newMin[axis] + t.s[dim];
+    const winBot = winScroll + winSize;
+    delta = newMax - winBot;
+    if (delta > 0) {
+      scrollBy = -delta;
+    }
+  }
+  return scrollBy;
+}
+
+function getFlip(rotation) {
+  return [
+    rotation & 4 ? -1 : 1,
+    rotation & 8 ? -1 : 1,
+  ];
+}
+
+function setTransform(t, { containerSize, rotation, baseScale }, style) {
+  const scrollLeft = 0; // this._parentElem.scrollLeft;
+  const scrollTop  = 0; // this._parentElem.scrollTop;
+  adjustToCenter(t, 'x', 'w', containerSize.width,  scrollLeft);
+  adjustToCenter(t, 'y', 'h', containerSize.height, scrollTop);
+  const translationPart = `translate(${px(t.x + scrollLeft)},${px(t.y + scrollTop)})`;
+
+  const scalePart = `scale(${Math.max(t.scale)})`;
+  const rotatePart = `rotate(${rotation % 4 * 90}deg)`;
+  const flipPart = `scale(${getFlip(rotation).map((s, i) => s * baseScale[i]).join(',')})`;
+
+  style.transform = `${translationPart} ${rotatePart} ${scalePart} ${flipPart}`;
 }
 
 @observer
@@ -299,23 +434,19 @@ export default class Viewer extends React.Component {
   _bumpId() {
     this.setState(prevState => ({ id: prevState.id + 1 }));
   }
-  _getRotation() {
-    return (this.props.viewerState.rotation % 4 * 90 + this._baseRotation) % 360;
-  }
-  _getFlip() {
-    return [
-      this.props.viewerState.rotation & 4 ? -1 : 1,
-      this.props.viewerState.rotation & 8 ? -1 : 1,
-    ];
-  }
 
-  _adjustSize(fileInfo, style) {
-    const display = this._getDisplayDimensions();
-    const size = sizing[this.props.viewerState.stretchMode](fileInfo.width, fileInfo.height, display.width, display.height);
-    const t = this._computeTransformAtCenter(fileInfo, size.width, size.height);
-    this._moveIfOffScreen(t, 'x', 'w');
-    this._moveIfOffScreen(t, 'y', 'h');
-    this._setTransform(t, style);
+  _adjustSize({ fileInfo, stretchMode, rotation, zoom, baseScale}, style) {
+    // This size of the element we're displaying inside of.
+    const containerSize = this._getDisplayDimensions();
+    // The size of our rotated image before it's scaled.
+    const [srcWidth, srcHeight] = isRotated90(rotation)
+      ? [fileInfo.height, fileInfo.width]
+      : [fileInfo.width, fileInfo.height];
+    const size = sizing[stretchMode](srcWidth, srcHeight, containerSize.width, containerSize.height);
+    const t = computeTransformAtCenter({ fileInfo, size, containerSize, rotation, zoom });
+    moveIfOffScreen(t, 'x', 'w');
+    moveIfOffScreen(t, 'y', 'h');
+    setTransform(t, { containerSize, rotation, zoom, baseScale }, style);
     // force the size because SVG doesn't have one
     style.width = px(fileInfo.width);
     style.height = px(fileInfo.height);
@@ -443,134 +574,11 @@ export default class Viewer extends React.Component {
     this._eventBus.dispatch(new ForwardableEvent('gotoPrev'));
   }
 
-  _isRotated90() {
-    return this._getRotation() % 2 === 1;
-  }
-
   _getDisplayDimensions() {
-    if (this._isRotated90()) {
-      return {
-        width: this.state.height,
-        height: this.state.width,
-      };
-    } else {
-      return {
-        width: this.state.width,
-        height: this.state.height,
-      };
-    }
-  }
-
-  _computeTransformAtCenter(fileInfo, width, height) {
-    const sx = width  / fileInfo.width;
-    const sy = height / fileInfo.height;
-    const scale = Math.max(sx, sy) * this.props.viewerState.zoom;
-
-    // If we did nothing, no scale, no translation, it would be here
-    //
-    //     +----+-------+
-    //     |    |       |
-    //     |    |       |
-    //     |    |       |
-    //     +----+       |
-    //     |            |
-    //     +------------+
-    //
-    // After scaling it could be one of these because it scales around the center of the image
-    //
-    //                         +------+
-    //     +------------+      |+-----+------+
-    //     |+--+        |      ||     |      |
-    //     ||  |        |      ||     |      |
-    //     ||  |        |  or  ||     |      |
-    //     |+--+        |      ||     |      |
-    //     |            |      ++-----+      |
-    //     +------------+       +------------+
-    //
-    //
-    const displayCenterX = this.state.width  / 2;
-    const displayCenterY = this.state.height / 2;
-
-    const imgDisplayWidth  = this._isRotated90() ? height : width;
-    const imgDisplayHeight = this._isRotated90() ? width  : height;
-
-    const origCenterX = fileInfo.width  / 2;
-    const origCenterY = fileInfo.height / 2;
-
-    const x = displayCenterX - origCenterX;
-    const y = displayCenterY - origCenterY;
-
-    const newLeft = origCenterX + x - (imgDisplayWidth  / 2);
-    const newTop  = origCenterY + y - (imgDisplayHeight / 2);
-
     return {
-      x: x,
-      y: y,
-      scale: scale,
-      s: {
-        x: sx,
-        y: sy,
-        w: fileInfo.width * scale,
-        h: fileInfo.height * scale,
-      },
-      displayCenter: {
-        x: displayCenterX,
-        y: displayCenterY,
-      },
-      imgDisplay: {
-        w: imgDisplayWidth,
-        h: imgDisplayHeight,
-      },
-      orig: {
-        centerX: origCenterX,
-        centerY: origCenterY,
-        w:   fileInfo.width,
-        h:   fileInfo.height,
-      },
-      newMin: {
-        x: newLeft,
-        y: newTop,
-      },
+      width: this.state.width,
+      height: this.state.height,
     };
-  }
-
-  _adjustToCenter(t, axis, dim, winSize, winScroll) {
-    let scrollBy = 0;
-    let delta = t.imgDisplay[dim] - winSize;
-    if (delta > 0) {
-      t[axis] -= delta / 2;
-    }
-    if (t.newMin[axis] < 0) {
-      scrollBy = -t.newMin[axis];
-    } else {
-      const newMax = t.newMin[axis] + t.s[dim];
-      const winBot = winScroll + winSize;
-      delta = newMax - winBot;
-      if (delta > 0) {
-        scrollBy = -delta;
-      }
-    }
-    return scrollBy;
-  }
-
-  _setTransform(t, style) {
-    const scrollLeft = 0; // this._parentElem.scrollLeft;
-    const scrollTop  = 0; // this._parentElem.scrollTop;
-    this._adjustToCenter(t, 'x', 'w', this.state.width,  scrollLeft);
-    this._adjustToCenter(t, 'y', 'h', this.state.height, scrollTop);
-    const translationPart = `translate(${px(t.x + scrollLeft)},${px(t.y + scrollTop)})`;
-
-    const scalePart = `scale(${Math.max(t.scale)})`;
-    const rotatePart = `rotate(${this._getRotation()}deg)`;
-    const flipPart = `scale(${this._getFlip().map((s, i) => s * this._baseScale[i]).join(',')})`;
-
-    style.transform = `${translationPart} ${rotatePart} ${scalePart} ${flipPart}`;
-  }
-
-  _moveIfOffScreen(t, axis) {
-    if (t.newMin[axis] < 0) {
-      t[axis] -= t.newMin[axis];
-    }
   }
 
   _cue(seconds) {
@@ -678,14 +686,14 @@ export default class Viewer extends React.Component {
   render() {
     this._logger('render', window.frameCount);
     this._loadMediaIfNew();
-    const viewerState = this.props.viewerState;
-    const isVideo = filters.isMimeVideo(viewerState.mimeType);
-    const isAudio = filters.isMimeAudio(viewerState.mimeType);
+    const { mimeType, stretchMode, filename, videoState, rotation: viewerRotation, zoom } = this.props.viewerState;
+    const rotation = (this._baseRotation + viewerRotation) % 8;
+    const isVideo = filters.isMimeVideo(mimeType);
+    const isAudio = filters.isMimeAudio(mimeType);
     const isVideoOrAudio = isVideo || isAudio;
-    const isImage = filters.isMimeImage(viewerState.mimeType);
+    const isImage = filters.isMimeImage(mimeType);
     const imageStyle = {
       display: (isImage || isAudio) ? 'inline-block' : 'none',
-      width: px()
     };
     const videoStyle = {
       display: (isVideoOrAudio) ? 'inline-block' : 'none',
@@ -697,7 +705,7 @@ export default class Viewer extends React.Component {
     if (this._displayElem) {
       const fileInfo = this._currentFileInfo;
       viewElemStyle.display = 'block';
-      this._adjustSize(fileInfo, elemStyle);
+      this._adjustSize({ fileInfo, stretchMode, rotation, zoom, baseScale: this._baseScale }, elemStyle);
     }
     const infoClasses = new CSSArray('info');
     infoClasses.addIf(this.state.infoFlash, 'flash');
@@ -723,12 +731,12 @@ export default class Viewer extends React.Component {
                 <img style={imageStyle} className="viewer-img" draggable="false" alt="" />
                 <video style={videoStyle} className="viewer-video" autoPlay loop draggable="false"></video>
               </div>
-              <div className={infoClasses}>{viewerState.filename}</div>
+              <div className={infoClasses}>{filename}</div>
               <div className="prev" onClick={this._gotoPrev}><img src="images/prev.svg" /></div>
               <div className="next" onClick={this._gotoNext}><img src="images/next.svg" /></div>
               <div className="ui">
-                <div className="stretch" onClick={this._changeStretchMode}>
-                  <img src={modeInfo[viewerState.stretchMode].image} />
+                <div className="stretch" onClick={this._changeStretchMode} title={stretchMode}>
+                  <img src={modeInfo[stretchMode].image} />
                 </div>
                 <div className="rotate" onClick={this._rotate}>
                   <img src="images/rotate.svg" />
@@ -739,7 +747,7 @@ export default class Viewer extends React.Component {
               </div>
               <div className={videoClasses}>
                 <Player
-                  videoState={viewerState.videoState}
+                  videoState={videoState}
                   video={this._viewVideo}
                   eventBus={this._eventBus}
                 />

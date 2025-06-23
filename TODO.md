@@ -56,11 +56,11 @@ High Priority
 
       If you add 2 folders to scan and the first one fails the 2nd is never looked at
 
-  * [ ] Fix rotated zoom
+  * [X] Fix rotated zoom
 
       If you rotate an image it doesn't correctly obey the zoom rules.
 
-* [ ] Fix the scorll position issue
+* [ ] Fix the scroll position issue
 
    I am not sure how to fix this. It's listed below. The issue is, if you have 1000 thumbnails
    and they fit in 5 columns. Then you resize the window or change the thumbnail size and now
