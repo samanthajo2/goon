@@ -10,9 +10,9 @@
       "./node_modules/@types",
     ],
     "experimentalDecorators": true,
-    "emitDeclarationOnly": false,
     "resolveJsonModule": true,
     "allowJs": true,
+    "sourceMap": true,
     "jsx": "react",
   },
   "include": [

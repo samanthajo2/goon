@@ -59,6 +59,7 @@
   "devDependencies": {
     "@tsconfig/recommended": "^1.0.10",
     "@types/hjson": "^2.4.6",
+    "@types/lodash": "^4.17.18",
     "@types/react": "^17.0.87",
     "@types/react-dom": "^17.0.26",
     "chai": "^4.5.0",

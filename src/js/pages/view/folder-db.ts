@@ -22,8 +22,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import EventEmitter from 'events';
 import _ from 'lodash';
 import path from 'path';
+import { FilesByPath } from '../../lib/fileinfo';
+import { FoldersByPath } from '../../lib/folderinfo';
 
-function addFileMetaData(files) {
+function addFileMetaData(files: FilesByPath) {
   for (const [filename, fileInfo] of Object.entries(files)) {
     Object.assign(fileInfo, {
       baseName: path.basename(filename).toLowerCase(),
@@ -33,12 +35,17 @@ function addFileMetaData(files) {
   }
 }
 
-// This is basically just a receptical for all the data
+// This is basically just a receptacle for all the data
 // from the Thumber. We don't really need this. We
 // could just ask the Thumber to send all the data again
 // but for some reason it seems since to store the data
 // locally.
 export default class FolderDB extends EventEmitter {
+
+  _folders: FoldersByPath;
+  _newFolders: FoldersByPath;
+  _totalFiles: number;
+
   constructor() {
     super();
     this._folders = {};
@@ -50,7 +57,7 @@ export default class FolderDB extends EventEmitter {
     return this._totalFiles;
   }
 
-  updateFiles(folders) {
+  updateFiles(folders: FoldersByPath) {
     Object.assign(this._newFolders, folders);
     this._processNewFolders();
   }
@@ -82,7 +89,7 @@ export default class FolderDB extends EventEmitter {
       this.emit('updateFiles', this._folders);
     });
   }
-  getAllChildren(parentFolderName) {
+  getAllChildren(parentFolderName: string) {
     const children = [];
     for (const [folderName, folder] of Object.entries(this._folders)) {
       if (folderName.startsWith(parentFolderName)) {
