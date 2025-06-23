@@ -22,17 +22,40 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import EventEmitter from 'events';
 import _ from 'lodash';
 import path from 'path';
-import { FilesByPath } from '../../lib/fileinfo';
-import { FoldersByPath } from '../../lib/folderinfo';
+import { FileInfo, FilesByPath } from '../../lib/fileinfo';
+import { FolderInfo, FoldersByPath } from '../../lib/folderinfo';
 
-function addFileMetaData(files: FilesByPath) {
-  for (const [filename, fileInfo] of Object.entries(files)) {
-    Object.assign(fileInfo, {
-      baseName: path.basename(filename).toLowerCase(),
-      folderName: path.dirname(filename).toLowerCase(),
-      lowercaseName: fileInfo.displayName.toLowerCase(),
-    });
-  }
+type DisplayFileInfo = FileInfo & {
+    baseName: string;
+    folderName: string;
+    lowercaseName: string;
+};
+
+type DisplayFilesByPath = { [key: string]: DisplayFileInfo };
+type DisplayFolderInfo = Omit<FolderInfo, 'files'> & {
+  files: DisplayFilesByPath;
+};
+type DisplayFoldersByPath = { [key: string]: DisplayFolderInfo };
+
+function addFileMetaData(files: FilesByPath): DisplayFilesByPath {
+  return Object.fromEntries(Object.entries(files).map(([filename, fileInfo]) => {
+    return [
+      filename,
+      {
+        ...fileInfo,
+        baseName: path.basename(filename).toLowerCase(),
+        folderName: path.dirname(filename).toLowerCase(),
+        lowercaseName: fileInfo.displayName.toLowerCase(),
+      },
+    ];
+  })) as DisplayFilesByPath;
+}
+
+function folderInfoToDisplayFolderInfo(folder: FolderInfo): DisplayFolderInfo {
+  return {
+    ...folder,
+    files: addFileMetaData(folder.files),
+  };
 }
 
 // This is basically just a receptacle for all the data
@@ -42,7 +65,7 @@ function addFileMetaData(files: FilesByPath) {
 // locally.
 export default class FolderDB extends EventEmitter {
 
-  _folders: FoldersByPath;
+  _folders: DisplayFoldersByPath;
   _newFolders: FoldersByPath;
   _totalFiles: number;
 
@@ -65,22 +88,21 @@ export default class FolderDB extends EventEmitter {
   _processNewFolders() {
     const folders = this._newFolders;
     this._newFolders = {};
-    for (const [folderName, folder] of Object.entries(folders)) {
+    for (const [folderName, srcFolder] of Object.entries(folders)) {
+      const folder = folderInfoToDisplayFolderInfo(srcFolder);
       folder.files = folder.files || {};
       folder.status = folder.status || {};
-      const files = folder.files;
       const status = folder.status;
-      addFileMetaData(files);
       const oldFolder = this._folders[folderName];
       if (oldFolder) {
         this._totalFiles -= Object.keys(oldFolder.files).length;
       }
-      if (_.isEmpty(files) && !status.scanning && !status.checking) {
+      if (_.isEmpty(folder.files) && !status.scanning && !status.checking) {
         delete this._folders[folderName];
       } else {
         this._folders[folderName] = folder;
       }
-      this._totalFiles += Object.keys(files).length;
+      this._totalFiles += Object.keys(folder.files).length;
     }
     this.emit('updateFiles', folders);
   }

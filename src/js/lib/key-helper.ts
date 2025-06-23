@@ -20,18 +20,29 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-export default class KeyHelper {
-  constructor(collection) {
+/**
+ * Let's you go through keys by string
+ * const kh = new KeyHelper({a: 123, b: 456, c: 789});
+ * let k = kh.first();  // k = 'a'
+ * console.log(kh.value(k)); // 123
+ * k = kh.next(k); // k = 'b'
+ * k = kh.next(k); // k = 'c'
+ * k = kh.next(k); // k = 'a'
+ */
+export default class KeyHelper<V, T extends Record<string, V>> {
+  _collection: T;
+  _keys: string[];
+  constructor(collection: T) {
     this._collection = collection;
     this._keys = Object.keys(collection);
   }
   first() {
     return this._keys[0];
   }
-  value(current) {
+  value(current: string): V {
     return this._collection[current];
   }
-  next(current) {
+  next(current: string) {
     const ndx = (this._keys.indexOf(current) + 1) % this._keys.length;
     return this._keys[ndx];
   }
