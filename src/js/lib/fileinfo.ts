@@ -15,6 +15,7 @@ export type FileInfo = {
   width: number;
   height: number;
   thumbnail: ThumbnailInfo;
+  bad?: boolean;
 };
 
 export type FilesByPath = { [key: string]: FileInfo };

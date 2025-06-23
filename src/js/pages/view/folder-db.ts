@@ -25,10 +25,11 @@ import path from 'path';
 import { FileInfo, FilesByPath } from '../../lib/fileinfo';
 import { FolderInfo, FoldersByPath } from '../../lib/folderinfo';
 
-type DisplayFileInfo = FileInfo & {
-    baseName: string;
-    folderName: string;
-    lowercaseName: string;
+export type DisplayFileInfo = FileInfo & {
+  filename: string;
+  baseName: string;
+  folderName: string;
+  lowercaseName: string;
 };
 
 type DisplayFilesByPath = { [key: string]: DisplayFileInfo };
@@ -43,6 +44,7 @@ function addFileMetaData(files: FilesByPath): DisplayFilesByPath {
       filename,
       {
         ...fileInfo,
+        filename,
         baseName: path.basename(filename).toLowerCase(),
         folderName: path.dirname(filename).toLowerCase(),
         lowercaseName: fileInfo.displayName.toLowerCase(),

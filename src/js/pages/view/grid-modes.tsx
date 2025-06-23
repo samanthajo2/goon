@@ -24,14 +24,35 @@ import path from 'path';
 import {px} from '../../lib/utils';
 import {cssArray} from '../../lib/css-utils';
 import KeyHelper from '../../lib/key-helper';
+import { Rect } from '../../lib/rect';
+import { DisplayFileInfo } from './folder-db';
 
 const g_backslashRE = /\\/g;
-function prepForCSSUrl(url) {
+function prepForCSSUrl(url: string) {
   return url.replace(g_backslashRE, '\\\\');
 }
 
+type ColumnManagerOptions = {
+  minColumnWidth: number;
+  padding: number;
+  itemHeightRatio?: number;
+};
+
+type Column = {
+  ndx: number,
+  bottom: number,
+};
+
 class ColumnManager {
-  constructor(totalWidth, options) {
+  columns: Column[];
+  height: number;
+  padding: number;
+  columnWidth: number;
+  columnOffset: number;
+  drawWidth: number;
+  itemHeight: number = 0;
+
+  constructor(totalWidth: number, options: ColumnManagerOptions) {
     this.columns = [];
     this.height = 0;
     this.padding = options.padding;
@@ -58,12 +79,12 @@ class ColumnManager {
     });
     return shortest;
   }
-  getPositionForElement(thumbnailWidth, thumbnailHeight) {
+  getPositionForElement(thumbnailWidth: number, thumbnailHeight: number) {
     const scale =  this.drawWidth / thumbnailWidth;
     const drawHeight = thumbnailHeight * scale;
     const paddedHeight = (this.itemHeight || drawHeight) + this.padding;
     const column = this._getShortestColumn();
-    const position = {
+    const position: Rect = {
       x: this.columnWidth * column.ndx + this.columnOffset,
       y: column.bottom,
       width: this.drawWidth,
@@ -75,7 +96,7 @@ class ColumnManager {
   }
 }
 
-function computeColumnStyle(props) {
+function computeColumnStyle(props: ThumbnailProps) {
   const info = props.info;
   const pos = props.position;
   const thumbnail = info.thumbnail;
@@ -95,7 +116,7 @@ function computeColumnStyle(props) {
   };
 }
 
-function computeGridStyle(displayAspect, props) {
+function computeGridStyle(displayAspect: number, props: ThumbnailProps) {
   const info = props.info;
   const pos = props.position;
   const thumbnail = info.thumbnail;
@@ -139,7 +160,18 @@ function computeGridStyle(displayAspect, props) {
   };
 }
 
-function computeFitStyle(displayAspect, props) {
+type GridMode = keyof typeof gridModeDefs;
+
+type ThumbnailProps = {
+  position: Rect;
+  zoom: (v: number) => number;
+  showDates: boolean;
+  showDimensions: boolean;
+  gridMode: GridMode;
+  info: DisplayFileInfo;
+};
+
+function computeFitStyle(displayAspect: number, props: ThumbnailProps) {
   const info = props.info;
   const pos = props.position;
   const thumbnail = info.thumbnail;
@@ -197,82 +229,85 @@ function computeFitStyle(displayAspect, props) {
   };
 }
 
-const gridModes = new KeyHelper({
+const gridModeDefs = {
   'columns':   {
     icon: 'images/buttons/columns.svg',
     hint: 'columns',
-    helper: (width, options) => new ColumnManager(width, options),
+    helper: (width: number, options: ColumnManagerOptions) => new ColumnManager(width, options),
     render: renderNoFrame,
     getStyle: computeColumnStyle,
   },
   'grid-fit':  {
     icon: 'images/buttons/grid-fit.svg',
     hint: 'fit',
-    helper: (width, options) => new ColumnManager(width, ({itemHeightRatio: 1, ...options})),
+    helper: (width: number, options: ColumnManagerOptions) => new ColumnManager(width, ({itemHeightRatio: 1, ...options})),
     render: renderWithFrame,
-    getStyle: (props) => computeFitStyle(1, props),
+    getStyle: (props: ThumbnailProps) => computeFitStyle(1, props),
   },
   'grid-4x3':  {
     icon: 'images/buttons/grid-4-3.svg',
     hint: '4x3',
-    helper: (width, options) => new ColumnManager(width, ({itemHeightRatio: 4 / 3, ...options})),
+    helper: (width: number, options: ColumnManagerOptions) => new ColumnManager(width, ({itemHeightRatio: 4 / 3, ...options})),
     render: renderNoFrame,
-    getStyle: (props) => computeGridStyle(4 / 3, props),
+    getStyle: (props: ThumbnailProps) => computeGridStyle(4 / 3, props),
   },
   'grid-3x4':  {
     icon: 'images/buttons/grid-3-4.svg',
     hint: '3x4',
-    helper: (width, options) => new ColumnManager(width, ({itemHeightRatio: 3 / 4, ...options})),
+    helper: (width: number, options: ColumnManagerOptions) => new ColumnManager(width, ({itemHeightRatio: 3 / 4, ...options})),
     render: renderNoFrame,
-    getStyle: (props) => computeGridStyle(3 / 4, props),
+    getStyle: (props: ThumbnailProps) => computeGridStyle(3 / 4, props),
   },
   'grid-16x9': {
     icon: 'images/buttons/grid-16-9.svg',
     hint: '16x9',
-    helper: (width, options) => new ColumnManager(width, ({itemHeightRatio: 16 / 9, ...options})),
+    helper: (width: number, options: ColumnManagerOptions) => new ColumnManager(width, ({itemHeightRatio: 16 / 9, ...options})),
     render: renderNoFrame,
-    getStyle: (props) => computeGridStyle(16 / 9, props),
+    getStyle: (props: ThumbnailProps) => computeGridStyle(16 / 9, props),
   },
   'grid-9x16': {
     icon: 'images/buttons/grid-9-16.svg',
     hint: '9x16',
-    helper: (width, options) => new ColumnManager(width, ({itemHeightRatio: 9 / 16, ...options})),
+    helper: (width: number, options: ColumnManagerOptions) => new ColumnManager(width, ({itemHeightRatio: 9 / 16, ...options})),
     render: renderNoFrame,
-    getStyle: (props) => computeGridStyle(9 / 16, props),
+    getStyle: (props: ThumbnailProps) => computeGridStyle(9 / 16, props),
   },
   'grid-1x1':  {
     icon: 'images/buttons/grid-1-1.svg',
     hint: '1x1',
-    helper: (width, options) => new ColumnManager(width, ({itemHeightRatio: 1, ...options})),
+    helper: (width: number, options: ColumnManagerOptions) => new ColumnManager(width, ({itemHeightRatio: 1, ...options})),
     render: renderNoFrame,
-    getStyle: (props) => computeGridStyle(1, props),
+    getStyle: (props: ThumbnailProps) => computeGridStyle(1, props),
   },
-});
+} as const;
+
+export type GridModes = keyof typeof gridModeDefs;
+const gridModes = new KeyHelper(gridModeDefs);
 
 const s_slashRE = /[\\/]/g;
 
-function renderName(props, info) {
+function renderName(props: ThumbnailProps, info: DisplayFileInfo) {
   const name = path.basename(info.filename);
   const date = props.showDates ? `${(new Date(info.mtime))}:` : '';
   const dims = (props.showDimensions && info.width) ? `:${info.width}x${info.height}` : '';
   return `${date}${name}${dims}`;
 }
 
-function renderNoFrame(props, onClick, onContextMenu, onDragStart) {
+function renderNoFrame(props: ThumbnailProps, onClick: () => void, onContextMenu: () => void, onDragStart: () => void) {
   const info = props.info;
   const style = gridModes.value(props.gridMode).getStyle(props);
   const baseType = `mime-${info.type.split('/')[0]}`;
   const mimeType = `mime-${info.type.replace(s_slashRE, '-')}`;
   const className = cssArray('thumbnail', baseType, mimeType);
   return (
-    <div draggable="true" onClick={onClick} onDragStart={onDragStart} onContextMenu={onContextMenu} className={className} style={style}>
+    <div draggable="true" onClick={onClick} onDragStart={onDragStart} onContextMenu={onContextMenu} className={className.toString()} style={style}>
       <div className="thumbinfo">
         <div className="name">{renderName(props, info)}</div>
       </div>
     </div>
   );
 }
-function renderWithFrame(props, onClick, onContextMenu, onDragStart) {
+function renderWithFrame(props: ThumbnailProps, onClick: () => void, onContextMenu: () => void, onDragStart: () => void) {
   const info = props.info;
   const pos = props.position;
   const style = gridModes.value(props.gridMode).getStyle(props);
@@ -288,7 +323,7 @@ function renderWithFrame(props, onClick, onContextMenu, onDragStart) {
   return (
     <div>
       <div className="thumbnail-frame" style={frameStyle}></div>
-      <div draggable="true" onClick={onClick} onContextMenu={onContextMenu} onDragStart={onDragStart} className={className} style={style}>
+      <div draggable="true" onClick={onClick} onContextMenu={onContextMenu} onDragStart={onDragStart} className={className.toString()} style={style}>
         <div className="thumbinfo">
           <div className="name">{renderName(props, info)}</div>
         </div>

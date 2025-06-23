@@ -29,21 +29,21 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  * k = kh.next(k); // k = 'c'
  * k = kh.next(k); // k = 'a'
  */
-export default class KeyHelper<V, T extends Record<string, V>> {
+export default class KeyHelper<T extends Record<string, any>> {
   _collection: T;
-  _keys: string[];
+  _keys: (keyof T)[];
   constructor(collection: T) {
     this._collection = collection;
-    this._keys = Object.keys(collection);
+    this._keys = Object.keys(collection) as (keyof T)[];
   }
-  first() {
+  first(): keyof T {
     return this._keys[0];
   }
-  value(current: string): V {
-    return this._collection[current];
+  value<K extends keyof T>(key: K): T[K] {
+    return this._collection[key];
   }
-  next(current: string) {
-    const ndx = (this._keys.indexOf(current) + 1) % this._keys.length;
+  next<K extends keyof T>(key: K): keyof T {
+    const ndx = (this._keys.indexOf(key) + 1) % this._keys.length;
     return this._keys[ndx];
   }
 }
