@@ -20,10 +20,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 export default class ForwardableEvent {
-  constructor(name, opt_domEvent) {
+  name: string;
+  propagationStopped: boolean;
+  domEvent?: Event;
+
+  constructor(name: string, domEvent?: Event) {
     this.name = name;
     this.propagationStopped = false;
-    this.domEvent = opt_domEvent;
+    this.domEvent = domEvent;
   }
   stopPropagation() {
     this.propagationStopped = true;
