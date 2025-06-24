@@ -20,7 +20,7 @@ xattr -d -r com.apple.quarantine path/to/Goon.app
 You should now be able to run it.
 
 You can also download and build yourself.
-If you want to volunteer to supply a certificate for notification, open an issue.
+If you want to volunteer to supply a certificate for notarization, open an issue.
 
 # Development
 
