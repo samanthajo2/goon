@@ -21,6 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import EventEmitter from 'events';
 import sinon from 'sinon';
+import { describe, it } from '../../lib/test/mocha';
 import {assert} from 'chai';
 import NativeFolder from './native-folder';
 import wait from './../../lib/wait';

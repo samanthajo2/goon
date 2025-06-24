@@ -23,6 +23,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 /* eslint-disable func-names */
 
 import path from 'path';
+import { describe, it, beforeEach, afterEach } from '../test/mocha';
 import {assert} from 'chai';
 import TreeWatcher from './tree-watcher';
 import TestFS from '../test/test-fs';

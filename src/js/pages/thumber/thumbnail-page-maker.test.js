@@ -47,6 +47,7 @@ import {getDifferentFilenames, getObjectsByKeys} from '../../lib/utils';
 // same, changed, and added should all get drawn. Same's source should
 // be the page wherea added and changed source should be original.
 // Could check that
+import { describe, it } from '../../lib/test/mocha';
 
 describe('ThumbnailPageMaker', () => {
   const baseFilename = 'foo/bar/moo';

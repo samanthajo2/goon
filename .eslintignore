@@ -1,3 +1,4 @@
 out/*
 src/3rdparty/*
 src/js/3rdparty/*
+src/js/lib/test/mocha.js

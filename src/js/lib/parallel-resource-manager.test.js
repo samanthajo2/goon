@@ -20,6 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 
+import { describe, it } from './test/mocha';
 import {assert} from 'chai';
 import createParallelResourceManager from './parallel-resource-manager';
 import wait from './wait';

@@ -21,6 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import fs from 'fs';
 import path from 'path';
+import { describe, it } from './mocha';
 import {assert} from 'chai';
 import TestFS from './test-fs';
 import {makePublicPromise} from './test-utils';
