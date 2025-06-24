@@ -1,4 +1,4 @@
-import { Rect } from "./rect";
+import { Rect } from './rect';
 
 export type ThumbnailInfo = Rect & {
   url: string;

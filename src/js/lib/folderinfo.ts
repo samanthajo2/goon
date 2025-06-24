@@ -1,4 +1,4 @@
-import { FilesByPath } from "./fileinfo";
+import { FilesByPath } from './fileinfo';
 
 export type FolderStatus = {
   checking: boolean;

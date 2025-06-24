@@ -6,22 +6,38 @@
         "node": true,
         "mocha": true
     },
-    "parser": "@babel/eslint-parser",
+    "parser": "@typescript-eslint/parser",
     "parserOptions": {
+        "project": ["./tsconfig.json"],
         "ecmaFeatures": {
             "jsx": true
         },
-        "sourceType": "module"
+        "sourceType": "module",
+        "ecmaVersion": "latest"
     },
     "plugins": [
+        "@typescript-eslint",
+        "import",
         "optional-comma-spacing"
     ],
     "extends": [
       "airbnb",
       "eslint:recommended",
+      "plugin:@typescript-eslint/recommended",
       "plugin:react/recommended"
-     ],
+    ],
+    "settings": {
+      "import/resolver": {
+        "typescript": {}
+      }
+    },
     "rules": {
+        "import/extensions": ["error", "ignorePackages", {
+          "js": "never",
+          "ts": "never",
+          "jsx": "never",
+          "tsx": "never"
+        }],
         "camelcase": "off",   // want to be able to use g_xxx and s_xxx
         "max-len": "off",
         "prefer-destructuring": "off",
