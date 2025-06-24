@@ -39,8 +39,7 @@ type DisplayFolderInfo = Omit<FolderInfo, 'files'> & {
 type DisplayFoldersByPath = { [key: string]: DisplayFolderInfo };
 
 function addFileMetaData(files: FilesByPath): DisplayFilesByPath {
-  return Object.fromEntries(Object.entries(files).map(([filename, fileInfo]) => {
-    return [
+  return Object.fromEntries(Object.entries(files).map(([filename, fileInfo]) => [
       filename,
       {
         ...fileInfo,
@@ -49,8 +48,7 @@ function addFileMetaData(files: FilesByPath): DisplayFilesByPath {
         folderName: path.dirname(filename).toLowerCase(),
         lowercaseName: fileInfo.displayName.toLowerCase(),
       },
-    ];
-  })) as DisplayFilesByPath;
+    ])) as DisplayFilesByPath;
 }
 
 function folderInfoToDisplayFolderInfo(folder: FolderInfo): DisplayFolderInfo {

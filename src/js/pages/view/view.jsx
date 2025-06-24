@@ -20,6 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
+// eslint-disable-next-line react/no-deprecated
 import { render as reactRender } from 'react-dom';
 import {configure} from 'mobx';
 

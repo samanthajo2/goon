@@ -145,6 +145,7 @@ const defaultPrefs: Preferences = {
   ],
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function applyDefaults<T extends Record<string, any>>(dst: T, defaults: T): void {
   for (const [key, value] of Object.entries(defaults)) {
     const k = key as keyof T;
@@ -162,8 +163,10 @@ function getPrefs(prefs: Preferences) {
   // add in missing prefs (if prefs is old)
   prefs = cloneDeep(prefs);
   for (const [topKey, topValue] of Object.entries(defaultPrefs)) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const midPrefs = (prefs as any)[topKey];
     if (!midPrefs) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (prefs as any)[topKey] = cloneDeep(topValue);
     } else if (!Array.isArray(topValue)) {
       for (const [midKey, midValue] of Object.entries(topValue)) {
@@ -196,6 +199,7 @@ function convertVersion1To2OrThrow(prefs: Preferences): Preferences {
   applyDefaults(prefs, defaultPrefs);
   applyDefaults(prefs.misc, defaultPrefs.misc);
   prefs.misc.toolbarPosition = (prefs.misc as unknown as {toolbarOnBottom: boolean}).toolbarOnBottom ? 'bottom' : 'top';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   delete (prefs as any).toolbarOnBottom;
   prefs.version = 2;
   return prefs;

@@ -452,7 +452,7 @@ export default class App extends React.Component {
     const filename = this.state.contextFolderInfo.filename;
     try {
       await shell.trashItem(filename);
-    } catch (e) {
+    } catch {
       this.setState((prevState) => ({
           showForceDelete: true,
           forceDeleteFilename: filename,
@@ -467,7 +467,7 @@ export default class App extends React.Component {
     const filename = this.state.contextFileInfo.filename;
     try {
       await shell.trashItem(filename);
-    } catch (e) {
+    } catch {
       this.setState({
         showForceDelete: true,
         forceDeleteFilename: filename,
@@ -485,7 +485,7 @@ export default class App extends React.Component {
       });
     } else {
       fs.unlink(this.state.forceDeleteFilename, (err) => {
-        this._logger(e);
+        this._logger(err);
       });
     }
   }

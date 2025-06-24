@@ -109,7 +109,7 @@ function getActualFilenameCaseInsensitiveImpl(filename: string): string {
   let filenames;
   try {
     filenames = fs.readdirSync(dirname);
-  } catch (e) {
+  } catch {
     // we already verified the path exists above so if this
     // happens it means the OS won't let use get a listing (UNC root on windows)
     // so it's the best we can do
@@ -185,7 +185,7 @@ function getDifferentFilenames(oldFiles: Record<string, FileInfo>, newFiles: Rec
   const removedNames = [...oldNames.difference(newNames)];
   const addedNames = [...newNames.difference(oldNames)];
 
-  const sameNames = newNames.intersection(oldNames)
+  const sameNames = newNames.intersection(oldNames);
 
   const changedNames = new Set(sameNames.keys().filter((name) => {
     const oldInfo = oldFiles[name];
@@ -236,7 +236,7 @@ function filterNonExistingDirs(dirs: string[]) {
     try {
       const stat = fs.statSync(dir);
       return !!stat;
-    } catch (e) {
+    } catch {
       return false;
     }
   });
@@ -279,7 +279,7 @@ export function fileExistsSync(filename: string) {
   try {
     const stat = fs.statSync(filename);
     return !!stat;
-  } catch (e) {
+  } catch {
     return false;
   }
 }

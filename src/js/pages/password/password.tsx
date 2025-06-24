@@ -20,10 +20,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
+// eslint-disable-next-line react/no-deprecated
 import { render as reactRender } from 'react-dom';
 import {ipcRenderer} from 'electron';  // eslint-disable-line
 import crypto from 'crypto';
-//import stacktraceLog from '../../lib/stacktrace-log.js';  // eslint-disable-line
+// import stacktraceLog from '../../lib/stacktrace-log.js';  // eslint-disable-line
 import '../../lib/title';
 import {cssArray} from '../../lib/css-utils';
 import {checkPassword} from '../../lib/password-utils';
@@ -32,11 +33,11 @@ import Modal from '../../lib/ui/modal';
 // const isDevMode = process.env.NODE_ENV === 'development';
 interface PasswordState {
   error: boolean;
-};
+}
 
 interface PasswordProps {
   password: string;
-};
+}
 
 class Password extends React.Component<PasswordProps, PasswordState> {
   state: PasswordState = {

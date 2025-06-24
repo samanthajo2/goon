@@ -127,7 +127,7 @@ class MediaClientProxy {
     try {
       this._archiveBlobUrlsByFilename = {};
       this._archiveFiles = await archive.createDecompressor(request.archiveName);
-    } catch (e) {
+    } catch {
       this._archiveFiles = {};
     }
     process.nextTick(this._sendMediaStatus);

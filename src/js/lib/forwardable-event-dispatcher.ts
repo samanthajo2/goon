@@ -26,6 +26,7 @@ type ForwardableEvent = {
 };
 
 export default class ForwardableEventDispatcher {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _handlers: Record<string, Array<(event: ForwardableEvent, ...args: any[]) => void>> = {};
   private _forwarder?: ForwardableEventDispatcher;
   private _backward?: ForwardableEventDispatcher;
@@ -41,6 +42,7 @@ export default class ForwardableEventDispatcher {
     this._backward = backward;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   on(name: string, fn: (event: ForwardableEvent, ...args: any[]) => void): void {
     let handlers = this._handlers[name];
     if (!handlers) {
@@ -50,6 +52,7 @@ export default class ForwardableEventDispatcher {
     handlers.push(fn);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   removeListener(name: string, fn: (event: ForwardableEvent, ...args: any[]) => void): void {
     const handlers = this._handlers[name];
     if (handlers) {
@@ -63,6 +66,7 @@ export default class ForwardableEventDispatcher {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   dispatch(forwardableEvent: ForwardableEvent, ...args: any[]): void {
     if (this._forwarder) {
       this._forwarder.dispatch(forwardableEvent, ...args);
@@ -72,6 +76,7 @@ export default class ForwardableEventDispatcher {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _dispatchBackward(forwardableEvent: ForwardableEvent, ...args: any[]): void {
     this._callHandlers(forwardableEvent, ...args);
     if (!forwardableEvent.propagationStopped) {
@@ -83,6 +88,7 @@ export default class ForwardableEventDispatcher {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _callHandlers(forwardableEvent: ForwardableEvent, ...args: any[]): void {
     const handlers = this._handlers[forwardableEvent.name];
     if (handlers) {

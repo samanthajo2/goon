@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unknown-property */
 /*
 Copyright 2024 SamanthaJo
 
@@ -28,7 +29,7 @@ const Help = (props) => (
     <div className="fullscreen">
       <webview
         src="help.html"
-        nodeintegration="true"
+        nodeintegration
       />
       <div>
         <button type="button" onClick={props.onClose}>Ok</button>

@@ -332,7 +332,7 @@ export default class Prefs extends React.Component {
           saveError: !!err,
         });
       });
-    } catch (e) {
+    } catch {
       this.setState({
         saveError: true,
       });

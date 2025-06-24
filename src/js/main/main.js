@@ -40,6 +40,7 @@ import {
 import listCacheFiles from './list-cache-files';
 import compareFoldersToCache from './compare-folders-to-cache';
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const {windowTrackerInit} = require('../lib/remote-helpers');
 
 const {nativeImage} = electron;
@@ -230,10 +231,6 @@ function updatePrefs(newPrefs) {
   }
 }
 
-function routeDirs(...args) {
-  router(...args);
-}
-
 // TODO: do this only if prefs, and respond to prefs updates to turn it off and change port?
 function startWebServer() {
   if (server) {
@@ -272,7 +269,7 @@ function loadProgramState() {
       }
       progStat = converter(progStat);
     }
-  } catch (e) {
+  } catch {
     //
   }
   let windows = progStat.windows;

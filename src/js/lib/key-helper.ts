@@ -29,6 +29,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  * k = kh.next(k); // k = 'c'
  * k = kh.next(k); // k = 'a'
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default class KeyHelper<T extends Record<string, any>> {
   _collection: T;
   _keys: (keyof T)[];

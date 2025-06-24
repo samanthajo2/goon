@@ -21,7 +21,6 @@
         "optional-comma-spacing"
     ],
     "extends": [
-      "airbnb",
       "eslint:recommended",
       "plugin:@typescript-eslint/recommended",
       "plugin:react/recommended"
@@ -29,6 +28,9 @@
     "settings": {
       "import/resolver": {
         "typescript": {}
+      },
+      "react": {
+        "version": "detect"
       }
     },
     "rules": {
@@ -38,10 +40,19 @@
           "jsx": "never",
           "tsx": "never"
         }],
+        "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+        "no-use-before-define": "off",
+        "@typescript-eslint/no-use-before-define": [
+          "error",
+          {
+            "functions": false,
+            "classes": false,
+            "variables": true
+          }
+        ],
         "camelcase": "off",   // want to be able to use g_xxx and s_xxx
         "max-len": "off",
         "prefer-destructuring": "off",
-        "no-use-before-define": ["error", { "functions": false }],
         "no-plusplus": 0,               // WAT?
         "key-spacing": ["error", { "beforeColon": false, "afterColon": true, "mode": "minimum" }],
         "no-nested-ternary": 0,
@@ -101,6 +112,7 @@
         "react/no-arrow-function-lifecycle": "off",
         "react/no-invalid-html-attribute": "off",
         "react/no-unused-class-component-methods": "off",
+        "react/state-in-constructor": "off",
         "import/no-import-module-exports": "off",
         "import/no-relative-packages": "off"
     },

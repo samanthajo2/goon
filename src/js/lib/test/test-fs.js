@@ -82,14 +82,14 @@ export default class TestFS {
       for (const filename of Object.keys(this._files)) {
         try {
           this._fs.unlinkSync(filename);
-        } catch (e) {
+        } catch {
           //
         }
       }
       for (const filename of Object.keys(this._folders)) {
         try {
           this._fs.rmdirSync(filename);
-        } catch (e) {
+        } catch {
           //
         }
       }

@@ -36,7 +36,7 @@ export default class ArchiveFolder extends EventEmitter {
       const stat = this._fs.statSync(filename);
       const scannedTime = this._folderData.scannedTime;
       this._needUpdate = !scannedTime || stat.mtimeMs > scannedTime;
-    }  catch (e) {
+    }  catch {
       console.error('failed to stat archive', filename);
       this._needUpdate = true;
     }

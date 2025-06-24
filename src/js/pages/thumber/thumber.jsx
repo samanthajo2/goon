@@ -160,32 +160,6 @@ function start(args) {
     g.thumbnailManager.setFolders(utils.removeChildFolders(utils.filterNonExistingDirs(dirs)), isPrefs);
   }
 
-  function pathToPrefix(path) {
-    for (const [dir, prefix] of g.dirsToPrefixMap) {
-      if (path.startsWith(dir)) {
-        return `/${prefix}${path.substring(dir.length)}`;
-      }
-    }
-    return path;
-  }
-
-  function prepFoldersForBrowser(folders) {
-    const preppedFolders = {};
-    for (const [folderName, folder] of Object.entries(folders)) {
-      const f = _.cloneDeep(folder);
-      for (const [fileName, file] of Object.entries(f.files)) {
-        if (file.thumbnail && file.thumbnail.url && file.thumbnail.url.startsWith(g.dataDir)) {
-          file.thumbnail.url = `/user-data-dir${file.thumbnail.url.substring(g.dataDir.length)}`;
-        }
-        if (!file.url) {
-          file.url = pathToPrefix(fileName);
-        }
-      }
-      preppedFolders[folderName] = f;
-    }
-    return preppedFolders;
-  }
-
   otherWindowIPC.createChannelStream('prefs')
     .then((stream) => {
       g.prefsStream = stream;

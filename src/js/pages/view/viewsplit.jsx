@@ -171,6 +171,7 @@ class Two {
     }
   }
   getRightMost() {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     let current = this;
     while (current.children.length) {
       current = current.children[current.children.length - 1];
@@ -178,6 +179,7 @@ class Two {
     return current;
   }
   getLeftMost() {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     let current = this;
     while (current.children.length) {
       current = current.children[0];

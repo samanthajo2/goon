@@ -32,7 +32,7 @@ function fitHeight(srcWidth: number, srcHeight: number, dstWidth: number, dstHei
 /**
  * scale so width fits dest
  */
-function fitWidth(srcWidth: number, srcHeight: number, dstWidth: number, dstHeight: number) {
+function fitWidth(srcWidth: number, srcHeight: number, dstWidth: number, _dstHeight: number) {
   return {
     width: dstWidth,
     height: srcHeight * dstWidth / srcWidth | 0,
@@ -42,7 +42,7 @@ function fitWidth(srcWidth: number, srcHeight: number, dstWidth: number, dstHeig
 /**
  * leave as is
  */
-function actualSize(srcWidth: number, srcHeight: number, dstWidth: number, dstHeight: number) {
+function actualSize(srcWidth: number, srcHeight: number, _dstWidth: number, _dstHeight: number) {
   return {
     width: srcWidth,
     height: srcHeight,

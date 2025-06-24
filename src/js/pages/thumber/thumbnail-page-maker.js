@@ -126,7 +126,7 @@ export default function createThumbnailPageMaker(options) {
           // convert?
           const filename = filenameFromUrl(oldPageUrl);
           fs.unlinkSync(filename);
-        } catch (e) {
+        } catch {
           logger('could not load old page:', oldPageUrl);
           // process the missing files
           oldPage.forEach((filename) => {

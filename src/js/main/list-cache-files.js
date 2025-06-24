@@ -31,7 +31,7 @@ export default function listCacheFiles(userDataDir) {
         foldername: data.folderPath,
         filename: filename,
       };
-    } catch (e) {
+    } catch {
       console.error('can not open/parse file:', filename);
       return {
         bad: true,

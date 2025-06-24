@@ -20,6 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
+// eslint-disable-next-line react/no-deprecated
 import { render as reactRender } from 'react-dom';
 import {ipcRenderer} from 'electron';  // eslint-disable-line
 import bind from '../../lib/bind';
@@ -43,7 +44,7 @@ const states = {
 function toString(v) {
   try {
     return JSON.stringify(v);
-  } catch (e) {
+  } catch {
     //
   }
   return v ? v.toString() : '';
