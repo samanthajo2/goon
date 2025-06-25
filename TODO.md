@@ -23,7 +23,7 @@ High Priority
 
 * [ ] Fix the most obvious issues
 
-  * [ ] Resizing thumbnail size messes up the scroll position
+  * [X] Resizing thumbnail size messes up the thumbnails positions
 
       This just needs the right call somewhere as resizing the window fixes it.
 

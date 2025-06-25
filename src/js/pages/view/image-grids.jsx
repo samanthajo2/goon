@@ -303,15 +303,18 @@ export default class ImageGrids extends React.Component {
     this._logger('imagegrids render count', ++g_imageGridsRenderCount);
     g_renderCount = 0;
     // Is this a hack or is it ok?
+    const zoom = this.props.winState.thumbnailZoom;
     if (this.props.winState.gridMode !== this._gridMode ||
         this.props.root !== this._root ||
-        this.state.width !== this._width) {
+        this.state.width !== this._width ||
+        zoom !== this._lastZoom) {
       this._logger('getFoldersFromState-InRender');
 
       this._getFoldersFromState(this.props);
       this._gridMode = this.props.winState.gridMode;
       this._root = this.props.root;
       this._width = this.state.width;
+      this._lastZoom = zoom;
     }
     const result = (
       <Measure client onResize={this._handleResize}>
@@ -332,7 +335,7 @@ export default class ImageGrids extends React.Component {
               itemSizeGetter={this._itemSizeGetter}
               length={this._getNumItems()}
               type="variable"
-              zoom={this.props.winState.thumbnailZoom}
+              zoom={zoom}
             />
           </div>
         )}
