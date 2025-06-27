@@ -14,10 +14,11 @@ may complain.
 On MacOS, double click the `Goon.<version>.dmg` and drag the app somewhere.  Then open a terminal and type
 
 ```
-xattr -d -r com.apple.quarantine path/to/Goon.app
+xattr -d -r com.apple.quarantine /Applications/Goon.app
 ```
 
 You should now be able to run it.
+(change the path if you put it somewhere other than /Applications)
 
 You can also download and build yourself.
 If you want to volunteer to supply a certificate for notarization, open an issue.
