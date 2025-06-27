@@ -217,6 +217,8 @@ export default class App extends React.Component {
     this._eventBus.on('refreshFolder', this._handleRefreshFolder);
     this._eventBus.on('deleteFile', this._handleDeleteFile);
     this._eventBus.on('deleteFolder', this._handleDeleteFolder);
+    this._eventBus.on('copyFile', this._handleCopyFile);
+    this._eventBus.on('copyFolder', this._handleCopyFolder);
 
     this._toolbarEventBus = new ForwardableEventDispatcher();
     this._imageGridToolbarEventBus = new ForwardableEventDispatcher();
@@ -426,6 +428,26 @@ export default class App extends React.Component {
   }
   _handleRefreshFolder(event, folderName) {
     this._thumberStream.send('refreshFolder', folderName);
+  }
+  _handleCopyFile(event, fileInfo) {
+    const type = "text/plain";
+    const clipboardItemData = {
+      [type]: fileInfo.filename,
+    };
+    const clipboardItem = new ClipboardItem(clipboardItemData);
+    navigator.clipboard.write([clipboardItem]).catch((error) => {
+      console.error('Error copying file to clipboard:', error);
+    });
+  }
+  _handleCopyFolder(event, folderInfo) {
+    const type = "text/plain";
+    const clipboardItemData = {
+      [type]: folderInfo.filename,
+    };
+    const clipboardItem = new ClipboardItem(clipboardItemData);
+    navigator.clipboard.write([clipboardItem]).catch((error) => {
+      console.error('Error copying file to clipboard:', error);
+    });
   }
   _handleDeleteFolder(event, folderInfo) {
     this.setState((prevState) => ({

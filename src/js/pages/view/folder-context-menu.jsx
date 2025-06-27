@@ -42,12 +42,16 @@ export default class FolderContextMenu extends React.Component {
     super(props);
     bind(
       this,
+      '_handleCopy',
       '_handleOpen',
       '_handleDelete',
       '_handleRefreshFolder',
       '_handleSyncFolderView',
     );
     this._logger = debug('FolderContextMenu');
+  }
+  _handleCopy() {
+    this.props.eventBus.dispatch(new ForwardableEvent('copyFolder'), this.props.folder);
   }
   _handleOpen() {
     showItem(this.props.folder.filename, this.props.folder.archive);
@@ -72,6 +76,9 @@ export default class FolderContextMenu extends React.Component {
         </MenuItem>
         <MenuItem onClick={this._handleDelete}>
           Trash {this.props.folder ? this.props.folder.filename : ''}
+        </MenuItem>
+        <MenuItem onClick={this._handleCopy}>
+          Copy Folder Path
         </MenuItem>
         <MenuItem onClick={this._handleRefreshFolder}>
           Refresh

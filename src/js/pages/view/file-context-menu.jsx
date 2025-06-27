@@ -38,12 +38,16 @@ export default class FileContextMenu extends React.Component {
     super(props);
     bind(
       this,
+      '_handleCopy',
       '_handleOpen',
       '_handleDelete',
       '_handleRefreshFolder',
       '_handleSyncFolderView',
     );
     this._logger = debug('FileContextMenu');
+  }
+  _handleCopy() {
+    this.props.eventBus.dispatch(new ForwardableEvent('copyFile'), this.props.file);
   }
   _handleOpen() {
     showItem(this.props.file.archiveName ? this.props.file.archiveName : this.props.file.filename);
@@ -86,6 +90,9 @@ export default class FileContextMenu extends React.Component {
         {this._deleteMenuItem()}
         <MenuItem onClick={this._handleRefreshFolder}>
           Refresh
+        </MenuItem>
+        <MenuItem onClick={this._handleCopy}>
+          Copy File Path
         </MenuItem>
         <MenuItem onClick={this._handleSyncFolderView}>
           Sync Folder View
