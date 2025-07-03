@@ -19,10 +19,12 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import electron from 'electron';  // eslint-disable-line
+import electron, { Rectangle } from 'electron';  // eslint-disable-line
 import * as rect from './rect';
 
-function adjustDimension(innerBounds, outerBounds, axis, dim) {
+type Rect = rect.Rect | Rectangle;
+
+function adjustDimension(innerBounds: Rect, outerBounds: Rect, axis: 'x' | 'y', dim: 'width' | 'height') {
   const dispMax = outerBounds[axis] + outerBounds[dim];
   const winMax = innerBounds[axis] + innerBounds[dim];
   if (winMax > dispMax) {
@@ -36,7 +38,7 @@ function adjustDimension(innerBounds, outerBounds, axis, dim) {
   }
 }
 
-function putWindowOnNearestDisplay(winBounds) {
+function putWindowOnNearestDisplay(winBounds: Rect) {
   const dispBounds = electron.screen.getDisplayMatching(winBounds).bounds;
   adjustDimension(winBounds, dispBounds, 'x', 'width');
   adjustDimension(winBounds, dispBounds, 'y', 'height');
@@ -47,10 +49,10 @@ function putWindowOnNearestDisplay(winBounds) {
   return perfectFit;
 }
 
-function isTitlebarOnAtLeastOneDisplay(winBounds) {
+function isTitlebarOnAtLeastOneDisplay(winBounds: Rect) {
   // should this be OS specific?
   const screen = electron.screen;
-  const titleHeight = screen.getMenuBarHeight ? screen.getMenuBarHeight() : 20;
+  const titleHeight = screen.getPrimaryDisplay().workArea.y;
   const titleMinIntersectionWidth = 40;
   const titleMinIntersectionHeight = titleHeight;
   const displays = screen.getAllDisplays();
