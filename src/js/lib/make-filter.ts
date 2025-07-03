@@ -21,8 +21,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import moment from 'moment';
 import {getOrientationInfo} from './rotatehelper';
+import { DisplayFileInfo } from '../pages/view/folder-db';
 
-const filterTable = {
+type FilterTableEntry = {
+  fn: (str: string) => { filter: FilterFn, error?: string | undefined };
+  type: FilterType;
+};
+const filterTable: Record<string, FilterTableEntry> = {
   width:    { fn: makeWidthFilter,    type: 'width', },
   height:   { fn: makeHeightFilter,   type: 'height', },
   aspect:   { fn: makeAspectFilter,   type: 'aspect', },
@@ -36,15 +41,17 @@ const filterTable = {
   glob:     { fn: makeGlobFilter,     type: 'glob', },
   type:     { fn: makeTypeFilter,     type: 'type', },
   bad:      { fn: makeBadFilter,      type: 'bad', },
-};
+} as const;
+type FilterType = keyof typeof filterTable;
+type FilterFn = (filename: string, fileInfo: DisplayFileInfo) => boolean;
 
 const somethingQuoteRE = /(.)"/g;
 
-function unquoteHelper(m0, m1) {
+function unquoteHelper(m0: string, m1: string) {
   return (m1 === '\\') ? '"' : m1;
 }
 
-function unquote(str) {
+function unquote(str: string) {
   if (str.startsWith('"')) {
     str = str.substring(1);
   }
@@ -56,15 +63,15 @@ const spaceRE = /(?=\S)[^"\s]*(?:"[^\\"]*(?:\\[\s\S][^\\"]*)*"[^"\s]*)*/g;
 const wordRE = /([a-z]+):(.*)/i;
 const wordREFn = wordRE.exec.bind(wordRE);
 
-function makeFilter(filterStr) {
+function makeFilter(filterStr: string) {
   const parts = (filterStr.trim().match(spaceRE) || ['']).map(unquote);
   const wordMatches = parts.map(wordREFn);
-  const filters = [];
+  const filters: FilterFn[] = [];
   const errors = [];
-  let currentGlob = [];
-  const filterTypesUsed = {};
+  let currentGlob: string[] = [];
+  const filterTypesUsed: { [key in FilterType]?: boolean } = {};
 
-  function addResult(filterType, result) {
+  function addResult(filterType: FilterType, result: { filter: FilterFn, error?: string }) {
     if (result.error) {
       errors.push(result.error);
     } else {
@@ -76,7 +83,7 @@ function makeFilter(filterStr) {
   function addCurrentGlob() {
     if (currentGlob.length) {
       const str = currentGlob.join(' ');
-      addResult('glob', str === '' ? makeAllPassFilter(str) :  makeGlobFilter(str));
+      addResult('glob', str === '' ? makeAllPassFilter() : makeGlobFilter(str));
       currentGlob = [];
     }
   }
@@ -89,7 +96,7 @@ function makeFilter(filterStr) {
       const filterName = match[1];
       const filterArgs = match[2];
       const filterType = filterName.toLowerCase();
-      const filterInfo = filterTable[filterType];
+      const filterInfo: FilterTableEntry = filterTable[filterType as FilterType];
       if (filterInfo) {
         addResult(filterInfo.type, filterInfo.fn(filterArgs));
       } else {
@@ -139,8 +146,8 @@ function makeAllPassFilter() {
   };
 }
 
-function makeCompositeFilter(filters) {
-  return (filename, fileInfo) => {
+function makeCompositeFilter(filters: FilterFn[]) {
+  return (filename: string, fileInfo: DisplayFileInfo) => {
     for (const filter of filters) {
       if (!filter(filename, fileInfo)) {
         return false;
@@ -153,15 +160,15 @@ function makeCompositeFilter(filters) {
 const expressionPartsRE = /([!><=]+)(\d*(?:\.\d*|))(.*)/;
 const whitespaceRE = / \t\n/g;
 const expressionFnTable = {
-  '>':   (a, b) => a > b,
-  '>=':  (a, b) => a >= b,
-  '<':   (a, b) => a < b,
-  '<=':  (a, b) => a <= b,
-  '=':   (a, b) => a === b,
-  '==':  (a, b) => a === b,
-  '!=':  (a, b) => a !== b,
-  '!==': (a, b) => a !== b,
-};
+  '>':   (a: number, b: number) => a > b,
+  '>=':  (a: number, b: number) => a >= b,
+  '<':   (a: number, b: number) => a < b,
+  '<=':  (a: number, b: number) => a <= b,
+  '=':   (a: number, b: number) => a === b,
+  '==':  (a: number, b: number) => a === b,
+  '!=':  (a: number, b: number) => a !== b,
+  '!==': (a: number, b: number) => a !== b,
+} as const;
 const suffixMultiplierTable = {
   'b': 1,
   'k': 1024,
@@ -176,8 +183,8 @@ const suffixMultiplierTable = {
   'eb': 1024 * 1024 * 1024 * 1024 * 1024,
   'p': 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
   'pb': 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
-};
-function makeExpressionFn(str) {
+} as const;
+function makeExpressionFn(str: string) {
   // >
   // >=
   // <
@@ -194,7 +201,7 @@ function makeExpressionFn(str) {
     };
   }
   const [, expression, number, suffix] = parts;
-  const expressionFn = expressionFnTable[expression];
+  const expressionFn = expressionFnTable[expression as keyof typeof expressionFnTable];
   if (!expressionFn) {
     return {
       filter: allPass,
@@ -204,28 +211,28 @@ function makeExpressionFn(str) {
 
   let multiplier = 1;
   if (suffix.length) {
-    multiplier = suffixMultiplierTable[suffix.toLowerCase()];
+    multiplier = suffixMultiplierTable[suffix.toLowerCase() as keyof typeof suffixMultiplierTable];
     if (!multiplier) {
       return {
         filter: allPass,
-        error: `unknonw suffix: ${suffix}`,
+        error: `unknown suffix: ${suffix}`,
       };
     }
   }
 
-  const amount = number * multiplier;
+  const amount = parseFloat(number) * multiplier;
   return {
-    filter: (a) => expressionFn(a, amount),
+    filter: (a: number) => expressionFn(a, amount),
   };
 }
 
 // const globCharsRE = /[*?{}]/;
 const globCharsRE = /[*?]/;
-function makeGlob(str) {
+function makeGlob(str: string) {
   str = str.toLowerCase();
   if (!globCharsRE.test(str)) {
     return {
-      filter: (v) => v.indexOf(str) >= 0,
+      filter: (v: string) => v.indexOf(str) >= 0,
     };
   }
   let re;
@@ -234,84 +241,84 @@ function makeGlob(str) {
     re = new RegExp(`[\\/]${str}`);
   } catch (e) {
     return {
-      error: e.toString(),
+      error: e?.toString(),
       filter: allPass,
     };
   }
 
   return {
-    filter: (v) => re.test(v),
+    filter: (v: string) => re.test(v),
   };
 }
 
-function makeGlobFilter(str) {
+function makeGlobFilter(str: string) {
   const {error, filter} = makeGlob(str);
   return {
     error,
-    filter: (filename, fileInfo) => filter(fileInfo.lowercaseName),
+    filter: (filename: string, fileInfo: DisplayFileInfo) => filter(fileInfo.lowercaseName),
   };
 }
 
-function makeFolderFilter(str) {
+function makeFolderFilter(str: string) {
   const {error, filter} = makeGlob(str);
   return {
     error,
-    filter: (filename, fileInfo) => filter(fileInfo.folderName),
+    filter: (filename: string, fileInfo: DisplayFileInfo) => filter(fileInfo.folderName),
   };
 }
 
-function makeFilenameFilter(str) {
+function makeFilenameFilter(str: string) {
   const {error, filter} = makeGlob(str);
   return {
     error,
-    filter: (filename, fileInfo) => filter(fileInfo.baseName),
+    filter: (filename: string, fileInfo: DisplayFileInfo) => filter(fileInfo.baseName),
   };
 }
 
-function makeTypeFilter(str) {
+function makeTypeFilter(str: string) {
   const {error, filter} = makeGlob(str);
   return {
     error,
-    filter: (filename, fileInfo) => filter(fileInfo.type),
+    filter: (filename: string, fileInfo: DisplayFileInfo) => filter(fileInfo.type),
   };
 }
 
-function makeWidthFilter(str) {
+function makeWidthFilter(str: string) {
   const {error, filter} = makeExpressionFn(str);
   return {
     error,
-    filter: (filename, fileInfo) => {
+    filter: (filename: string, fileInfo: DisplayFileInfo) => {
       const info = getOrientationInfo(fileInfo, fileInfo.orientation);
-      return info.width && filter(info.width);
+      return info.width !== 0 && filter(info.width);
     },
   };
 }
 
-function makeHeightFilter(str) {
+function makeHeightFilter(str: string) {
   const {error, filter} = makeExpressionFn(str);
   return {
     error,
-    filter: (filename, fileInfo) => {
+    filter: (filename: string, fileInfo: DisplayFileInfo) => {
       const info = getOrientationInfo(fileInfo, fileInfo.orientation);
-      return info.height && filter(info.height);
+      return info.height !== 0 && filter(info.height);
     },
   };
 }
 
-function makeSizeFilter(str) {
+function makeSizeFilter(str: string) {
   const {error, filter} = makeExpressionFn(str);
   return {
     error,
-    filter: (filename, fileInfo) => fileInfo.size && filter(fileInfo.size),
+    filter: (filename: string, fileInfo: DisplayFileInfo) => fileInfo.size !== 0 && filter(fileInfo.size),
   };
 }
 
-function makeAspectFilter(str) {
+function makeAspectFilter(str: string) {
   str = str.replace('landscape', '>1').replace('portrait', '<1');
   const {error, filter} = makeExpressionFn(str);
   return {
     error,
-    filter: (filename, fileInfo) => {
+    filter: (filename: string, fileInfo: DisplayFileInfo) => {
       if (!fileInfo.width || !fileInfo.height) {
         return false;
       }
@@ -322,22 +329,22 @@ function makeAspectFilter(str) {
   };
 }
 
-function goodFilter(filename, fileInfo) {
+function goodFilter(filename: string, fileInfo: DisplayFileInfo) {
   return !fileInfo.bad;
 }
 
-function badFilter(filename, fileInfo) {
-  return fileInfo.bad;
+function badFilter(filename: string, fileInfo: DisplayFileInfo) {
+  return !!fileInfo.bad;
 }
 
-function makeBadFilter(/* str */) {
+function makeBadFilter(/* str: string*/) {
   return {
     filter: badFilter,
   };
 }
 
 const dateExpressionPartsRE = /([!<>=]+)(.*)/;
-function makeDateFilter(str) {
+function makeDateFilter(str: string) {
   const parts = dateExpressionPartsRE.exec(str.replace(whitespaceRE, ''));
   if (!parts) {
     return {
@@ -346,7 +353,7 @@ function makeDateFilter(str) {
     };
   }
   const [, expression, dateStr] = parts;
-  const expressionFn = expressionFnTable[expression];
+  const expressionFn = expressionFnTable[expression as keyof typeof expressionFnTable];
   if (!expressionFn) {
     return {
       filter: allPass,
@@ -363,7 +370,7 @@ function makeDateFilter(str) {
   }
   const amount = date.valueOf();
   return {
-    filter: (filename, fileInfo) => expressionFn(fileInfo.mtime, amount),
+    filter: (filename: string, fileInfo: DisplayFileInfo) => expressionFn(fileInfo.mtime, amount),
   };
 }
 
