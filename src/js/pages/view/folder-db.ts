@@ -25,20 +25,20 @@ import path from 'path';
 import { FileInfo, FilesByPath } from '../../lib/fileinfo';
 import { FolderInfo, FoldersByPath } from '../../lib/folderinfo';
 
-export type DisplayFileInfo = FileInfo & {
+export type DBFileInfo = FileInfo & {
   filename: string;
   baseName: string;
   folderName: string;
   lowercaseName: string;
 };
 
-type DisplayFilesByPath = { [key: string]: DisplayFileInfo };
-type DisplayFolderInfo = Omit<FolderInfo, 'files'> & {
-  files: DisplayFilesByPath;
+type DBFilesByPath = { [key: string]: DBFileInfo };
+type DBFolderInfo = Omit<FolderInfo, 'files'> & {
+  files: DBFilesByPath;
 };
-type DisplayFoldersByPath = { [key: string]: DisplayFolderInfo };
+type DBFoldersByPath = { [key: string]: DBFolderInfo };
 
-function addFileMetaData(files: FilesByPath): DisplayFilesByPath {
+function addFileMetaData(files: FilesByPath): DBFilesByPath {
   return Object.fromEntries(Object.entries(files).map(([filename, fileInfo]) => [
       filename,
       {
@@ -48,14 +48,17 @@ function addFileMetaData(files: FilesByPath): DisplayFilesByPath {
         folderName: path.dirname(filename).toLowerCase(),
         lowercaseName: fileInfo.displayName.toLowerCase(),
       },
-    ])) as DisplayFilesByPath;
+    ])) as DBFilesByPath;
 }
 
-function folderInfoToDisplayFolderInfo(folder: FolderInfo): DisplayFolderInfo {
-  return {
+function folderInfoToDisplayFolderInfo(folder: FolderInfo): DBFolderInfo {
+  const info = {
     ...folder,
     files: addFileMetaData(folder.files),
   };
+  info.files = info.files ?? {};
+  info.status = info.status ?? {};
+  return info;
 }
 
 // This is basically just a receptacle for all the data
@@ -65,7 +68,7 @@ function folderInfoToDisplayFolderInfo(folder: FolderInfo): DisplayFolderInfo {
 // locally.
 export default class FolderDB extends EventEmitter {
 
-  _folders: DisplayFoldersByPath;
+  _folders: DBFoldersByPath;
   _newFolders: FoldersByPath;
   _totalFiles: number;
 
@@ -90,8 +93,6 @@ export default class FolderDB extends EventEmitter {
     this._newFolders = {};
     for (const [folderName, srcFolder] of Object.entries(folders)) {
       const folder = folderInfoToDisplayFolderInfo(srcFolder);
-      folder.files = folder.files || {};
-      folder.status = folder.status || {};
       const status = folder.status;
       const oldFolder = this._folders[folderName];
       if (oldFolder) {

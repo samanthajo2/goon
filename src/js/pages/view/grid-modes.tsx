@@ -25,7 +25,7 @@ import {px} from '../../lib/utils';
 import {cssArray} from '../../lib/css-utils';
 import KeyHelper from '../../lib/key-helper';
 import { Rect } from '../../lib/rect';
-import { DisplayFileInfo } from './folder-db';
+import { DBFileInfo } from './folder-db';
 
 const g_backslashRE = /\\/g;
 function prepForCSSUrl(url: string) {
@@ -168,7 +168,7 @@ type ThumbnailProps = {
   showDates: boolean;
   showDimensions: boolean;
   gridMode: GridMode;
-  info: DisplayFileInfo;
+  info: DBFileInfo;
 };
 
 function computeFitStyle(displayAspect: number, props: ThumbnailProps) {
@@ -286,7 +286,7 @@ const gridModes = new KeyHelper(gridModeDefs);
 
 const s_slashRE = /[\\/]/g;
 
-function renderName(props: ThumbnailProps, info: DisplayFileInfo) {
+function renderName(props: ThumbnailProps, info: DBFileInfo) {
   const name = path.basename(info.filename);
   const date = props.showDates ? `${(new Date(info.mtime))}:` : '';
   const dims = (props.showDimensions && info.width) ? `:${info.width}x${info.height}` : '';

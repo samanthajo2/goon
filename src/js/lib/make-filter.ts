@@ -21,7 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import moment from 'moment';
 import {getOrientationInfo} from './rotatehelper';
-import { DisplayFileInfo } from '../pages/view/folder-db';
+import { DBFileInfo } from '../pages/view/folder-db';
 
 type FilterTableEntry = {
   fn: (str: string) => { filter: FilterFn, error?: string | undefined };
@@ -43,7 +43,7 @@ const filterTable: Record<string, FilterTableEntry> = {
   bad:      { fn: makeBadFilter,      type: 'bad', },
 } as const;
 type FilterType = keyof typeof filterTable;
-type FilterFn = (filename: string, fileInfo: DisplayFileInfo) => boolean;
+type FilterFn = (filename: string, fileInfo: DBFileInfo) => boolean;
 
 const somethingQuoteRE = /(.)"/g;
 
@@ -147,7 +147,7 @@ function makeAllPassFilter() {
 }
 
 function makeCompositeFilter(filters: FilterFn[]) {
-  return (filename: string, fileInfo: DisplayFileInfo) => {
+  return (filename: string, fileInfo: DBFileInfo) => {
     for (const filter of filters) {
       if (!filter(filename, fileInfo)) {
         return false;
@@ -255,7 +255,7 @@ function makeGlobFilter(str: string) {
   const {error, filter} = makeGlob(str);
   return {
     error,
-    filter: (filename: string, fileInfo: DisplayFileInfo) => filter(fileInfo.lowercaseName),
+    filter: (filename: string, fileInfo: DBFileInfo) => filter(fileInfo.lowercaseName),
   };
 }
 
@@ -263,7 +263,7 @@ function makeFolderFilter(str: string) {
   const {error, filter} = makeGlob(str);
   return {
     error,
-    filter: (filename: string, fileInfo: DisplayFileInfo) => filter(fileInfo.folderName),
+    filter: (filename: string, fileInfo: DBFileInfo) => filter(fileInfo.folderName),
   };
 }
 
@@ -271,7 +271,7 @@ function makeFilenameFilter(str: string) {
   const {error, filter} = makeGlob(str);
   return {
     error,
-    filter: (filename: string, fileInfo: DisplayFileInfo) => filter(fileInfo.baseName),
+    filter: (filename: string, fileInfo: DBFileInfo) => filter(fileInfo.baseName),
   };
 }
 
@@ -279,7 +279,7 @@ function makeTypeFilter(str: string) {
   const {error, filter} = makeGlob(str);
   return {
     error,
-    filter: (filename: string, fileInfo: DisplayFileInfo) => filter(fileInfo.type),
+    filter: (filename: string, fileInfo: DBFileInfo) => filter(fileInfo.type),
   };
 }
 
@@ -287,7 +287,7 @@ function makeWidthFilter(str: string) {
   const {error, filter} = makeExpressionFn(str);
   return {
     error,
-    filter: (filename: string, fileInfo: DisplayFileInfo) => {
+    filter: (filename: string, fileInfo: DBFileInfo) => {
       const info = getOrientationInfo(fileInfo, fileInfo.orientation);
       return info.width !== 0 && filter(info.width);
     },
@@ -298,7 +298,7 @@ function makeHeightFilter(str: string) {
   const {error, filter} = makeExpressionFn(str);
   return {
     error,
-    filter: (filename: string, fileInfo: DisplayFileInfo) => {
+    filter: (filename: string, fileInfo: DBFileInfo) => {
       const info = getOrientationInfo(fileInfo, fileInfo.orientation);
       return info.height !== 0 && filter(info.height);
     },
@@ -309,7 +309,7 @@ function makeSizeFilter(str: string) {
   const {error, filter} = makeExpressionFn(str);
   return {
     error,
-    filter: (filename: string, fileInfo: DisplayFileInfo) => fileInfo.size !== 0 && filter(fileInfo.size),
+    filter: (filename: string, fileInfo: DBFileInfo) => fileInfo.size !== 0 && filter(fileInfo.size),
   };
 }
 
@@ -318,7 +318,7 @@ function makeAspectFilter(str: string) {
   const {error, filter} = makeExpressionFn(str);
   return {
     error,
-    filter: (filename: string, fileInfo: DisplayFileInfo) => {
+    filter: (filename: string, fileInfo: DBFileInfo) => {
       if (!fileInfo.width || !fileInfo.height) {
         return false;
       }
@@ -329,11 +329,11 @@ function makeAspectFilter(str: string) {
   };
 }
 
-function goodFilter(filename: string, fileInfo: DisplayFileInfo) {
+function goodFilter(filename: string, fileInfo: DBFileInfo) {
   return !fileInfo.bad;
 }
 
-function badFilter(filename: string, fileInfo: DisplayFileInfo) {
+function badFilter(filename: string, fileInfo: DBFileInfo) {
   return !!fileInfo.bad;
 }
 
@@ -370,7 +370,7 @@ function makeDateFilter(str: string) {
   }
   const amount = date.valueOf();
   return {
-    filter: (filename: string, fileInfo: DisplayFileInfo) => expressionFn(fileInfo.mtime, amount),
+    filter: (filename: string, fileInfo: DBFileInfo) => expressionFn(fileInfo.mtime, amount),
   };
 }
 
