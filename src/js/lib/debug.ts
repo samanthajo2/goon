@@ -39,7 +39,9 @@ function makeNoopFunc(name: string) {
   return noop;
 }
 
-export default function debug(name: string) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export default function debug(name: string, ...args: any[]) {
   const matches = s_debugRE.test(name);
-  return matches ? makeLogFunc(name) : makeNoopFunc(name);
+  const fullName = `${name}${args.join('')}`;
+  return matches ? makeLogFunc(fullName) : makeNoopFunc(fullName);
 }

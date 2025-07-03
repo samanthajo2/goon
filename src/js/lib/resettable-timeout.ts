@@ -24,14 +24,21 @@ import debug from './debug';
 
 let resetTimeoutId = 0;
 
-// * ResetableTimeout
+// * ResettableTimeout
 //   Like `setTimeout` except you can call `reset` to extend the timeout
 
-export default class ResetableTimeout {
-  constructor(fn, timeoutInMS, thresholdInMS) {
+export default class ResettableTimeout {
+  _fn: () => void;
+  _id: number;
+  _logger: ReturnType<typeof debug>;
+  _thresholdInMS: number;
+  _timeoutInMS?: number;
+  _timeOfLastRealReset: number;
+  _timeoutId?: ReturnType<typeof setTimeout>;
+  constructor(fn: () => void, timeoutInMS: number, thresholdInMS?: number) {
     this._fn = fn;
     this._id = ++resetTimeoutId;
-    this._logger = debug('ResetableTimeout', this._id);
+    this._logger = debug('ResettableTimeout', this._id);
     this._thresholdInMS = thresholdInMS || timeoutInMS / 4;
     this._timeOfLastRealReset = 0;
     bind(
@@ -40,7 +47,7 @@ export default class ResetableTimeout {
     );
     this.reset(timeoutInMS);
   }
-  reset(timeoutInMS) {
+  reset(timeoutInMS?: number) {
     if (timeoutInMS !== undefined) {
       this._timeoutInMS = timeoutInMS;
     }

@@ -8,9 +8,9 @@ const canvas = document.createElement('canvas');
 canvas.width = w;
 canvas.height = h;
 
-const ctx = canvas.getContext('2d');
+const ctx = canvas.getContext('2d')!;
 
-function hash(str) {
+function hash(str: string): number {
   let hash = 5381;
   for (let i = 0; i < str.length; ++i) {
     hash = (((hash << 5) + hash) + str.charCodeAt(i)) & 0xFFFFFFFF;
@@ -18,7 +18,7 @@ function hash(str) {
   return hash;
 }
 
-export function createImageFromString(str) {
+export function createImageFromString(str: string) {
   const hue = (hash(str) & 0xFF) / 0xFF;
   ctx.fillStyle = hsl(hue, 1, 0.4);
   ctx.fillRect(0, 0, w, h);

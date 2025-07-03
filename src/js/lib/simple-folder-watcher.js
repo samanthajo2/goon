@@ -24,7 +24,7 @@ import path from 'path';
 import ListenerManager from './listener-manager';
 import debug from './debug';
 import bind from './bind';
-import ResetableTimeout from './resetable-timeout';
+import ResettableTimeout from './resettable-timeout';
 
 function shallowCopy(src) {
   const dst = {};
@@ -113,7 +113,7 @@ export default class SimpleFolderWatcher extends EventEmitter {
   }
 
   _sendEndAfterTimeout() {
-    this._timeout = this._timeout || new ResetableTimeout(this._sendEnd, 250);
+    this._timeout = this._timeout || new ResettableTimeout(this._sendEnd, 250);
     this._timeout.reset();
   }
 
