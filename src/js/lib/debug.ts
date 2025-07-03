@@ -19,7 +19,8 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import makeLogFunc from './logger';
+import makeLogFunc, { Logger } from './logger';
+export { Logger };
 
 const s_debugRE = ((debug?: string) => {
   debug = debug || '-----';
@@ -28,7 +29,7 @@ const s_debugRE = ((debug?: string) => {
   return new RegExp(pattern);
 })(process.env.DEBUG);
 
-function makeNoopFunc(name: string) {
+function makeNoopFunc(name: string): Logger {
   const noop = () => {};
   noop.getPrefix = () => name;
   noop.throw = (...args: string[]) => {
@@ -36,12 +37,13 @@ function makeNoopFunc(name: string) {
   };
   noop.error = () => {
   };
-  return noop;
+  return noop as Logger;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default function debug(name: string, ...args: any[]) {
+export default function debug(name: string, ...args: any[]): Logger {
   const matches = s_debugRE.test(name);
   const fullName = `${name}${args.join('')}`;
   return matches ? makeLogFunc(fullName) : makeNoopFunc(fullName);
 }
+

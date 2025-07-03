@@ -33,11 +33,9 @@ const rotateModes: RotateMode[] = [
   { className: 'deg270', axis: 'Y', xMult: -1, yMult:  1 },
 ];
 
-interface XY {
-  [key: string]: number;
-}
 
-function getRotatedXY(e: XY, fieldName: string, rotateMode: number): { x: number; y: number } {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getRotatedXY(e: any, fieldName: string, rotateMode: number): { x: number; y: number } {
   const ri = rotateModes[rotateMode];
   const xAxis = ri.axis;
   const yAxis = xAxis === 'X' ? 'Y' : 'X';

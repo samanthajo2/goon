@@ -63,7 +63,7 @@ function makeTerminalLog(color: HSL, name: string) {
 }
 
 type LogFunc = (...args: any[]) => void;
-type Logger = LogFunc & {
+export type Logger = LogFunc & {
   getPrefix: () => string;
   id: string;
   throw: (...args: any[]) => never;

@@ -26,11 +26,11 @@ function exists(a: any) {
 
 class CSSArray {
   _classes: string[];
-  constructor(...args: string[]) {
-    this._classes = [...args].filter(exists);
+  constructor(...args: (string | undefined)[]) {
+    this._classes = [...args].filter(exists) as string[];
   }
-  add(...classNames: string[]) {
-    this._classes = [...this._classes, ...[...classNames].filter(exists)];
+  add(...classNames: (string | undefined)[]) {
+    this._classes = [...this._classes, ...[...classNames].filter(exists)] as string[];
     return this;
   }
   addIf(cond: boolean, ...classNames: string[]) {
@@ -55,7 +55,7 @@ class CSSArray {
   }
 }
 
-function cssArray(...args: string[]) {
+function cssArray(...args: (string | undefined)[]) {
   return new CSSArray(...args);
 }
 
