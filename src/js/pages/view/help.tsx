@@ -21,10 +21,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import {shell} from 'electron';  // eslint-disable-line
 import Modal from '../../lib/ui/modal';
 
-const Help = (props) => (
+const Help = (props: { onClose: () => void }) => (
   <Modal>
     <div className="fullscreen">
       <webview
