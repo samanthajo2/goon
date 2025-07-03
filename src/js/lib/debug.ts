@@ -21,17 +21,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import makeLogFunc from './logger';
 
-const s_debugRE = ((debug) => {
+const s_debugRE = ((debug?: string) => {
   debug = debug || '-----';
   const patterns = debug.split(',').map((pattern) => pattern.replace(/\*/, '.*?') || '----');
   const pattern = `^(${patterns.join('|')})$`;
   return new RegExp(pattern);
 })(process.env.DEBUG);
 
-function makeNoopFunc(name) {
+function makeNoopFunc(name: string) {
   const noop = () => {};
   noop.getPrefix = () => name;
-  noop.throw = (...args) => {
+  noop.throw = (...args: string[]) => {
     throw new Error(`${name}: ${[...args].join()}`);
   };
   noop.error = () => {
@@ -39,7 +39,7 @@ function makeNoopFunc(name) {
   return noop;
 }
 
-export default function debug(name, ...args) {
+export default function debug(name: string) {
   const matches = s_debugRE.test(name);
-  return matches ? makeLogFunc(name, ...args) : makeNoopFunc(name);
+  return matches ? makeLogFunc(name) : makeNoopFunc(name);
 }

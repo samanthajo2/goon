@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
 Copyright 2024 SamanthaJo
 
@@ -21,8 +22,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import chalk from 'chalk';
 
+type HSL ={
+  h: number;  // hue, 0-1
+  s: number;  // saturation, 0-1
+  l: number;  // lightness, 0-1
+}
+
 let s_colorNdx = 0;
-function generateColor() {
+function generateColor(): HSL {
   /* eslint-disable no-bitwise */
   const h = (((s_colorNdx & 0x01) << 5) |
              ((s_colorNdx & 0x02) << 3) |
@@ -42,32 +49,41 @@ function generateColor() {
   };
 }
 
-function makeCSSColor(hsl) {
+function makeCSSColor(hsl: HSL): string {
   return `hsl(${hsl.h},${hsl.s}%,${hsl.l}%)`;
 }
 
 const defaultColor = 'color:inherit;';
-function makeBrowserLog(color, name) {
+function makeBrowserLog(color: HSL, name: string) {
   return console.log.bind(console, '%c%s: %c', `color: ${makeCSSColor(color)}`, name, defaultColor);  // eslint-disable-line
 }
 
-function makeTerminalLog(color, name) {
+function makeTerminalLog(color: HSL, name: string) {
   return console.log.bind(console, chalk.hsl(color.h, color.s, color.l)(name));  // eslint-disable-line
 }
 
-export default function makeLogFunc(baseName, subName) {
+type LogFunc = (...args: any[]) => void;
+type Logger = LogFunc & {
+  getPrefix: () => string;
+  id: string;
+  throw: (...args: any[]) => never;
+  error: (...args: any[]) => void;
+}
+
+export default function makeLogFunc(baseName: string, subName?: string): Logger {
   const name = subName !== undefined ? `${baseName}[${subName}]` : baseName;
   const color = generateColor();
   const logger = process.type === 'renderer'
     ? makeBrowserLog(color, name)
     : makeTerminalLog(color, name);
-  logger.getPrefix = () => name;
-  logger.id = name;
-  logger.throw = (...args) => {
+  const l = logger as Logger;
+  l.getPrefix = () => name;
+  l.id = name;
+  l.throw = (...args) => {
     throw new Error(`${name}: ${[...args].join(' ')}`);
   };
-  logger.error = (...args) => {
+  l.error = (...args) => {
     console.error(name, ...args);
   };
-  return logger;
+  return l;
 }
