@@ -22,26 +22,38 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import fs from 'fs';
 import path from 'path';
 
-function readDirTreeSync(filePath, options) {
-  options = options || {};
+type FilterFn = (filename: string, filePath: string, isDir: boolean) => boolean;
+function filterToFilterFn(filter? : undefined | FilterFn | RegExp) {
+  if (!filter) {
+    return () => true;
+  } else if (filter instanceof RegExp) {
+    return (filename: string) => filter.test(filename);
+  } else {
+    return filter;
+  }
+}
+
+function readDirTreeSync(
+  filePath: string,
+  options: {
+    log?: (filePath: string) => void,
+    filter?: FilterFn | RegExp
+  } = {},
+): string[] {
+  options = options ?? {};
   if (options.log) {
     options.log(filePath);
   }
 
-  let filter = options.filter;
-  if (filter === undefined) {
-    filter = () => true;
-  } else if (filter instanceof RegExp) {
-    filter = ((filt) => (filename) => filt.test(filename))(filter);
-  }
+  const filter = filterToFilterFn(options.filter);
 
-  function callFilter(filename) {
+  function callFilter(filename: string) {
     return filter(filename, filePath, fs.statSync(path.join(filePath, filename)).isDirectory());
   }
 
   let fileNames = fs.readdirSync(filePath).filter(callFilter);
 
-  const subdirFilenames = [];
+  const subdirFilenames: string[][] = [];
   fileNames = fileNames.filter((fileName) => {
     const subdirFileName = path.join(filePath, fileName);
     try {
@@ -63,7 +75,7 @@ function readDirTreeSync(filePath, options) {
   return fileNames;
 }
 
-function globToRegex(glob) {
+function globToRegex(glob: string): string {
   return glob
     .replace(/\//g, '\\/')
     .replace(/\./g, '\\.')
@@ -71,23 +83,23 @@ function globToRegex(glob) {
     .replace(/\*/g, '.*?');
 }
 
-function makeIgnoreFunc(ignore) {
+function makeIgnoreFunc(ignore: string): FilterFn {
   let negate = false;
   let mustBeDir = false;
-  if (ignore.substr(0, 1) === '!') {
+  if (ignore.substring(0, 1) === '!') {
     negate = true;
-    ignore = ignore.substr(1);
+    ignore = ignore.substring(1);
   }
-  if (ignore.substr(0, 1) === '/') {
-    ignore = `^\\/${ignore.substr(1)}`;
+  if (ignore.substring(0, 1) === '/') {
+    ignore = `^\\/${ignore.substring(1)}`;
   } else {
     ignore = `\\/${ignore}`;
   }
-  if (ignore.substr(-1) === '/') {
+  if (ignore.endsWith('/')) {
     mustBeDir = true;
   }
   ignore = globToRegex(ignore);
-  if (!mustBeDir && ignore.substr(0, 1) !== '^') {
+  if (!mustBeDir && ignore.substring(0, 1) !== '^') {
     ignore += '$';
   }
   const re = new RegExp(ignore);
@@ -102,8 +114,8 @@ function makeIgnoreFunc(ignore) {
   };
 }
 
-function makeIgnoreFilter(ignores) {
-  if (!ignores) {
+function makeIgnoreFilter(ignores: string[]): FilterFn {
+  if (ignores.length === 0) {
     return () => true;
   }
 
