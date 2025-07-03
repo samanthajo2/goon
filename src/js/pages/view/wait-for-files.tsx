@@ -22,7 +22,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import React from 'react';
 import Modal from '../../lib/ui/modal';
 
-const WaitForFiles = (props) => (
+const WaitForFiles = (props: { onClick: () => void }) => (
   <Modal>
     <div className="msg">
       <div><img src="images/logo.svg" style={{ width: '320px' }} /></div>
