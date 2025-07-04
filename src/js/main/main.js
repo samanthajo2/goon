@@ -639,6 +639,14 @@ function setupMenus() {
             }
           }
         },
+        {
+          label: 'Toggle Thumber Developer Tools',
+          click() {
+            if (oneOfAKindWindows.thumber) {
+              oneOfAKindWindows.thumber.webContents.toggleDevTools();
+            }
+          }
+        },
       ]
     },
     {
@@ -657,6 +665,12 @@ function setupMenus() {
               sendAction(focusedWindow.webContents, 'toggleFullscreen');
             }
           }
+        },
+        {
+          label: 'New Window',
+          click() {
+            createWindow();
+          },
         },
         {
           label: 'Close',
