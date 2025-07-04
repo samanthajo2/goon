@@ -28,20 +28,26 @@ import * as filters from '../lib/filters';
 import {separateFiles} from '../pages/thumber/folder-utils';
 
 let lastLineLength = 0;
-function logLine(...args) {
+function logLine(...args: string[]) {
   const line = [...args].join(' ');
   process.stdout.write(`${line.padEnd(lastLineLength)}\r`);
   lastLineLength = line.length;
 }
 
-function logDir(filepath) {
+function logDir(filepath: string) {
   logLine('readdir:', filepath);
 }
 
-export default function compareFoldersToCache(baseFolders, options) {
+export default function compareFoldersToCache(
+  baseFolders: string[],
+  options: {
+    userDataDir: string,
+    deleteFolderDataIfNoFilesForArchive?: boolean,
+  },
+) {
   const userDataDir = options.userDataDir;
   // get listings of all folders
-  const realFolders = {};
+  const realFolders: { [key: string]: ({ [key: string]: boolean}) } = {};
   baseFolders.forEach((baseFolder) => {
     logLine('readdir:', baseFolder);
     if (utils.fileExistsSync(baseFolder)) {
@@ -57,7 +63,7 @@ export default function compareFoldersToCache(baseFolders, options) {
       });
     }
   });
-  const dataFolders = {};
+  const dataFolders: { [key: string]: FolderData } = {};
   // read all data starting from baseFolders
   baseFolders.forEach((baseFolder) => {
     Object.assign(dataFolders, readDataFolderTree(baseFolder, userDataDir));
@@ -91,7 +97,7 @@ export default function compareFoldersToCache(baseFolders, options) {
               if (Object.keys(archiveFolder.files).length === 0) {
                 console.warn('no files for archive:', filename);
                 if (options.deleteFolderDataIfNoFilesForArchive) {
-                  console.log('DELETE:', archiveFolder.baseFoldername, filename);
+                  console.log('DELETE:', filename);
                   archiveFolder.deleteData();
                 }
               }
@@ -103,14 +109,14 @@ export default function compareFoldersToCache(baseFolders, options) {
   }
 }
 
-function readDataFolderTree(folderPath, userDataDir) {
+function readDataFolderTree(folderPath: string, userDataDir: string) {
   logLine('read folder data:', folderPath);
   const folderData = new FolderData(folderPath, {
     readOnly: true,
     fs: fs,
     dataDir: userDataDir,
   });
-  const folders = {};
+  const folders: { [key: string]: FolderData } = {};
   if (folderData.exists) {
     folders[folderPath] = folderData;
     const bins = separateFiles(folderData.files);

@@ -22,10 +22,24 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import path from 'path';
 import debug from '../../lib/debug';
 import KeyHelper from '../../lib/key-helper';
+import { FoldersByPath, FolderStatus } from '../../lib/folderinfo';
+import { FileInfo, FilesByPath } from '../../lib/fileinfo';
 
 const log = debug('FolderStateHelper');
 
-function createSortName(name) {
+type FolderStateFileInfo = FileInfo & {
+  filename: string;
+  sortName: string;
+};
+
+type SortInfo = {
+  name: string;
+  info: FolderStateFileInfo;
+}
+
+type SortFn = (a: SortInfo, b: SortInfo) => number;
+
+function createSortName(name: string) {
   const parts = name.split(/(\d+)/);
   for (let ii = 1; ii < parts.length; ii += 2) {
     parts[ii] = parts[ii].padStart(10, '0');
@@ -33,23 +47,23 @@ function createSortName(name) {
   return parts.join('').toLowerCase();
 }
 
-function getSortName(orig) {
+function getSortName(orig: FolderStateFileInfo): string {
   return orig.sortName;
 }
 
-function sortBySortPath(a, b) {
+function sortBySortPath(a: SortInfo, b: SortInfo): number {
   const aStr = getSortName(a.info);
   const bStr = getSortName(b.info);
   return aStr < bStr ? -1 : (aStr > bStr ? 1 : 0);
 }
 
-function sortBySortName(a, b) {
+function sortBySortName(a: SortInfo, b: SortInfo): number {
   const aStr = path.basename(getSortName(a.info));
   const bStr = path.basename(getSortName(b.info));
   return aStr < bStr ? -1 : (aStr > bStr ? 1 : 0);
 }
 
-function sortByNewest(a, b) {
+function sortByNewest(a: SortInfo, b: SortInfo): number {
   const diff = a.info.mtime - b.info.mtime;
   if (diff) {
     return diff > 0 ? -1 : 1;
@@ -59,11 +73,11 @@ function sortByNewest(a, b) {
   return aStr < bStr ? -1 : (aStr > bStr ? 1 : 0);
 }
 
-function getIndexToInsertBySortPath(array, folder) {
+function getIndexToInsertBySortPath(array: FolderStateFolder[], folder: FolderStateFolder) {
   return getIndexBySortName(array, folder.sortName);
 }
 
-function getIndexToInsertByNewestDate(array, folder) {
+function getIndexToInsertByNewestDate(array: FolderStateFolder[], folder: FolderStateFolder) {
   let ndx;
   for (ndx = 0; ndx < array.length; ++ndx) {
     if (folder.newest > array[ndx].newest) {
@@ -77,7 +91,7 @@ function getIndexToInsertByNewestDate(array, folder) {
   return ndx;
 }
 
-function getIndexBySortName(array, sortName) {
+function getIndexBySortName(array: FolderStateFolder[], sortName: string) {
   // switch to binary search
   let ndx;
   for (ndx = 0; ndx < array.length; ++ndx) {
@@ -88,7 +102,7 @@ function getIndexBySortName(array, sortName) {
   return ndx;
 }
 
-function getIndexToInsertBySortName(array, folder) {
+function getIndexToInsertBySortName(array: FolderStateFolder[], folder: FolderStateFolder) {
   const folderName = path.basename(folder.sortName);
   // switch to binary search
   let ndx;
@@ -100,18 +114,38 @@ function getIndexToInsertBySortName(array, folder) {
   return ndx;
 }
 
-function getIndexOfFolderByFolderName(array, folderName) {
+function getIndexOfFolderByFolderName(array: FolderStateFolder[], folderName: string) {
   return array.findIndex((folder) => folder.filename === folderName);
 }
 
-const sortModes = new KeyHelper({
+const kSortModeInfo = {
   sortPath: { indexFn: getIndexToInsertBySortPath,   sortFn: sortBySortPath, icon: 'images/buttons/sort-by-path.svg', hint: 'sort by path', },
   newest:   { indexFn: getIndexToInsertByNewestDate, sortFn: sortByNewest,   icon: 'images/buttons/sort-by-date.svg', hint: 'sort by date', },
   sortName: { indexFn: getIndexToInsertBySortName,   sortFn: sortBySortName, icon: 'images/buttons/sort-by-name.svg', hint: 'sort by name', },
-});
+} as const;
+export type SortMode = keyof typeof kSortModeInfo;
+const sortModes = new KeyHelper(kSortModeInfo);
 
+type FolderStateFolderExtra = FolderStatus & {
+  newest: number;
+  oldest: number;
+};
+
+type FolderStateFolder = {
+  filename: string;
+  sortName: string;
+  name: string;
+  files: SortInfo[];
+  totalFiles: number;
+} & FolderStateFolderExtra;
+type FolderStateRoot = {
+  folders: Array<FolderStateFolder>;
+  totalFiles: number;
+  indexFn: (array: Array<FolderStateFolder>, folder: FolderStateFolder) => number;
+  sortFn: SortFn;
+};
 class FolderStateHelper {
-  static createFolder(filename, files, extra) {
+  static createFolder(filename: string, files: SortInfo[], extra: FolderStateFolderExtra): FolderStateFolder {
     return {
       filename,
       sortName: createSortName(filename),
@@ -122,7 +156,7 @@ class FolderStateHelper {
     };
   }
 
-  static createRoot(sortMode) {
+  static createRoot(sortMode: SortMode): FolderStateRoot {
     return {
       folders: [],
       totalFiles: 0,
@@ -131,16 +165,18 @@ class FolderStateHelper {
     };
   }
 
-  static sortFiles(folderName, files, sortFn) {
+  static sortFiles(folderName: string, files: FilesByPath, sortFn: SortFn) {
     const filenames = Object.keys(files);
     log('updateFiles:', folderName, 'num files:', filenames.length);
     // log('addFiles:', filenames.join('\n'));
-    let newest;
-    let oldest;
+    let newest = -1;
+    let oldest = Number.MAX_SAFE_INTEGER;
     const newFiles = filenames.map((filename) => {
-      const info = files[filename];
-      info.sortName = createSortName(filename);
-      info.filename = filename;
+      const info: FolderStateFileInfo = {
+        ...files[filename],
+        sortName: createSortName(filename),
+        filename: filename,
+      };
       if (info.bad) {
         Object.assign(info, {
           type: 'application/octet-stream',
@@ -158,7 +194,7 @@ class FolderStateHelper {
       }
       return {
         name: filename,
-        info: files[filename],
+        info,
       };
     }).sort(sortFn);
     return {
@@ -168,7 +204,7 @@ class FolderStateHelper {
     };
   }
 
-  static updateFolders(root, folders, prefs) {
+  static updateFolders(root: FolderStateRoot, folders: FoldersByPath, prefs?: { showEmpty: boolean } | undefined) {
     const newFolders = root.folders.slice();
     let totalFiles = root.totalFiles;
     for (const [folderName, folder] of Object.entries(folders)) {

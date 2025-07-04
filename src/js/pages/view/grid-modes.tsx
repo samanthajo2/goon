@@ -160,7 +160,7 @@ function computeGridStyle(displayAspect: number, props: ThumbnailProps) {
   };
 }
 
-type GridMode = keyof typeof gridModeDefs;
+export type GridMode = keyof typeof gridModeDefs;
 
 type ThumbnailProps = {
   position: Rect;
