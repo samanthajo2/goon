@@ -21,7 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import fs from 'fs';
 import path from 'path';
 
-export default function listCacheFiles(userDataDir) {
+export default function listCacheFiles(userDataDir: string) {
   const files = fs.readdirSync(userDataDir).filter((name) => path.basename(name).startsWith('folder-') && name.endsWith('.json')).map((name) => {
     const filename = path.join(userDataDir, name);
     try {
