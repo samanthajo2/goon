@@ -25,7 +25,7 @@ import { Command } from 'commander';
 import electron from 'electron';  // eslint-disable-line
 import 'other-window-ipc';
 import debugFn from 'debug';
-import * as express from 'express';
+import express from 'express';
 
 import * as electronRemoteMain from '@electron/remote/main';
 
@@ -197,6 +197,7 @@ function setupFolderRouter() {
   const dirs = isPrefs ? prefs.folders : args._;
   const map = utils.dirsToPrefixMap(utils.filterNonExistingDirs(dirs));
   for (const [dir, prefix] of Object.entries(map)) {
+    debug('add prefix:', prefix, 'for dir:', dir);
     router.use(`/${prefix}`, express.static(dir, staticOptions));
   }
 }
@@ -218,10 +219,15 @@ function startWebServer() {
   if (server) {
     stopWebServer();
   }
+  const app = express();
+  app.use('/', router);
+  server = app.listen(8080);
+  debug('Web server started on port 8080');
 }
 
 function stopWebServer() {
   if (server) {
+    debug('Web server stopped');
     server.close();
     server = undefined;
   }
@@ -794,9 +800,7 @@ app.on('before-quit', () => {
 });
 
 app.on('window-all-closed', () => {
-  if (server) {
-    server.close();
-  }
+  stopWebServer();
   app.quit();
 });
 

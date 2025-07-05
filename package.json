@@ -59,6 +59,7 @@
   "homepage": "https://github.com/samanthajo2/goon#readme",
   "devDependencies": {
     "@tsconfig/recommended": "^1.0.10",
+    "@types/express": "^5.0.3",
     "@types/hjson": "^2.4.6",
     "@types/lodash": "^4.17.18",
     "@types/react": "^17.0.87",
@@ -93,7 +94,7 @@
     "debug": "^4.4.1",
     "electron-updater": "^4.6.5",
     "es6-promisify": "^7.0.0",
-    "express": "^4.21.2",
+    "express": "^5.1.0",
     "graceful-fs": "^4.2.11",
     "hjson": "^3.2.2",
     "immutability-helper": "^3.1.1",
