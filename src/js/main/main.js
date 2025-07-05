@@ -21,7 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import path from 'path';
 import fs from 'fs';
-import makeOptions from 'optionator';
+import { Command } from 'commander';
 import electron from 'electron';  // eslint-disable-line
 import 'other-window-ipc';
 import debugFn from 'debug';
@@ -52,47 +52,29 @@ const debug = debugFn('main');
 const isDevMode = process.env.NODE_ENV === 'development';
 const isOSX = process.platform === 'darwin';
 
+const program = new Command();
 
-/* eslint-disable object-curly-newline */
-const optionSpec = {
-  options: [
-    { option: 'help', alias: 'h', type: 'Boolean', description: 'displays help' },
-    { option: 'user-data-dir', type: 'String', description: 'place to store app data for user', default: path.join(appdata.localAppDataDir, 'Goon'), },
-    { option: 'inspector', type: 'String', description: 'which windows to inspect', default: 'none', },
-    { option: 'list-cache-files', type: 'Boolean', description: 'list the cache files', },
-    { option: 'compare-folders-to-cache', type: 'Boolean', description: 'compare folders on disk to cache contents', },
-    { option: 'delete-folder-data-if-no-files-for-archive', type: 'Boolean', description: 'delete folder data if no files for archive', },
-    { option: 'max-parallel-readdirs', type: 'Int', default: '2', description: 'maximum parallel readdirs', },
-    { option: 'readdirs-throttle-duration', type: 'Int', default: '0', description: 'amount to throttle readdir calls in milliseconds', },
-  ],
-  helpStyle: {
-    typeSeparator: '=',
-    descriptionSeparator: ' : ',
-    initialIndent: 4,
-  },
-};
-/* eslint-enable object-curly-newline */
-const optionator = makeOptions(optionSpec);
+program
+  .option('-h, --help', 'displays help')
+  .option('--user-data-dir <path>', 'place to store app data for user', path.join(appdata.localAppDataDir, 'Goon'))
+  .option('--inspector <type>', 'which windows to inspect', 'none')
+  .option('--list-cache-files', 'list the cache files')
+  .option('--compare-folders-to-cache', 'compare folders on disk to cache contents')
+  .option('--delete-folder-data-if-no-files-for-archive', 'delete folder data if no files for archive')
+  .option('--max-parallel-readdirs <number>', 'maximum parallel readdirs', '2')
+  .option('--readdirs-throttle-duration <number>', 'amount to throttle readdir calls in milliseconds', '0');
 
-let args;
-try {
-  args = optionator.parse(process.argv);
-} catch (e) {
-  console.error(e);
-  printHelp();
-}
+program.parse(process.argv);
 
-function printHelp() {
-  console.log(optionator.generateHelp());
-  process.exit(0);  // eslint-disable-line
-}
+const args = program.opts();
 
 if (args.help) {
-  printHelp();
+  program.outputHelp();
+  process.exit(0);
 }
 
 function removeTrailingSlash(s) {
-  return (s.endsWith('/') || s.endsWith('\\')) ? s.substring(s, s.length - 1) : s;
+  return (s.endsWith('/') || s.endsWith('\\')) ? s.substring(0, s.length - 1) : s;
 }
 
 function normalizePaths(paths) {
@@ -108,7 +90,7 @@ function normalizePaths(paths) {
   return newPaths;
 }
 
-args._ = normalizePaths(args._);
+args._ = normalizePaths(program.args);
 args.userDataDir = path.resolve(args.userDataDir);
 if (!fs.existsSync(args.userDataDir)) {
   fs.mkdirSync(args.userDataDir);
