@@ -137,11 +137,13 @@ function getActualFilenameCaseInsensitive(filename: string): string {
   return getActualFilenameCaseInsensitiveImpl(filename);
 }
 
+// This is local to limit what data is expected in the functions below.
 type FileInfo = {
   size: number,
   mtime: number,
   isDirectory: boolean,
 };
+
 function isFileInfoSame(oldInfo: FileInfo, newInfo: FileInfo) {
   return oldInfo.size === newInfo.size &&
          oldInfo.mtime === newInfo.mtime &&
@@ -198,12 +200,12 @@ function getDifferentFilenames(oldFiles: Record<string, FileInfo>, newFiles: Rec
   };
 }
 
-function getObjectsByKeys<T>(objects: Record<string, T>, keys: string[]): Record<string, T> {
-  const obj: Record<string, T> = {};
-  keys.forEach((key) => {
-    obj[key] = objects[key];
-  });
-  return obj;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getObjectsByKeys<T extends { [key: string]: any }>(
+  src: T,
+  keys: readonly string[]
+): T {
+  return Object.fromEntries(keys.map(k => [k, src[k]])) as T;
 }
 
 function euclideanModulo(n: number, m: number) {
