@@ -24,40 +24,46 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 // User's can get one by calling manager.get which returns
 // a promise. The promise resolves to an object with the release function and the resource.
 // You must call release when done with the resource
-export default function createLimitedResourceManager(_resources) {
-  const resources = _resources.slice();
-  const pendingRequests = [];
+type AcquireResult<T> = {
+  release: () => void;
+  resource: T;
+};
+type AcquireFN<T> = (result: AcquireResult<T>) => void;
 
-  function releaseResource(resource) {
+export default function createLimitedResourceManager<T extends object>(_resources: T[]) {
+  const resources = _resources.slice();
+  const pendingRequests: AcquireFN<T>[] = [];
+
+  function releaseResource(resource: T) {
     resources.push(resource);
     // don't want these to get nested
     process.nextTick(processRequests);
   }
 
-  function createProxy(resource) {
+  function createProxy(resource: T) {
     let released = false;
-    const pair = Proxy.revocable(resource, {});
+    const { proxy, revoke } = Proxy.revocable<T>(resource, {});
     function release() {
       if (!released) {
         released = true;
-        pair.revoke();
+        revoke();
         releaseResource(resource);
       }
     }
-    return {proxy: pair.proxy, release};
+    return {proxy, release};
   }
 
   function processRequests() {
     while (pendingRequests.length && resources.length) {
-      const resolve = pendingRequests.shift();
-      const resource = resources.shift();
+      const resolve = pendingRequests.shift()!;
+      const resource = resources.shift()!;
       const { proxy, release } = createProxy(resource);
-      resolve({release: release, resource: proxy});
+      resolve({ release: release, resource: proxy });
     }
   }
 
   return function get() {
-    const p = new Promise((resolve /* , reject */) => {
+    const p = new Promise<AcquireResult<T>>((resolve /* , reject */) => {
       pendingRequests.push(resolve);
     });
     processRequests();
