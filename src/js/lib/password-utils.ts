@@ -19,7 +19,19 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-function genPassword(crypto, password, salt, iterations, callback) {
+type CryptoAPI = {
+  pbkdf2: (
+    password: string | Buffer,
+    salt: string | Buffer,
+    iterations: number,
+    keylen: number,
+    digest: string,
+    callback: (err: Error | null, derivedKey: Buffer) => void
+  ) => void;
+  randomBytes: (size: number, callback: (err: Error | null, buf: Buffer) => void) => void;
+};
+
+function genPassword(crypto: CryptoAPI, password: string, salt: string, iterations: number, callback: (hash: string) => void) {
   crypto.pbkdf2(password, salt, iterations, 64, 'sha512', (err, derivedKey) => {
     if (err) {
       throw new Error('WTF!');
@@ -28,16 +40,16 @@ function genPassword(crypto, password, salt, iterations, callback) {
   });
 }
 
-function isEmpty(s) {
+function isEmpty(s: string | undefined): boolean {
   return s === undefined || s.trim() === '';
 }
 
-function passwordsMatch(savedPassword, testPassword) {
+function passwordsMatch(savedPassword: string | undefined, testPassword: string | undefined): boolean {
   return (isEmpty(savedPassword) && isEmpty(testPassword)) ||
     savedPassword === testPassword;
 }
 
-function checkPassword(crypto, savedPassword, enteredPassword, callback) {
+function checkPassword(crypto: CryptoAPI, savedPassword: string, enteredPassword: string | undefined, callback: (match: boolean) => void) {
   if (isEmpty(enteredPassword)) {
     process.nextTick(() => {
       callback(isEmpty(savedPassword));
@@ -45,12 +57,12 @@ function checkPassword(crypto, savedPassword, enteredPassword, callback) {
     return;
   }
   const [iterations, salt] = savedPassword.split(':');
-  genPassword(crypto, enteredPassword, salt, iterations | 0, (hash) => {
+  genPassword(crypto, enteredPassword!, salt, parseInt(iterations ?? '0'), (hash) => {
     callback(passwordsMatch(hash, savedPassword));
   });
 }
 
-function hashPassword(crypto, password, callback) {
+function hashPassword(crypto: CryptoAPI, password: string, callback: (hash: string) => void) {
   crypto.randomBytes(32, (err, salt) => {
     if (err) {
       throw new Error('WAT!');
