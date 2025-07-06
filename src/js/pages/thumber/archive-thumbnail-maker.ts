@@ -23,28 +23,32 @@ import path from 'path';
 import debug from '../../lib/debug';
 import createParallelResourceManager from '../../lib/parallel-resource-manager';
 import * as archive from './archive';
+import { LimitedResourceManager } from '../../lib/limited-resource-manager';
+import { MakeThumbnailPagesFn } from './thumbnail-page-maker-def';
+import { FileInfo, FilesByPath } from '../../lib/fileinfo';
 
 const decompressorManager = createParallelResourceManager(2);
 const logger = debug('ArchiveThumbnailMaker');
 
-export default async function createThumbnailsForArchive(filepath, baseFilename, thumbnailPageMakerManager) {
-  let archiveHandle;
-  let archiveFiles;
-  let tpmHandle;
-  let files;
-  let newFiles;
-  let startTime;
-  const blobUrls = [];
+export default async function createThumbnailsForArchive(
+  filepath: string,
+  baseFilename: string,
+  thumbnailPageMakerManager: LimitedResourceManager<MakeThumbnailPagesFn>
+) {
+  let archiveHandle: (() => void) | undefined;
+  let tpmHandle: Awaited<ReturnType<typeof thumbnailPageMakerManager>> | undefined;
+  let newFiles: FilesByPath = {};
+  const blobUrls: string[] = [];
+  const startTime = Date.now();
 
   try {
     logger('waiting for decompressor:', filepath);
     archiveHandle = await decompressorManager();
     logger('decompressing:', filepath);
-    startTime = Date.now();
-    archiveFiles = await archive.createDecompressor(filepath);
+    const archiveFiles = await archive.createDecompressor(filepath);
 
     // create file like info for each blob
-    const blobInfos = {};
+    const blobInfos: FilesByPath = {};
 
     // First get all the blobs
     const blobs = await Promise.all(Object.values(archiveFiles).map(async (fileInfo) => fileInfo.blob()));
@@ -61,18 +65,18 @@ export default async function createThumbnailsForArchive(filepath, baseFilename,
         size: fileInfo.size,
         type: fileInfo.type,
         mtime: fileInfo.mtime,
-      };
+      } as FileInfo;
     });
     tpmHandle = await thumbnailPageMakerManager();
-    files = await tpmHandle.resource(
+    const files = await tpmHandle.resource(
       baseFilename,
-      [],  // there's never any old files for archives
+      {},  // there's never any old files for archives
       blobInfos,
     );
 
     // Map thumbnails from blobs back to files
     newFiles = {};
-    const filesByBlob = {};
+    const filesByBlob: Record<string, string> = {};
     Object.keys(archiveFiles).forEach((filename, ndx) => {
       filesByBlob[blobUrls[ndx]] = filename;
     });
