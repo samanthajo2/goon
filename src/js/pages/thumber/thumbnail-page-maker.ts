@@ -20,11 +20,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import createLogger from '../../lib/debug';
+import { FileInfo, FilesByPath } from '../../lib/fileinfo';
 import {
   filenameFromUrl,
   getDifferentFilenames,
   getObjectsByKeys,
   urlFromFilename,
+  range,
 } from '../../lib/utils';
 import {separateFilesByPages} from './folder-utils';
 
@@ -73,28 +75,55 @@ import {separateFilesByPages} from './folder-utils';
 //    From that we copy all images that
 //    have not changed to new pages using the same algorithm
 //    for new images. When done process new images.
-export default function createThumbnailPageMaker(options) {
-  const thumbnailWidth = options.thumbnailWidth;
-  const thumbnailMaker = options.thumbnailMaker;
-  const fs = options.fs;
-  const context2DFactory = options.context2DFactory;
-  const imgLoader = options.imgLoader;
-  const pageSize = options.pageSize;
-  const thumbnailObserver = options.thumbnailObserver;
-  const logger = createLogger('ThumbnailPageMaker');
+export default function createThumbnailPageMaker(options: {
+  thumbnailWidth: number;
+  thumbnailMaker: (filename: string, type: string) => Promise<{
+    info: FileInfo,
+    canvas: HTMLCanvasElement,
+    release: () => void
+  }>;
+  fs: {
+    unlinkSync: (filename: string) => void
+    writeFileSync: (filename: string, data: string, encoding: string) => void;
+  };
+  context2DFactory: () => CanvasRenderingContext2D;
+  imgLoader: { loadImage: (url: string) => Promise<HTMLImageElement> };
+  pageSize: number;
+  thumbnailObserver: (fileInfo: { width: number, height: number }, canvas: HTMLCanvasElement) => void;
+}) {
+  type Column = {
+    ndx: number;    // column index
+    bottom: number; // y position of the bottom of the column
+  };
+  type Page = {
+    ctx: CanvasRenderingContext2D;
+    filename: string;
+    url: string;
+    columns: Column[];
+  };
 
-  const twoDContexts = [];
+  const {
+    thumbnailWidth,
+    thumbnailMaker,
+    fs,
+    context2DFactory,
+    imgLoader,
+    pageSize,
+    thumbnailObserver,
+  } = options;
+  const logger = createLogger('ThumbnailPageMaker');
+  const twoDContexts: CanvasRenderingContext2D[] = [];
   const oldCtx = get2DContext();
 
-  return async function makePages(baseFilename, oldFiles, newFiles) {
+  return async function makePages(baseFilename: string, oldFiles: FilesByPath, newFiles: FilesByPath): Promise<FilesByPath> {
     const cacheSuffix = `?cache=${Date.now()}`;
 
     // go through old images and build up pages
     // copy every same image to new image
     const diffNames = getDifferentFilenames(oldFiles, newFiles);
     const filesToProcess = getObjectsByKeys(newFiles, [...diffNames.changed, ...diffNames.added]);
-    const newFileInfos = {};   // info by filename of each file
-    const pages = [];          // each new page of thumbnails
+    const newFileInfos: FilesByPath = {};   // info by filename of each file
+    const pages: Page[] = [];          // each new page of thumbnails
 
     // make lists of the files on each page
     {
@@ -118,7 +147,7 @@ export default function createThumbnailPageMaker(options) {
             );
             newFileInfos[filename] = {
               ...info,
-              thumbnail: addImageToPages(pages, baseFilename, cacheSuffix, filename, info, ctx.canvas),
+              thumbnail: addImageToPages(pages, baseFilename, cacheSuffix, filename, ctx.canvas),
             };
           });
           // not really sure what should happen here. Should I some how
@@ -129,7 +158,7 @@ export default function createThumbnailPageMaker(options) {
         } catch {
           logger('could not load old page:', oldPageUrl);
           // process the missing files
-          oldPage.forEach((filename) => {
+          oldPage.forEach((filename: string) => {
             filesToProcess[filename] = newFiles[filename];
           });
         }
@@ -148,7 +177,7 @@ export default function createThumbnailPageMaker(options) {
             thumbnailObserver(newInfo, thndl.canvas);
             newFileInfos[filename] = {
               ...newInfo,
-              thumbnail: addImageToPages(pages, baseFilename, cacheSuffix, filename, newInfo, thndl.canvas),
+              thumbnail: addImageToPages(pages, baseFilename, cacheSuffix, filename, thndl.canvas),
             };
           } finally {
             thndl.release();
@@ -165,38 +194,38 @@ export default function createThumbnailPageMaker(options) {
     return newFileInfos;
   };
 
-  function writePage(page, ndx, baseFilename) {
+  function writePage(page: Page, ndx: number, baseFilename: string) {
     const dataUrl = page.ctx.canvas.toDataURL();
     const uu = dataUrl.substring('data:image/png;base64,'.length);
     const filename = `${baseFilename}_${ndx}.png`;
     logger('write:', filename);
     fs.writeFileSync(filename, uu, 'base64');
     put2DContext(page.ctx);
-    page.ctx = null;
+    (page as unknown as { ctx: null }).ctx = null;
   }
 
-  function writePages(pages, baseFilename) {
+  function writePages(pages: Page[], baseFilename: string) {
     logger('write pages: num pages:', pages.length);
     pages.forEach((page, ndx) => {
       writePage(page, ndx, baseFilename);
     });
   }
 
-  function get2DContext() {
+  function get2DContext(): CanvasRenderingContext2D {
     if (twoDContexts.length) {
-      return twoDContexts.pop();
+      return twoDContexts.pop()!;
     } else {
       return context2DFactory();
     }
   }
 
-  function put2DContext(ctx) {
+  function put2DContext(ctx: CanvasRenderingContext2D) {
     ctx.canvas.width = 1;
     ctx.canvas.height = 1;
     twoDContexts.push(ctx);
   }
 
-  function getExistingPageForNewThumbnail(pages, thumbnailHeight) {
+  function getExistingPageForNewThumbnail(pages: Page[], thumbnailHeight: number) {
     for (let ii = 0; ii < pages.length; ++ii) {
       // TODO: use reduce
       const page = pages[ii];
@@ -216,12 +245,11 @@ export default function createThumbnailPageMaker(options) {
     return undefined;
   }
 
-  function getPageForNewThumbnail(pages, baseFilename, thumbnailHeight) {
+  function getPageForNewThumbnail(pages: Page[], baseFilename: string, thumbnailHeight: number) {
     let pageColumnPair = getExistingPageForNewThumbnail(pages, thumbnailHeight);
     if (!pageColumnPair) {
-      const page = createPage();
-      page.filename = `${baseFilename}_${pages.length}.png`;
-      page.url = urlFromFilename(page.filename);
+      const filename = `${baseFilename}_${pages.length}.png`;
+      const page = createPage(filename);
       pages.push(page);
       pageColumnPair = {
         page: page,
@@ -231,40 +259,37 @@ export default function createThumbnailPageMaker(options) {
     return pageColumnPair;
   }
 
-  function createPage() {
+  function createPage(filename: string): Page {
+    const url = urlFromFilename(filename);
     const ctx = get2DContext();
     ctx.canvas.width = pageSize;
     ctx.canvas.height = pageSize;
-    const page = {
-      columns: [],
-      ctx: ctx,
-    };
     const numColumns = ctx.canvas.width / thumbnailWidth | 0;
-    for (let ii = 0; ii < numColumns; ++ii) {
-      page.columns.push({
-        ndx: ii,
-        bottom: 0,
-      });
-    }
+    const page: Page = {
+      filename,
+      url,
+      columns: range<Column>(numColumns, i => ({ ndx: i, bottom: 0 })),
+      ctx,
+    };
     return page;
   }
 
-  function addImageToPages(pages, baseFilename, cacheSuffix, filename, info, canvas) {
-    const pageColumnPair = getPageForNewThumbnail(pages, baseFilename, canvas.height);
+  function addImageToPages(pages: Page[], baseFilename: string, cacheSuffix: string, filename: string, srcCanvas: HTMLCanvasElement) {
+    const pageColumnPair = getPageForNewThumbnail(pages, baseFilename, srcCanvas.height);
     const page = pageColumnPair.page;
     const column = pageColumnPair.column;
     const x = column.ndx * thumbnailWidth;
     const y = column.bottom;
     logger('addImage:', filename, x, y);
-    page.ctx.drawImage(canvas, x, y);
-    column.bottom += canvas.height;
+    page.ctx.drawImage(srcCanvas, x, y);
+    column.bottom += srcCanvas.height;
     return {
-      x: x,
-      y: y,
-      width: canvas.width,
-      height: canvas.height,
-      url: page.url + cacheSuffix,
-      pageSize: pageSize,
+      x,
+      y,
+      width: srcCanvas.width,
+      height: srcCanvas.height,
+      url: `${page.url}${cacheSuffix}`,
+      pageSize,
     };
   }
 }

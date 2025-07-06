@@ -19,12 +19,13 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+import { FilesByPath } from '../../lib/fileinfo';
 import * as filters from '../../lib/filters';
 import {filenameFromUrl, getObjectsByKeys} from '../../lib/utils';
 
-function getImagesAndVideos(files) {
+function getImagesAndVideos(files: FilesByPath): FilesByPath {
   const filenames = Object.keys(files);
-  const imagesAndVideos = {};
+  const imagesAndVideos: FilesByPath = {};
   filenames.forEach((filename) => {
     const fileInfo = files[filename];
     if (!fileInfo.isDirectory && fileInfo.type && filters.isMimeMedia(fileInfo.type)) {
@@ -34,9 +35,9 @@ function getImagesAndVideos(files) {
   return imagesAndVideos;
 }
 
-function separateFilesByPages(files, filenames) {
+function separateFilesByPages(files: FilesByPath, filenames?: string[]) {
   filenames = filenames || Object.keys(files);
-  const pages = {};
+  const pages: Record<string, string[]> = {};
   for (const filename of filenames) {
     const info = files[filename];
     // might be no thumbnail if old was bad?
@@ -53,7 +54,7 @@ function separateFilesByPages(files, filenames) {
   return pages;
 }
 
-function deleteThumbnails(fs, files) {
+function deleteThumbnails(fs: { unlinkSync: (filename: string) => void }, files: FilesByPath) {
   const pages = separateFilesByPages(files);
   for (const pageUrl of Object.keys(pages)) {
     const filename = filenameFromUrl(pageUrl);
@@ -61,7 +62,7 @@ function deleteThumbnails(fs, files) {
   }
 }
 
-function getSeparateFilenames(files) {
+function getSeparateFilenames(files: FilesByPath) {
   const allFilenames = Object.keys(files);
   const folderNames = allFilenames.filter((filename) => files[filename].isDirectory && !filters.isDotFile(filename));
   const fileNames = allFilenames.filter((filename) => !files[filename].isDirectory);
@@ -74,7 +75,7 @@ function getSeparateFilenames(files) {
   };
 }
 
-function separateFiles(files) {
+function separateFiles(files: FilesByPath) {
   const names = getSeparateFilenames(files);
   const imagesAndVideos = getObjectsByKeys(files, names.imagesAndVideos);
   const archives = getObjectsByKeys(files, names.archives);

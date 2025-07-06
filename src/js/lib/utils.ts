@@ -289,6 +289,14 @@ export function readUTF8FileSync(filename: string): string {
   return fs.readFileSync(filename, {encoding: 'utf8'});
 }
 
+export function range<T>(count: number, fn: (i: number) => T): T[] {
+  const arr: T[] = [];
+  for (let i = 0; i < count; ++i) {
+    arr.push(fn(i));
+  }
+  return arr;
+}
+
 export {
   areFilesSame,
   createBasename,
