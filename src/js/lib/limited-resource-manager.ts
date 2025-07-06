@@ -29,8 +29,9 @@ type AcquireResult<T> = {
   resource: T;
 };
 type AcquireFN<T> = (result: AcquireResult<T>) => void;
+export type LimitedResourceManager<T> = () => Promise<AcquireResult<T>>;
 
-export default function createLimitedResourceManager<T extends object>(_resources: T[]) {
+export default function createLimitedResourceManager<T extends object>(_resources: T[]): LimitedResourceManager<T> {
   const resources = _resources.slice();
   const pendingRequests: AcquireFN<T>[] = [];
 

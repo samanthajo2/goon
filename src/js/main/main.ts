@@ -65,7 +65,8 @@ program
   .option('--compare-folders-to-cache', 'compare folders on disk to cache contents')
   .option('--delete-folder-data-if-no-files-for-archive', 'delete folder data if no files for archive')
   .option('--max-parallel-readdirs <number>', 'maximum parallel readdirs', '2')
-  .option('--readdirs-throttle-duration <number>', 'amount to throttle readdir calls in milliseconds', '0');
+  .option('--readdirs-throttle-duration <number>', 'amount to throttle readdir calls in milliseconds', '0')
+  .argument('[folders...]', 'folders');
 
 program.parse(process.argv);
 

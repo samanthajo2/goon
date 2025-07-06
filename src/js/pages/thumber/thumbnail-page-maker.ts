@@ -29,6 +29,7 @@ import {
   range,
 } from '../../lib/utils';
 import {separateFilesByPages} from './folder-utils';
+import { MakeThumbnailPagesFn } from './thumbnail-page-maker-def';
 
 // Given an old and new hash of Object.<string, FileInfo> of
 // image and video files makes pages of thumbnails (.png files)
@@ -90,7 +91,7 @@ export default function createThumbnailPageMaker(options: {
   imgLoader: { loadImage: (url: string) => Promise<HTMLImageElement> };
   pageSize: number;
   thumbnailObserver: (fileInfo: { width: number, height: number }, canvas: HTMLCanvasElement) => void;
-}) {
+}): MakeThumbnailPagesFn {
   type Column = {
     ndx: number;    // column index
     bottom: number; // y position of the bottom of the column

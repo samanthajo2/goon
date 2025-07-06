@@ -25,6 +25,7 @@ import * as filters from '../../lib/filters';
 import createLogger from '../../lib/debug';
 import { urlFromFilename } from '../../lib/utils';
 import { createImageFromString } from '../../lib/string-image';
+import { MediaElement, MediaLoaderInfo, MediaLoaderFn } from './media-loader-def';
 
 let g_id = 0;
 
@@ -53,68 +54,76 @@ let g_id = 0;
 // to use the image to use it immediately during the 'ready' event.
 // when the event returns we are free to re-use the image. With a promise
 // the image would be need to be available forever.
-export default function createMediaLoader(options) {
+export default function createMediaLoader(options: {
+  maxSeekTime: number,
+}): MediaLoaderFn {
   const video = document.createElement('video');
   const image = document.createElement('img');
   const logger = createLogger('MediaLoader', ++g_id);
   const maxSeekTime = options.maxSeekTime;
-  let resolveFn;
-  let rejectFn;
-  let videoFrame;
+  let resolveFn: (({ elem, width, height }: {
+    elem: MediaElement,
+    width: number,
+    height: number,
+  }) => void) | undefined;
+  let rejectFn: ((elem: HTMLVideoElement | HTMLImageElement) => void) | undefined;
+  let videoFrame: VideoFrame | undefined;
 
-  function resolve(elem, width, height) {
+  function resolve(elem: MediaElement, width: number, height: number) {
     const fn = resolveFn;
     resolveFn = undefined;
     rejectFn = undefined;
     fn?.({ elem, width, height });
   }
 
-  function reject(...args) {
+  function reject(elem: HTMLVideoElement | HTMLImageElement) {
     const fn = rejectFn;
     resolveFn = undefined;
     rejectFn = undefined;
-    fn?.(...args);
+    fn?.(elem);
   }
 
-  video.addEventListener('loadedmetadata', (e) => {
-    const seekTime = Math.min(maxSeekTime, e.target.duration / 2);
+  video.addEventListener('loadedmetadata', (e: Event) => {
+    const videoElement = e.target as HTMLVideoElement;
+    const seekTime = Math.min(maxSeekTime, videoElement.duration / 2);
     logger('loadedmetadata: seekTime =', seekTime);
-    e.target.currentTime = seekTime;
-    e.target.muted = true;
+    videoElement.currentTime = seekTime;
+    videoElement.muted = true;
   });
   video.addEventListener('seeked', (e) => {
+    const videoElement = e.target as HTMLVideoElement;
     logger('seeked: play()');
-    e.target.play();
+    videoElement.play();
   });
   video.addEventListener('playing', (e) => {
-    logger('paying: ready:', e.target.src);
+    const videoElement = e.target as HTMLVideoElement;
+    logger('paying: ready:', videoElement.src);
     video.requestVideoFrameCallback(() => {
       videoFrame = new VideoFrame(video);
       video.pause();
       resolve(videoFrame, video.videoWidth, video.videoHeight);
     });
   });
-  // video.addEventListener('pause', (e) => {
-  //   e.target.removeAttribute('src');
-  //   e.target.load();
-  // });
   video.addEventListener('error', (e) => {
-    console.warn('could not load:', e.target.src, e.message);
-    e.target.removeAttribute('src');
-    e.target.load();
-    reject(e.target);
+    const videoElement = e.target as HTMLVideoElement;
+    console.warn('could not load:', videoElement.src, e.message);
+    videoElement.removeAttribute('src');
+    videoElement.load();
+    reject(videoElement);
   });
 
   image.addEventListener('load', (e) => {
-    logger('loaded:', e.target.src);
-    resolve(e.target, e.target.naturalWidth, e.target.naturalHeight);
+    const imageElement = e.target as HTMLImageElement;
+    logger('loaded:', imageElement.src);
+    resolve(imageElement, imageElement.naturalWidth, imageElement.naturalHeight);
   });
   image.addEventListener('error', (e) => {
-    console.warn('could not load:', e.target.src, e.message);
-    reject(e.target);
+    const imageElement = e.target as HTMLImageElement;
+    console.warn('could not load:', imageElement.src, e.message);
+    reject(imageElement);
   });
 
-  return function load(filename, type) {
+  return function load(filename: string, type: string) {
     logger('load:', filename);
     if (resolveFn) {
       throw new Error('in use');
@@ -123,7 +132,7 @@ export default function createMediaLoader(options) {
       videoFrame.close();
       videoFrame = undefined;
     }
-    const p = new Promise((resolve, reject) => {
+    const p = new Promise<MediaLoaderInfo>((resolve, reject) => {
       resolveFn = resolve;
       rejectFn = reject;
     });

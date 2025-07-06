@@ -20,6 +20,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import mime from 'mime-types';
+import { FilesByPath } from '../../lib/fileinfo';
+import { cloneDeep } from 'lodash';
+import { LimitedResourceManager } from '../../lib/limited-resource-manager';
+import { MakeThumbnailPagesFn } from './thumbnail-page-maker-def';
 
 /**
  *
@@ -28,15 +32,20 @@ import mime from 'mime-types';
  * @param {TPMOptions} options
  */
 
-export default async function createThumbnailsForFolder(_oldFiles, _newFiles, baseFilename, thumbnailPageMakerManager) {
-  const oldFiles = JSON.parse(JSON.stringify(_oldFiles));
-  const newFiles = JSON.parse(JSON.stringify(_newFiles));
+export default async function createThumbnailsForFolder(
+  _oldFiles: FilesByPath,
+  _newFiles: FilesByPath,
+  baseFilename: string,
+  thumbnailPageMakerManager: LimitedResourceManager<MakeThumbnailPagesFn>
+) {
+  const oldFiles = cloneDeep(_oldFiles);
+  const newFiles = cloneDeep(_newFiles);
 
   // add unknown mime types
   Object.keys(newFiles).forEach((filename) => {
     const fileInfo = newFiles[filename];
     if (!fileInfo.type) {
-      fileInfo.type = mime.lookup(filename);
+      fileInfo.type = mime.lookup(filename) || 'unknown/unknown';
     }
   });
 

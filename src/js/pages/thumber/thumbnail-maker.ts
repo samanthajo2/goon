@@ -20,6 +20,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import createLogger from '../../lib/debug';
+import { LimitedResourceManager } from '../../lib/limited-resource-manager';
+import { MediaLoaderFn } from './media-loader-def';
+import ThumbnailRenderer from './thumbnail-renderer';
 
 // Manages a bunch of ThumbLoaders
 //
@@ -49,25 +52,29 @@ import createLogger from '../../lib/debug';
 // when the event returns we are free to re-use the canvas. With a promise
 // the canvas would be need to be available forever.
 
-/**
- * @typedef {Object} ImageInfo
- * @property {number} orientation
- * @property {number} width
- * @property {number} height
- */
+type ImageInfo = {
+  orientation: number;
+  width: number;
+  height: number;
+};
+
+type ThumbnailMakerInfo = {
+  release: () => void;
+  canvas: HTMLCanvasElement;
+};
+
+type LoadInfo = ThumbnailMakerInfo & {
+  info: ImageInfo;
+};
 
 /**
- * @typedef {Object} ThumbnailMakerInfo
- * @property {function} release
- * @property {ImageInfo} info
- * @property {HTMLCanvasElement} canvas
+ * returns a function that creates a promise that resolves to ThumbnailMakerInfo
  */
-
-/**
- * returns a function that creates a promise that resolves to
- * @returns {Promise.<ThubmnailMakerInfo>}
- */
-export default function createThumbnailMaker(options) {
+export default function createThumbnailMaker(options: {
+  maxWidth: number;
+  thumbnailRendererManager: LimitedResourceManager<ThumbnailRenderer>;
+  mediaLoaderManager: LimitedResourceManager<MediaLoaderFn>;
+}): (filename: string, type: string) => Promise<LoadInfo> {
   const maxWidth = options.maxWidth;
   const thumbnailRendererMgr = options.thumbnailRendererManager;
   const mediaLoaderMgr = options.mediaLoaderManager;
@@ -76,20 +83,15 @@ export default function createThumbnailMaker(options) {
   /**
    * creates a thumbnail
    *
-   * returns a Promise that resolves to
-   *    @property {function} release
-   *    @property {ThumbInfo} canvas
-   *
    * You MUST call release!
-   *
-   * @param {string} filename
-   * @param {HTMLVideoElement|HTMLImageElement} elem
-   * @param {number} elemWidth
-   * @param {number} elemHeight
-   * @param {number} orientation
-   * @param {number} maxWidth
    */
-  async function makeThumbnail(elem, elemWidth, elemHeight, orientation, maxWidth) {
+  async function makeThumbnail(
+    elem: HTMLVideoElement | HTMLImageElement | VideoFrame,
+    elemWidth: number,
+    elemHeight: number,
+    orientation: number,
+    maxWidth: number
+  ): Promise<{release: () => void, canvas: HTMLCanvasElement}> {
     const tMakerHndl = await thumbnailRendererMgr();
     const tMaker = tMakerHndl.resource;
 
@@ -99,10 +101,10 @@ export default function createThumbnailMaker(options) {
     };
   }
 
-  return async function load(filename, type) {
+  return async function load(filename: string, type: string): Promise<LoadInfo> {
     logger('load:', filename);
-    let loaderHndl;
-    let thumbInfo;
+    let loaderHndl: Awaited<ReturnType<typeof mediaLoaderMgr>> | undefined;
+    let thumbInfo: ThumbnailMakerInfo | undefined;
 
     function release() {
       if (thumbInfo) {
