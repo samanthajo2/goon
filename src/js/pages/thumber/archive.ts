@@ -22,14 +22,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import fs from 'fs';
 import mime from 'mime-types';
 import * as unzipit from 'unzipit';
-import debug from '../../lib/debug';
+import debug, { Logger } from '../../lib/debug';
 import * as filters from '../../lib/filters';
 import * as utils from '../../lib/utils';
 import readRARContent from '../../../../app/3rdparty/libunrar-js/libunrar';
 
 const pfs = fs.promises;
 const s_slashRE = /[/\\]/g;
-function makeSafeName(name) {
+function makeSafeName(name: string): string {
   return name.replace(s_slashRE, '|');
 }
 
@@ -38,8 +38,19 @@ unzipit.setOptions({
   numWorkers: 2,
 });
 
+type ArchiveFile = {
+  type: string,
+  blob: () => Promise<Blob>,
+  size: number,
+  mtime: number,
+};
+type ArchiveFiles = Record<string, ArchiveFile>;
+
 class StatelessFileReader {
-  constructor(filename) {
+  filename: string;
+  length: number | undefined;
+
+  constructor(filename: string) {
     this.filename = filename;
   }
   async getLength() {
@@ -49,7 +60,7 @@ class StatelessFileReader {
     }
     return this.length;
   }
-  async read(offset, length) {
+  async read(offset: number, length: number) {
     const fh = await pfs.open(this.filename);
     const data = new Uint8Array(length);
     await fh.read(data, 0, length, offset);
@@ -58,8 +69,8 @@ class StatelessFileReader {
   }
 }
 
-async function zipDecompress(filename) {
-  const _files = {};
+async function zipDecompress(filename: string) {
+  const _files: ArchiveFiles = {};
 
   try {
     const reader = new StatelessFileReader(filename);
@@ -85,8 +96,23 @@ async function zipDecompress(filename) {
   }
 }
 
-function gatherRarFiles(entry, files, logger) {
-  switch (entry.type) {
+type RarDirectory = {
+  type: 'dir';
+  ls: Record<string, RarEntry>;
+}
+
+type RarFile = {
+  type: 'file';
+  fileContent: { buffer: Buffer };
+  fileSize: number;
+  fullFileName: string;
+}
+
+type RarEntry = RarDirectory | RarFile;
+
+function gatherRarFiles(entry: RarEntry, files: ArchiveFiles, logger: Logger) {
+  const type = entry.type;
+  switch (type) {
     case 'file': {
       const name = entry.fullFileName;
       if (!filters.isArchiveFilenameWeCareAbout(name)) {
@@ -114,12 +140,12 @@ function gatherRarFiles(entry, files, logger) {
       break;
     }
     default:
-      logger('Unknown type:', entry.type);
+      logger('Unknown type:', type);
       break;
   }
 }
 
-async function rarDecompress(filename) {
+async function rarDecompress(filename: string) {
   const _logger = debug('RarDecompressor', filename);
   const _files = {};
 
@@ -127,19 +153,19 @@ async function rarDecompress(filename) {
   _logger('unrar:', filename);
   const rarContent = readRARContent([
     { name: 'tmp.rar', content: data },
-  ], (/* ...args */) => {
+  ], undefined, (/* ...args */) => {
     // _logger("process:", ...args);
-  });
+  }) as unknown as RarEntry;
   gatherRarFiles(rarContent, _files, _logger);
   return _files;
 }
 
-function mightBeZip(buf) {
+function mightBeZip(buf: Buffer) {
   return buf[0] === 0x50 && // P
          buf[1] === 0x4B;   // K
 }
 
-function mightBeRar(buf) {
+function mightBeRar(buf: Buffer) {
   // Check for `Rar!`
   return buf[0] === 0x52 && // R
          buf[1] === 0x61 && // a
@@ -147,7 +173,7 @@ function mightBeRar(buf) {
          buf[3] === 0x21;   // !
 }
 
-async function createDecompressor(filename) {
+async function createDecompressor(filename: string): Promise<ArchiveFiles> {
   const buf = Buffer.alloc(4);
   const fh = await pfs.open(filename, 'r');
   await fh.read(buf, 0, buf.length, null);
