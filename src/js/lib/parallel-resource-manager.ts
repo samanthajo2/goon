@@ -25,8 +25,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 // a promise. The promise resolves to a release function
 // You must call release when done with the resource to signal
 // your finished.
-export default function createParallelResourceManager(maxResources) {
-  const pendingRequests = [];
+type ReleaseFn = () => void;
+
+export default function createParallelResourceManager(maxResources: number) {
+  const pendingRequests: ((release: ReleaseFn) => void)[] = [];
   let numResources = 0;
 
   function createReleaseFn() {
@@ -43,13 +45,13 @@ export default function createParallelResourceManager(maxResources) {
   function processRequests() {
     while (pendingRequests.length && numResources < maxResources) {
       ++numResources;
-      const resolve = pendingRequests.shift();
+      const resolve = pendingRequests.shift()!;
       resolve(createReleaseFn());
     }
   }
 
   return function get() {
-    const p = new Promise((resolve /* , reject */) => {
+    const p = new Promise<ReleaseFn>((resolve /* , reject */) => {
       pendingRequests.push(resolve);
     });
     processRequests();
