@@ -20,19 +20,27 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 export default class ThumbnailRenderer {
-  constructor(ctx) {
+  _ctx: CanvasRenderingContext2D;
+
+  constructor(ctx: CanvasRenderingContext2D) {
     this._ctx = ctx;
   }
-  makeThumbnail(elem, elemWidth, elemHeight, orientation, maxWidth) {
+  makeThumbnail(
+    elem: HTMLVideoElement | HTMLImageElement | VideoFrame,
+    elemWidth: number,
+    elemHeight: number,
+    orientation: number,
+    maxWidth: number
+  ): HTMLCanvasElement {
     // orientation
     //
     // 1 top left side       norm
-    // 2 top right side      hflip
-    // 3 bottom right side   hflip & vflip
-    // 4 bottom left side    vflip
-    // 5 left side top       rot90 xflip
+    // 2 top right side      hFlip
+    // 3 bottom right side   hFlip & vFlip
+    // 4 bottom left side    vFlip
+    // 5 left side top       rot90 xFlip
     // 6 right side top      rot270
-    // 7 right side bottom   rot270 xflip
+    // 7 right side bottom   rot270 xFlip
     // 8 left side bottom    rot90
 
     // NOTE: The confusing part is the data is stored
