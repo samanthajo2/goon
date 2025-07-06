@@ -21,13 +21,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 // Wraps a single image to load images.
 // Maybe we should use multiple images
-// but I'd prefering to re-use one
+// but I'd preferring to re-use one
 // as I can hopefully use less memory?
 export default class ImageLoader {
+  _img: HTMLImageElement;
+
   constructor() {
     this._img = new Image();
   }
-  loadImage(url) {
+
+  loadImage(url: string): Promise<HTMLImageElement> {
+    this._img.src = url
     return new Promise((resolve, reject) => {
       this._img.onload = () => {
         resolve(this._img);
