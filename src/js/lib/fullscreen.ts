@@ -26,10 +26,10 @@ const isOSX = process.platform === 'darwin';
 const g_timeUntilMenuMs = 1000;
 const g_menuAreaHeight = 2;
 
-let timeoutId;
+let timeoutId: ReturnType<typeof setTimeout> | undefined;
 let menuShowing = true;
 
-function checkMenu(e) {
+function checkMenu(e: MouseEvent) {
   if (e.clientY <= g_menuAreaHeight) {
     if (!timeoutId) {
       timeoutId = setTimeout(() => {
@@ -46,7 +46,7 @@ function checkMenu(e) {
   }
 }
 
-function hideMenu(force) {
+function hideMenu(force?: boolean) {
   if (menuShowing || force) {
     menuShowing = false;
     getCurrentWindow().setMenu(null);
@@ -61,7 +61,7 @@ function showMenu() {
   }
 }
 
-function installFullscreenHandler(force) {
+function installFullscreenHandler(force?: boolean) {
   if (!isOSX) {
     hideMenu(force);
     window.addEventListener('mousemove', checkMenu);
