@@ -31,7 +31,7 @@ export type KeyConfig = {
 
 export type ToolbarPosition = 'top' | 'bottom' | 'swapTop' | 'swapBottom';
 
-type Preferences = {
+export type Preferences = {
   version: number,
   folders: string[],
   thumbnails: {
@@ -213,13 +213,13 @@ const versionConverters = new Map<number, (prefs: Preferences) => Preferences>([
 
 function loadPrefs(prefsPath: string, fs: {
   existsSync: (filename: string) => boolean,
-  readFileSync: (filename: string, options?: {encoding: string}) => Buffer | string,
+  readUTF8FileSync: (filename: string) => string,
 }) {
   let error;
   let prefs = cloneDeep<Preferences>(defaultPrefs);
   if (fs.existsSync(prefsPath)) {
     try {
-      const str = fs.readFileSync(prefsPath, {encoding: 'utf8'}) as string;
+      const str = fs.readUTF8FileSync(prefsPath) as string;
       prefs = hjson.parse(str) as Preferences;
       while (prefs.version !== s_prefsVersion) {
         const converter = versionConverters.get(prefs.version ?? 0);

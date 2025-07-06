@@ -40,6 +40,7 @@ import {CSSArray} from '../../lib/css-utils';
 import Checkbox from '../../lib/ui/checkbox';
 import Range from '../../lib/ui/range';
 import LivePasswordEditor from '../../lib/ui/live-password-editor';
+import { readUTF8FileSync } from '../../lib/utils';
 
 async function getFolders() {
   const {canceled, filePaths} = await dialog.showOpenDialog({
@@ -305,7 +306,10 @@ export default class Prefs extends React.Component {
     this._prefsPath = path.join(props.options.userDataDir, 'prefs.json');
     this._savePrefs = _.debounce(this._savePrefs, 200);  // is there a point to this?
     // error means the prefs file could not be loaded so we got default prefs
-    const {error, prefs} = loadPrefs(this._prefsPath, fs);
+    const {error, prefs} = loadPrefs(this._prefsPath, {
+      existsSync: fs.existsSync,
+      readUTF8FileSync: readUTF8FileSync,
+    });
     this.state = {
       prefs,
       saveError: false,

@@ -19,9 +19,6 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-// import * as fs from 'fs';
-// import * as path from 'path';
-
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
@@ -286,6 +283,10 @@ export function fileExistsSync(filename: string) {
 
 export function cloneDeep<T>(src: T): T {
   return JSON.parse(JSON.stringify(src));
+}
+
+export function readUTF8FileSync(filename: string): string {
+  return fs.readFileSync(filename, {encoding: 'utf8'});
 }
 
 export {

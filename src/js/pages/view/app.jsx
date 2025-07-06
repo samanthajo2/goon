@@ -243,10 +243,10 @@ export default class App extends React.Component {
     this._actionListener.on('toggleFullscreen', toggleFullscreen);
 
     this._actionListener.on('newWindow', () => {
-      ipcRenderer.send('openwindow', 'view');
+      ipcRenderer.send('openWindow', 'view');
     });
     this._actionListener.on('showHelp', () => {
-      ipcRenderer.send('openwindow', 'help');
+      ipcRenderer.send('openWindow', 'help');
     });
 
     ipcRenderer.on('action', (event, action) => {
@@ -560,7 +560,7 @@ export default class App extends React.Component {
     });
   }
   _showPrefs() {
-    ipcRenderer.send('openwindow', 'prefs');
+    ipcRenderer.send('openWindow', 'prefs');
   }
   _getToolbar() {
     if (!(this.state.winState.showUI & 1)) { // eslint-disable-line no-bitwise

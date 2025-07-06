@@ -21,8 +21,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import path from 'path';
 import fs from 'fs';
+import { Server } from 'http'
 import { Command } from 'commander';
-import electron from 'electron';  // eslint-disable-line
+import electron, { BrowserWindow, WebContents } from 'electron';  // eslint-disable-line
 import 'other-window-ipc';
 import debugFn from 'debug';
 import express from 'express';
@@ -32,13 +33,15 @@ import * as electronRemoteMain from '@electron/remote/main';
 import {getUpdateCheckDate} from '../lib/update-manager';
 import appdata from '../lib/appdata';
 import * as utils from '../lib/utils';
-import {loadPrefs} from '../pages/prefs/default-prefs';
+import {loadPrefs, Preferences} from '../pages/prefs/default-prefs';
 import {
   isTitlebarOnAtLeastOneDisplay,
   putWindowOnNearestDisplay,
 } from '../lib/window-restore-helper';
 import listCacheFiles from './list-cache-files';
 import compareFoldersToCache from './compare-folders-to-cache';
+import { Rect } from '../lib/rect';
+import { WinState } from '../lib/win-state';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const {windowTrackerInit} = require('../lib/remote-helpers');
@@ -66,25 +69,37 @@ program
 
 program.parse(process.argv);
 
-const args = program.opts();
+type ProgOptions = {
+  help: boolean;
+  userDataDir: string;
+  inspector: string;
+  listCacheFiles: boolean;
+  compareFoldersToCache: boolean;
+  deleteFolderDataIfNoFilesForArchive: boolean;
+  maxParallelReaddirs: number;
+  readdirsThrottleDuration: number;
+  _: string[];
+};
+
+const args = program.opts() as unknown as ProgOptions;
 
 if (args.help) {
   program.outputHelp();
   process.exit(0);
 }
 
-function removeTrailingSlash(s) {
+function removeTrailingSlash(s: string): string {
   return (s.endsWith('/') || s.endsWith('\\')) ? s.substring(0, s.length - 1) : s;
 }
 
-function normalizePaths(paths) {
-  const newPaths = [];
+function normalizePaths(paths: string[]): string[] {
+  const newPaths: string[] = [];
   paths.forEach((dir) => {
     const tempPath = path.normalize(path.resolve(process.cwd(), removeTrailingSlash(dir)));
     try {
       newPaths.push(utils.getActualFilename(tempPath));
     } catch (e) {
-      console.error(e.toString().split('\n')[0]);
+      console.error(e?.toString().split('\n')[0]);
     }
   });
   return newPaths;
@@ -101,22 +116,68 @@ if (args.listCacheFiles) {
   process.exit(0);
 }
 
+type WindowInfo = {
+  window: BrowserWindow;
+  state?: SavedWindowUIState;
+};
+
+// State of the splits
+type LayoutState = {
+  splitType: number,
+  sliderPercent: number,
+  children: LayoutState[],
+};
+
+// State of the UI inside the browser window.
+// Note: These are not set at the start as the window does not yet exist.
+// The renderer process will send these via saveSplitLayout and saveWinState
+type SavedWindowUIState = {
+  layout?: LayoutState;
+  winState?: WinState;
+}
+
+// State of a BrowserWindow
+type SavedWindowState = {
+  bounds?: Rect,
+  minimized?: boolean,
+  maximized?: boolean,
+  fullscreen?: boolean,
+  // State of the UI inside the browser window.
+  state?: SavedWindowUIState,
+};
+
+type SavedProgramState = {
+  version: number;
+  lastUpdateCheckDate?: number;
+  windows: SavedWindowState[];
+};
+
+
 const progStateFilename = path.join(args.userDataDir, 'program-state.json');
 const prefsFilename = path.join(args.userDataDir, 'prefs.json');
 const inspectRE = new RegExp(args.inspector);
 const app = electron.app;
 const ipcMain = electron.ipcMain;
 const shell = electron.shell;
-const BrowserWindow = electron.BrowserWindow;
-const windowInfosById = {};
-const windows = [];
-const oneOfAKindWindows = {};
-let {prefs} = loadPrefs(prefsFilename, fs);
-let oldProgState;
+const windowInfosById: Record<number, WindowInfo> = {};
+const windows: BrowserWindow[] = [];
+const oneOfAKindWindows: {
+  thumber?: BrowserWindow,
+  prefs?: BrowserWindow,
+  password?: BrowserWindow,
+  help?: BrowserWindow,
+  update?: BrowserWindow,
+} = {};
+type OneOfAKindWindowId = keyof typeof oneOfAKindWindows;
+let {prefs} = loadPrefs(prefsFilename, {
+  existsSync: fs.existsSync,
+  readUTF8FileSync: utils.readUTF8FileSync,
+});
+let oldProgState: SavedProgramState | undefined;
 let hideInsteadOfCloseOneOffWindows = true;
 let quitting = false;
-let server;
-let router;
+let server: Server | undefined;
+let router: express.Router | undefined;
 
 if (args.compareFoldersToCache) {
   const baseFolders = args._ && args._.length > 0 ? args._ : prefs.folders;
@@ -133,10 +194,10 @@ const iconPath = path.join(app.getAppPath(), 'app', 'images', 'drag-64.png');
 const dragIcon = nativeImage.createFromPath(iconPath);
 
 ipcMain.on('start', (event) => {
-  const windowInfo = getWindowInfo(event.sender) || {};
-  event.sender.send('start', args, windowInfo.state);
+  const windowInfo = getWindowInfo(event.sender);
+  event.sender.send('start', args, windowInfo?.state);
 });
-ipcMain.on('openwindow', (event, windowName) => {
+ipcMain.on('openWindow', (event, windowName) => {
   switch (windowName) {
     case 'view':
       createWindow();
@@ -156,10 +217,10 @@ ipcMain.on('openwindow', (event, windowName) => {
   }
 });
 ipcMain.on('saveSplitLayout', (event, splitLayout) => {
-  getWindowInfo(event.sender).state.layout = splitLayout;
+  setWindowInfoState(event.sender, { layout: splitLayout });
 });
 ipcMain.on('saveWinState', (event, winState) => {
-  getWindowInfo(event.sender).state.winState = winState;
+  setWindowInfoState(event.sender, { winState });
 });
 ipcMain.on('getPassword', (event) => {
   event.sender.send('password', prefs.misc.password);
@@ -168,7 +229,7 @@ ipcMain.on('unlock', () => {
   // need to open other windows before closing passwordWindow
   // otherwise electron will quit.
   start();
-  const passwordWindow = oneOfAKindWindows.password;
+  const passwordWindow = oneOfAKindWindows.password!;
   passwordWindow.close();
 });
 ipcMain.on('setupMenus', setupMenus);
@@ -190,7 +251,7 @@ const staticOptions = {
 };
 
 function setupFolderRouter() {
-  router = new express.Router();
+  router = express.Router();
   router.use('/out', express.static(path.join(`${__dirname}/../../../out`), staticOptions));
   router.use('/user-data-dir', express.static(args.userDataDir, staticOptions));
   const isPrefs = !args._.length;
@@ -202,7 +263,7 @@ function setupFolderRouter() {
   }
 }
 
-function updatePrefs(newPrefs) {
+function updatePrefs(newPrefs: Preferences) {
   prefs = newPrefs;
 
   setupFolderRouter();
@@ -220,7 +281,7 @@ function startWebServer() {
     stopWebServer();
   }
   const app = express();
-  app.use('/', router);
+  app.use('/', router!);
   server = app.listen(8080);
   debug('Web server started on port 8080');
 }
@@ -233,25 +294,34 @@ function stopWebServer() {
   }
 }
 
-function getWindowInfo(webContents) {
+function getWindowInfo(webContents: WebContents): WindowInfo | undefined{
   const ndx = windows.findIndex((window) => webContents === window.webContents);
   const window = windows[ndx];
-  return window ? windowInfosById[window.id] : {};
+  return window ? windowInfosById[window.id] : undefined;
+}
+
+function setWindowInfoState(webContents: WebContents, state: SavedWindowUIState) {
+  const windowInfo = getWindowInfo(webContents);
+  if (windowInfo) {
+    windowInfo.state = windowInfo.state ?? {};
+    Object.assign(windowInfo.state, state);
+  }
 }
 
 const s_progStatVersion = 1;
-const versionConverters = {
-};
+const versionConverters = new Map<number, (savedProgStat: SavedProgramState) => SavedProgramState>([
+]);
 
 function loadProgramState() {
-  let progStat = {
+  let progStat: SavedProgramState = {
+    version: 0,
     windows: [],
   };
   try {
     const progStr = fs.readFileSync(progStateFilename, {encoding: 'utf8'});
     progStat = JSON.parse(progStr);
     while (progStat.version !== s_progStatVersion) {
-      const converter = versionConverters[progStat.version];
+      const converter = versionConverters.get(progStat.version);
       if (!converter) {
         throw new Error('bad version');
       }
@@ -281,14 +351,15 @@ function loadProgramState() {
     if (winState.fullscreen) {
       window.setFullScreen(true);
     }
-    windowInfosById[window.id].state = winState.state || {};
+    windowInfosById[window.id].state = winState.state;
   });
 }
 
 function saveProgramState() {
-  const progState = {
+  
+  const progState: SavedProgramState = {
     version: s_progStatVersion,
-    lastUpdateCheckDate: getUpdateCheckDate() || oldProgState && oldProgState.lastUpdateCheckDate,
+    lastUpdateCheckDate: getUpdateCheckDate() ?? oldProgState?.lastUpdateCheckDate,
     windows: windows.map((window) => ({
       maximized: window.isMaximized(),
       minimized: window.isMinimized(),
@@ -300,7 +371,7 @@ function saveProgramState() {
   fs.writeFileSync(progStateFilename, JSON.stringify(progState, null, 2));
 }
 
-function makeCloseWindowHandler(window) {
+function makeCloseWindowHandler(window: BrowserWindow) {
   const id = window.id;
 
   return function handleCloseWindow() {
@@ -320,7 +391,16 @@ function saveProgramStateIfLastWindow() {
   }
 }
 
-function createWindow(url, options) {
+type WindowOptions = {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  frame?: boolean;
+  show?: boolean;
+};
+
+function createWindow(url?: string, options?: WindowOptions) {
   url = url || `file://${__dirname}/../../../../../app/index.html`;
   if (isDevMode) {
     url = `${url}?react_perf`;
@@ -335,7 +415,6 @@ function createWindow(url, options) {
     minWidth: 500,
     enableLargerThanScreen: true,
     frame: options.frame === undefined ? true : options.frame,
-    defaultEncoding: 'utf8',
     show: options.show === undefined ? true : options.show,
     webPreferences: {
       webSecurity: false,
@@ -343,7 +422,6 @@ function createWindow(url, options) {
       nodeIntegration: true,
       sandbox: false,
       webviewTag: true,
-      enableRemoteModule: true,
     },
   });
   electronRemoteMain.enable(window.webContents);
@@ -364,17 +442,16 @@ function createWindow(url, options) {
   windows.unshift(window);
   windowInfosById[window.id] = {
     window: window,
-    state: {},
   };
 
   return window;
 }
 
-function isSafeishURL(url) {
+function isSafeishURL(url: string) {
   return url.startsWith('http:') || url.startsWith('https:');
 }
 
-function catchNavigation(window) {
+function catchNavigation(window: BrowserWindow) {
   window.webContents.on('will-navigate', (event, url) => {
     event.preventDefault();
     if (isSafeishURL(url)) {
@@ -383,8 +460,8 @@ function catchNavigation(window) {
   });
 }
 
-function makeHideInsteadOfCloseHandler(window) {
-  return function hideInsteadOfClose(e) {
+function makeHideInsteadOfCloseHandler(window: BrowserWindow) {
+  return function hideInsteadOfClose(e: { preventDefault: () => void }) {
     if (hideInsteadOfCloseOneOffWindows) {
       e.preventDefault();
       window.hide();
@@ -392,14 +469,14 @@ function makeHideInsteadOfCloseHandler(window) {
   };
 }
 
-function makeOneOfAKindCloseHandler(window, id) {
+function makeOneOfAKindCloseHandler(window: BrowserWindow, id: OneOfAKindWindowId) {
   return function handleCloseWindow() {
     delete oneOfAKindWindows[id];
     window.removeListener('closed', handleCloseWindow);
   };
 }
 
-function createOneOfAKindWindow(id, url, options) {
+function createOneOfAKindWindow(id: OneOfAKindWindowId, url: string, options: WindowOptions & { hideInsteadOfClose?: boolean }) {
   const openDevTools = isDevMode && inspectRE.test(url);
 
   let window = oneOfAKindWindows[id];
@@ -417,13 +494,11 @@ function createOneOfAKindWindow(id, url, options) {
       enableLargerThanScreen: true,
       frame: options.frame === undefined ? true : options.frame,
       show: openDevTools ? openDevTools : (options.show === undefined ? true : options.show),
-      defaultEncoding: 'utf8',
       webPreferences: {
         webSecurity: false,
         contextIsolation: false,
         nodeIntegration: true,
         webviewTag: true,
-        enableRemoteModule: true,
       },
     });
     electronRemoteMain.enable(window.webContents);
@@ -501,12 +576,12 @@ function createUpdateWindow() {
   });
 }
 
-function sendAction(webContents, action) {
+function sendAction(webContents: WebContents, action: string) {
   webContents.send('action', action);
 }
 
 function setupPasswordMenus() {
-  const menuTemplate = [
+  const menuTemplate: Electron.MenuItemConstructorOptions[] = [
     {
       label: 'View',
       submenu: [
@@ -514,7 +589,7 @@ function setupPasswordMenus() {
           label: 'Reload',
           accelerator: 'CmdOrCtrl+R',
           click(item, focusedWindow) {
-            if (focusedWindow) focusedWindow.reload();
+            if (focusedWindow) (focusedWindow as BrowserWindow).reload();
           }
         },
         {
@@ -522,7 +597,7 @@ function setupPasswordMenus() {
           accelerator: isOSX ? 'Alt+Command+I' : 'Ctrl+Shift+I',
           click(item, focusedWindow) {
             if (focusedWindow) {
-              focusedWindow.webContents.toggleDevTools();
+              (focusedWindow as BrowserWindow).webContents.toggleDevTools();
             }
           }
         },
@@ -567,7 +642,7 @@ function setupPasswordMenus() {
 }
 
 function setupMenus() {
-  const fileMenuTemplate = {
+  const fileMenuTemplate: Electron.MenuItemConstructorOptions = {
     label: 'File',
     submenu: [
       {
@@ -581,24 +656,24 @@ function setupMenus() {
         label: 'Close Window',
         accelerator: isOSX ? 'Cmd-W' : 'Alt-F4',
         click(item, focusedWindow) {
-          focusedWindow.close();
+          (focusedWindow as BrowserWindow).close();
         },
       },
     ],
   };
 
-  const menuTemplate = [
+  const menuTemplate: Electron.MenuItemConstructorOptions[] = [
     fileMenuTemplate,
     {
       label: 'Edit',
       submenu: [
-        { label: 'Undo', accelerator: 'CmdOrCtrl+Z', selector: 'undo:' },
-        { label: 'Redo', accelerator: 'Shift+CmdOrCtrl+Z', selector: 'redo:' },
+        { label: 'Undo', accelerator: 'CmdOrCtrl+Z', role: 'undo' },
+        { label: 'Redo', accelerator: 'Shift+CmdOrCtrl+Z', role: 'redo' },
         { type: 'separator' },
-        { label: 'Cut', accelerator: 'CmdOrCtrl+X', selector: 'cut:' },
-        { label: 'Copy', accelerator: 'CmdOrCtrl+C', selector: 'copy:' },
-        { label: 'Paste', accelerator: 'CmdOrCtrl+V', selector: 'paste:' },
-        { label: 'Select All', accelerator: 'CmdOrCtrl+A', selector: 'selectAll:' },
+        { label: 'Cut', accelerator: 'CmdOrCtrl+X', role: 'cut' },
+        { label: 'Copy', accelerator: 'CmdOrCtrl+C', role: 'copy' },
+        { label: 'Paste', accelerator: 'CmdOrCtrl+V', role: 'paste' },
+        { label: 'Select All', accelerator: 'CmdOrCtrl+A', role: 'selectAll' },
       ]
     },
     {
@@ -608,14 +683,14 @@ function setupMenus() {
           label: 'Reload',
           accelerator: 'CmdOrCtrl+R',
           click(item, focusedWindow) {
-            if (focusedWindow) focusedWindow.reload();
+            if (focusedWindow) (focusedWindow as BrowserWindow).reload();
           }
         },
         {
           label: 'Toggle Full Screen',
           click(item, focusedWindow) {
             if (focusedWindow) {
-              sendAction(focusedWindow.webContents, 'toggleFullscreen');
+              sendAction((focusedWindow as BrowserWindow).webContents, 'toggleFullscreen');
             }
           }
         },
@@ -623,7 +698,7 @@ function setupMenus() {
           label: 'Toggle Developer Tools',
           click(item, focusedWindow) {
             if (focusedWindow) {
-              focusedWindow.webContents.toggleDevTools();
+              (focusedWindow as BrowserWindow).webContents.toggleDevTools();
             }
           }
         },
@@ -650,7 +725,7 @@ function setupMenus() {
           label: 'Toggle Full Screen',
           click(item, focusedWindow) {
             if (focusedWindow) {
-              sendAction(focusedWindow.webContents, 'toggleFullscreen');
+              sendAction((focusedWindow as BrowserWindow).webContents, 'toggleFullscreen');
             }
           }
         },
@@ -715,7 +790,7 @@ function setupMenus() {
         {
           label: 'Hide Others',
           accelerator: 'Command+Alt+H',
-          role: 'hideothers'
+          role: 'hideOthers'
         },
         {
           label: 'Show All',
@@ -734,7 +809,7 @@ function setupMenus() {
   }
 
   if (!isOSX) {
-    fileMenuTemplate.submenu.push(
+    (fileMenuTemplate.submenu! as Electron.MenuItemConstructorOptions[]).push(
       {
         type: 'separator',
       },
