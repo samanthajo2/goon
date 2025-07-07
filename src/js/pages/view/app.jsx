@@ -112,6 +112,7 @@ export default class App extends React.Component {
       contextFolderInfo: null,
       showDeleteFilePrompt: false,
       showDeleteFolderPrompt: false,
+      filter: '',
       filterError: '',
       collections: [
         { name: 'foo', },
@@ -169,8 +170,7 @@ export default class App extends React.Component {
     this._folderFilter = new FolderFilter();
     this._folderFilter.on('updateFiles', this._addFilesToFolderStateHelper);
     this._folderFilter.on('pending', this._queueFolderFilterProcess);
-    this._filterString = '';
-
+    
     this._actionFuncs = makeActionFuncs((actionId) => {
       this._emitAction(actionId);
     });
@@ -213,7 +213,6 @@ export default class App extends React.Component {
     this._eventBus.on('action', this._handleActions);
     this._eventBus.on('fileContextMenu', this._handleFileContextMenu);
     this._eventBus.on('folderContextMenu', this._handleFolderContextMenu);
-    this._eventBus.on('filterupdate', this._handleUpdateFilter);
     this._eventBus.on('refreshFolder', this._handleRefreshFolder);
     this._eventBus.on('deleteFile', this._handleDeleteFile);
     this._eventBus.on('deleteFolder', this._handleDeleteFolder);
@@ -318,13 +317,13 @@ export default class App extends React.Component {
     this._setNewRoot();
     this._folderDB.sendAll();
   }
-  _handleUpdateFilter(event) {
-    const result = makeFilter(event.filter);
+  _handleUpdateFilter(filter) {
+    const result = makeFilter(filter);
     this.setState({
+      filter,
       filterError: result.error
     });
     if (!result.error) {
-      this._filterString = event.filter;
       this._haveBadFilter = result.filterTypesUsed.bad;
       this._setFilter(result.filter);
     }
@@ -590,6 +589,8 @@ export default class App extends React.Component {
         inEventBus={this._imageGridToolbarEventBus}
         outEventBus={this._eventBus}
         imagegridStateHolder={this._imagegridStateHolder}
+        filter={this.state.filter}
+        handleUpdateFilter={this._handleUpdateFilter}
         filterInputBlurred={this._filterInputBlurred}
         filterInputFocused={this._filterInputFocused}
       />

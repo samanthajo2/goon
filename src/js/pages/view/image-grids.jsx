@@ -166,7 +166,7 @@ export default class ImageGrids extends React.Component {
     this._imagegrids.addEventListener('wheel', this._handleWheel, {passive: false});
     const on = this._listenerManager.on.bind(this._listenerManager);
     const eventBus = this._eventBus;
-    on(eventBus, 'setcollection', this._handleSetCollection);
+    on(eventBus, 'setCollection', this._handleSetCollection);
     // TODO: this should happen at app level and then forward to correct event bus
     on(eventBus, 'scrollToImage', this._handleScrollToImage);
 

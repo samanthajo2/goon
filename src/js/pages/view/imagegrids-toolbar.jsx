@@ -29,16 +29,9 @@ import gridModes from './grid-modes';
 import ActionEvent from '../../lib/action-event';
 import {sortModes} from './folder-state-helper';
 
-class FilterUpdateEvent extends ForwardableEvent {
-  constructor(filter) {
-    super('filterupdate');
-    this.filter = filter.trim();
-  }
-}
-
 class SetCollectionEvent extends ForwardableEvent {
   constructor(collection) {
-    super('setcollection');
+    super('setCollection');
     this.collection = collection;
   }
 }
@@ -76,9 +69,6 @@ export default class ImagegridsToolbar extends React.Component {
       '_changeGridMode',
       '_changeSortMode',
     );
-    this.state = {
-      filter: '',
-    };
   }
   _makeButton(actionName) {
     const actionFuncs = this.props.actions;
@@ -93,10 +83,7 @@ export default class ImagegridsToolbar extends React.Component {
     }
   }
   _updateFilter(event) {
-    this.setState({
-      filter: event.target.value,
-    });
-    this.props.outEventBus.dispatch(new FilterUpdateEvent(event.target.value));
+    this.props.handleUpdateFilter(event.target.value);
   }
   _changeGridMode() {
     this.props.outEventBus.dispatch(new ActionEvent({action: 'cycleGridMode'}));
@@ -128,7 +115,7 @@ export default class ImagegridsToolbar extends React.Component {
             value={this.props.collections.indexOf(imagegridState.currentCollection)}
             onChange={this._selectCollection}
           >
-            <option key="colletion--1" value="-1">all/none</option>
+            <option key="collection--1" value="-1">all/none</option>
             {this.props.collections.map((collection, ndx) => {
               return (
                 <option key={`collection-${ndx}`} value={ndx}>{collection.name}</option>  // eslint-disable-line
@@ -153,7 +140,7 @@ export default class ImagegridsToolbar extends React.Component {
           <input
             placeholder="*.gif width:>100 type:jpeg folder:foo*"
             type="text"
-            value={this.state.filter}
+            value={this.props.filter}
             onChange={this._updateFilter}
             onKeyPress={this._handleKeyPress}
             onBlur={this.props.filterInputBlurred}
