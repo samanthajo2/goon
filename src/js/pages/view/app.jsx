@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import fs from 'fs';
-import rimraf from 'rimraf';
+import {rimraf} from 'rimraf';
 import {shell, ipcRenderer} from 'electron';  // eslint-disable-line
 import otherWindowIPC from 'other-window-ipc';
 import React from 'react';
