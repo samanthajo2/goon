@@ -19,7 +19,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import path from 'path';
+import path from 'node:path';
 import otherWindowIPC from 'other-window-ipc';
 import debug from '../../lib/debug';
 import * as archive from './archive';

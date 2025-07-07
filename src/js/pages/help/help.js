@@ -21,7 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import {shell, ipcRenderer} from 'electron';  // eslint-disable-line
 import remote from '@electron/remote';
-import path from 'path';
+import path from 'node:path';
 import '../../lib/title';
 
 // const isDevMode = process.env.NODE_ENV === 'development';

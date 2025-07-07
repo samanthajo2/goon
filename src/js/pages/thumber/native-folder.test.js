@@ -19,7 +19,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import EventEmitter from 'events';
+import EventEmitter from 'node:events';
 import sinon from 'sinon';
 import { describe, it } from '../../lib/test/mocha';
 import {assert} from 'chai';

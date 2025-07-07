@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 /* global VideoFrame */
 
-import path from 'path';
+import path from 'node:path';
 import * as filters from '../../lib/filters';
 import createLogger from '../../lib/debug';
 import { urlFromFilename } from '../../lib/utils';

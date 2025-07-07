@@ -22,7 +22,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 /* eslint-disable prefer-arrow-callback */
 /* eslint-disable func-names */
 
-import path from 'path';
+import path from 'node:path';
 import { describe, it, beforeEach, afterEach } from '../test/mocha';
 import {assert} from 'chai';
 import WatcherManager from './watcher-manager';

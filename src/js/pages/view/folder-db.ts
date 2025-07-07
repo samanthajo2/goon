@@ -19,9 +19,9 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import EventEmitter from 'events';
+import EventEmitter from 'node:events';
 import _ from 'lodash';
-import path from 'path';
+import path from 'node:path';
 import { FileInfo, FilesByPath } from '../../lib/fileinfo';
 import { FolderInfo, FoldersByPath } from '../../lib/folderinfo';
 

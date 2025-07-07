@@ -28,7 +28,7 @@ SOFTWARE.
 /* eslint-disable */
 
 import cp from 'child_process';
-import path from 'path';
+import path from 'node:path';
 import debug from '../debug';
 import LineDecoder from '../line-decoder';
 import FileChangeType from './file-change-types';

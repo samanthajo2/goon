@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import { describe, it } from './test/mocha';
-import path from 'path';
+import path from 'node:path';
 import {assert} from 'chai';
 import * as utils from './utils';
 

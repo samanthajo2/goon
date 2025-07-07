@@ -62,8 +62,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //   Waits for add/change/remove events
 //
 
-import EventEmitter from 'events';
-import path from 'path';
+import EventEmitter from 'node:events';
+import path from 'node:path';
 import _ from 'lodash';
 import bind from '../../lib/bind';
 import debug from '../../lib/debug';

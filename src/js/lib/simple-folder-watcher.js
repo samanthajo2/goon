@@ -19,8 +19,8 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import EventEmitter from 'events';
-import path from 'path';
+import EventEmitter from 'node:events';
+import path from 'node:path';
 import ListenerManager from './listener-manager';
 import debug from './debug';
 import bind from './bind';

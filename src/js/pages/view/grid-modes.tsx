@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import path from 'path';
+import path from 'node:path';
 import {px} from '../../lib/utils';
 import {cssArray} from '../../lib/css-utils';
 import KeyHelper from '../../lib/key-helper';
