@@ -25,13 +25,16 @@ import { cloneDeep } from 'lodash';
 import { LimitedResourceManager } from '../../lib/limited-resource-manager';
 import { MakeThumbnailPagesFn } from './thumbnail-page-maker-def';
 
-/**
- *
- * @param {Object.<string, FileInfo>} _oldFiles must contain only images and videos
- * @param {Object.<string, FileInfo>} _newFiles must contain only images and videos
- * @param {TPMOptions} options
- */
+export type ThumbnailPageMakerFn = (
+  oldImagesAndVideos: FilesByPath,
+  newImagesAndVideos: FilesByPath,
+  baseFilename: string
+) => Promise<FilesByPath>;
 
+/**
+ * @param _oldFiles must contain only images and videos
+ * @param _newFiles must contain only images and videos
+ */
 export default async function createThumbnailsForFolder(
   _oldFiles: FilesByPath,
   _newFiles: FilesByPath,

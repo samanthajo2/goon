@@ -23,7 +23,7 @@ import EventEmitter from 'node:events';
 import _ from 'lodash';
 import bind from '../../lib/bind';
 import * as filters from '../../lib/filters';
-import debug from '../../lib/debug';
+import debug, { Logger } from '../../lib/debug';
 import ListenerManager from '../../lib/listener-manager';
 import {areFilesSame, getDifferentFilenames} from '../../lib/utils';
 import {
@@ -32,9 +32,13 @@ import {
   deleteThumbnails,
   separateFiles,
 } from './folder-utils';
+import { FilesByPath } from '../../lib/fileinfo';
+import { ThumbnailPageMakerFn } from './folder-thumbnail-maker';
+import FolderData from './folder-data';
+import WatcherConsolidator from './watcher-consolidator';
 
-function filterFiles(files) {
-  const filteredFiles = {};
+function filterFiles(files: FilesByPath) {
+  const filteredFiles: FilesByPath = {};
   Object.keys(files)
     .filter(
       (filename) => files[filename].isDirectory ||
@@ -47,9 +51,29 @@ function filterFiles(files) {
   return filteredFiles;
 }
 
+type LocalFsAPI = {
+  unlinkSync: (filename: string) => void;
+};
+
+
 // Represents one Folder of thumbnails
 export default class NativeFolder extends EventEmitter {
-  constructor(filename, options) {
+  _logger: Logger
+  _filename: string;
+  _folderData: FolderData;
+  _thumbnailPageMakerFn: ThumbnailPageMakerFn;
+  _watcher: WatcherConsolidator;
+  _fs: LocalFsAPI;
+  _newFiles: FilesByPath | undefined;
+  _isMakingThumbnails: boolean;
+  _isChecking: boolean;
+  _listenerManager: ListenerManager;
+  constructor(filename: string, options: {
+    folderData: FolderData,
+    thumbnailPageMakerFn: ThumbnailPageMakerFn,
+    watcher: WatcherConsolidator,
+    fs: LocalFsAPI,
+  }) {
     super();
     this._logger = debug('Folder', filename);
     this._logger('new folder');
@@ -106,7 +130,7 @@ export default class NativeFolder extends EventEmitter {
     return this._filename;
   }
 
-  async _updateThumbnails(oldImagesAndVideos, newImagesAndVideos) {
+  async _updateThumbnails(oldImagesAndVideos: FilesByPath, newImagesAndVideos: FilesByPath) {
     this._logger('updateThumbnails');
     if (this._isMakingThumbnails) {
       throw new Error('already making thumbnails');
@@ -142,18 +166,18 @@ export default class NativeFolder extends EventEmitter {
     };
   }
 
-  _addFiles(files) {
+  _addFiles(files: FilesByPath) {
     this._folderData.addFiles(files);
   }
 
-  _removeFiles(filenames) {
+  _removeFiles(filenames: string[]) {
     this._folderData.removeFiles(filenames);
   }
 
   // This is called by the watcher to give us ALL
   // the files and folders for this folder
   // @param {Object.<string, stat>} files
-  _updateFiles(files) {
+  _updateFiles(files: FilesByPath) {
     this._logger('updateFiles:', files);
     this._isChecking = false;
     this._sendImagesAndVideos();
@@ -193,7 +217,7 @@ export default class NativeFolder extends EventEmitter {
     this._sendFoldersAndArchives(newBins, archiveFilenamesThatNeedUpdate);
   }
 
-  _sendFoldersAndArchives(bins, archiveFilenamesThatNeedUpdate = []) {
+  _sendFoldersAndArchives(bins: ReturnType<typeof separateFiles>, archiveFilenamesThatNeedUpdate: string[] = []) {
     this.emit('updateFolders', this._filename, bins.folders);
     this.emit('updateArchives', this._filename, bins.archives, archiveFilenamesThatNeedUpdate);
   }
