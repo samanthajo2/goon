@@ -23,8 +23,17 @@ import React from 'react';
 // eslint-disable-next-line react/no-deprecated
 import ReactDOM from 'react-dom';
 
-export default class Modal extends React.Component {
-  constructor(props) {
+type ModelProps = {
+  parent?: HTMLElement;
+  children: React.ReactNode;
+}
+
+export default class Modal extends React.Component<ModelProps> {
+  _parent: HTMLElement;
+  _outer: HTMLDivElement;
+  _inner: HTMLDivElement;
+
+  constructor(props: ModelProps) {
     super(props);
     this._parent = props.parent || document.body;
     this._outer = document.createElement('div');
