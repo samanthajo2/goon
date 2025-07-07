@@ -90,7 +90,7 @@
     "@electron/remote": "^2.1.2",
     "asar": "^3.2.0",
     "chalk": "^4.1.2",
-    "chokidar": "^3.6.0",
+    "chokidar": "^4.0.3",
     "commander": "^14.0.0",
     "debug": "^4.4.1",
     "electron-updater": "^4.6.5",
