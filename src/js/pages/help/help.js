@@ -22,6 +22,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import {shell, ipcRenderer} from 'electron';  // eslint-disable-line
 import remote from '@electron/remote';
 import path from 'node:path';
+import { version } from '../../../../package.json';
 import '../../lib/title';
 
 // const isDevMode = process.env.NODE_ENV === 'development';
@@ -29,7 +30,7 @@ import '../../lib/title';
 function start(args) {
   const prefspath = path.join(args.userDataDir, 'prefs.json');
   const $ = document.querySelector.bind(document);
-  $('#version').textContent = remote.app.getVersion();
+  $('#version').textContent = version;
   $('#exepath').textContent = process.argv[0];
   $('#prefspath').textContent = prefspath;
   $('#prefspath').addEventListener('click', () => {
