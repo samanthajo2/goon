@@ -23,7 +23,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { Server } from 'http'
 import { Command } from 'commander';
-import electron, { BrowserWindow, WebContents } from 'electron';  // eslint-disable-line
+import electron, { BrowserWindow, Rectangle, WebContents } from 'electron';  // eslint-disable-line
 import 'other-window-ipc';
 import debugFn from 'debug';
 import express from 'express';
@@ -42,6 +42,7 @@ import listCacheFiles from './list-cache-files';
 import compareFoldersToCache from './compare-folders-to-cache';
 import { Rect } from '../lib/rect';
 import { WinState } from '../lib/win-state';
+import Browser from '../../3rdparty/react-reflex/Browser';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const {windowTrackerInit} = require('../lib/remote-helpers');
@@ -346,14 +347,36 @@ function loadProgramState() {
       }
     }
     const window = createWindow(undefined, winBounds);
-    if (winState.maximized || needMaximized) {
-      window.maximize();
-    }
-    if (winState.fullscreen) {
-      window.setFullScreen(true);
-    }
+    saveWindowBounds(window, winBounds ?? window.getBounds());
+    window.once('ready-to-show', () => {
+      if (winState.maximized || needMaximized) {
+        window.maximize();
+      }
+      if (winState.fullscreen) {
+        window.setFullScreen(true);
+      }
+    });
     windowInfosById[window.id].state = winState.state;
   });
+}
+
+// We need to update this if the window is moved/resized
+// so what if we save while the window is maximized we have
+// the size when it wasn't.
+const s_windowStates = new Map<BrowserWindow, SavedWindowState>;
+
+function saveWindowBounds(window: BrowserWindow, bounds: Rect) {
+  const state = s_windowStates.get(window) ?? {};
+  s_windowStates.set(window, state);
+  state.bounds = bounds;
+}
+
+function saveWindowSize(window: BrowserWindow) {
+  console.log('saveWindowSize');
+  if (window.isMaximized() || window.isMinimized() || window.isFullScreen()) {
+    return;
+  }
+  saveWindowBounds(window, window.getBounds());
 }
 
 function saveProgramState() {
@@ -365,7 +388,7 @@ function saveProgramState() {
       maximized: window.isMaximized(),
       minimized: window.isMinimized(),
       fullscreen: window.isFullScreen(),
-      bounds: window.getBounds(),
+      bounds: s_windowStates.get(window)?.bounds ?? window.getBounds(),
       state: windowInfosById[window.id].state,
     })),
   };
@@ -376,6 +399,7 @@ function makeCloseWindowHandler(window: BrowserWindow) {
   const id = window.id;
 
   return function handleCloseWindow() {
+    s_windowStates.delete(window);
     const ndx = windows.indexOf(window);
     windows.splice(ndx, 1);
     delete windowInfosById[id];
@@ -440,6 +464,8 @@ function createWindow(url?: string, options?: WindowOptions) {
 
   window.on('close', saveProgramStateIfLastWindow);
   window.on('closed', makeCloseWindowHandler(window));
+  window.on('resized', () => saveWindowSize(window))
+  window.on('moved', () => saveWindowSize(window))
   windows.unshift(window);
   windowInfosById[window.id] = {
     window: window,
