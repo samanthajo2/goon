@@ -81,4 +81,4 @@ jobs:
             ./dist/Goon*.exe
             ./dist/Goon*.AppImage
             ./dist/Goon*.snap
-          overwrite: true
+
