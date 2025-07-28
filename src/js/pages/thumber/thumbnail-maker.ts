@@ -122,19 +122,18 @@ export default function createThumbnailMaker(options: {
       loaderHndl = await mediaLoaderMgr();
       const metaInfo = {orientation: 0};
       const imgInfo = await loaderHndl.resource(filename, type);
-      const isAtLeastOnePixel = imgInfo.width > 0 && imgInfo.height > 0;
+      const isAtLeastOnePixel = imgInfo.metaData.width > 0 && imgInfo.metaData.height > 0;
       if (!isAtLeastOnePixel) {
         throw new Error('no pixels');
       }
-      thumbInfo = await makeThumbnail(imgInfo.elem, imgInfo.width, imgInfo.height, metaInfo.orientation, maxWidth);
+      thumbInfo = await makeThumbnail(imgInfo.elem, imgInfo.metaData.width, imgInfo.metaData.height, metaInfo.orientation, maxWidth);
       // now that the thumbnail is made we don't need the image
       loaderHndl.release();
       return {
         release: release,
         info: {
           ...metaInfo,
-          width: imgInfo.width,
-          height: imgInfo.height,
+          ...imgInfo.metaData,
         },
         canvas: thumbInfo.canvas,
       };

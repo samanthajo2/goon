@@ -42,7 +42,6 @@ import listCacheFiles from './list-cache-files';
 import compareFoldersToCache from './compare-folders-to-cache';
 import { Rect } from '../lib/rect';
 import { WinState } from '../lib/win-state';
-import Browser from '../../3rdparty/react-reflex/Browser';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const {windowTrackerInit} = require('../lib/remote-helpers');

@@ -30,6 +30,7 @@ export type DBFileInfo = FileInfo & {
   baseName: string;
   folderName: string;
   lowercaseName: string;
+  duration?: number;
 };
 
 type DBFilesByPath = { [key: string]: DBFileInfo };

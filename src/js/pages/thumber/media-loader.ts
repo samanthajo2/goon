@@ -25,7 +25,7 @@ import * as filters from '../../lib/filters';
 import createLogger from '../../lib/debug';
 import { urlFromFilename } from '../../lib/utils';
 import { createImageFromString } from '../../lib/string-image';
-import { MediaElement, MediaLoaderInfo, MediaLoaderFn } from './media-loader-def';
+import { MediaElement, MediaLoaderInfo, MediaLoaderFn, MediaMetaData } from './media-loader-def';
 
 let g_id = 0;
 
@@ -61,19 +61,18 @@ export default function createMediaLoader(options: {
   const image = document.createElement('img');
   const logger = createLogger('MediaLoader', ++g_id);
   const maxSeekTime = options.maxSeekTime;
-  let resolveFn: (({ elem, width, height }: {
+  let resolveFn: (({ elem, metaData }: {
     elem: MediaElement,
-    width: number,
-    height: number,
+    metaData: MediaMetaData,
   }) => void) | undefined;
   let rejectFn: ((elem: HTMLVideoElement | HTMLImageElement) => void) | undefined;
   let videoFrame: VideoFrame | undefined;
 
-  function resolve(elem: MediaElement, width: number, height: number) {
+  function resolve(elem: MediaElement, metaData: MediaMetaData) {
     const fn = resolveFn;
     resolveFn = undefined;
     rejectFn = undefined;
-    fn?.({ elem, width, height });
+    fn?.({ elem, metaData });
   }
 
   function reject(elem: HTMLVideoElement | HTMLImageElement) {
@@ -101,7 +100,7 @@ export default function createMediaLoader(options: {
     video.requestVideoFrameCallback(() => {
       videoFrame = new VideoFrame(video);
       video.pause();
-      resolve(videoFrame, video.videoWidth, video.videoHeight);
+      resolve(videoFrame, { width: video.videoWidth, height: video.videoHeight, duration: video.duration });
     });
   });
   video.addEventListener('error', (e) => {
@@ -115,7 +114,7 @@ export default function createMediaLoader(options: {
   image.addEventListener('load', (e) => {
     const imageElement = e.target as HTMLImageElement;
     logger('loaded:', imageElement.src);
-    resolve(imageElement, imageElement.naturalWidth, imageElement.naturalHeight);
+    resolve(imageElement, { width: imageElement.naturalWidth, height: imageElement.naturalHeight });
   });
   image.addEventListener('error', (e) => {
     const imageElement = e.target as HTMLImageElement;

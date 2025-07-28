@@ -160,6 +160,29 @@ function computeGridStyle(displayAspect: number, props: ThumbnailProps) {
   };
 }
 
+function format1(v: number) {
+  const s = v.toFixed(1);
+  if (s.endsWith('.0')) {
+    return s.slice(0, -2);
+  }
+  return s;
+}
+
+function shortDuration(duration?: number) {
+  if (!duration) {
+    return '▶';
+  }
+  const hours = duration / 60 / 60;
+  if (hours >= 1 ) {
+    return `▶${format1(hours)}h`;
+  }
+  const minutes = Math.floor(duration / 60);
+  if (minutes >= 1) {
+    return `▶${format1(minutes)}m`;
+  }
+  return `▶${Math.round(duration)}s`;
+}
+
 export type GridMode = keyof typeof gridModeDefs;
 
 type ThumbnailProps = {
@@ -299,8 +322,9 @@ function renderNoFrame(props: ThumbnailProps, onClick: () => void, onContextMenu
   const baseType = `mime-${info.type.split('/')[0]}`;
   const mimeType = `mime-${info.type.replace(s_slashRE, '-')}`;
   const className = cssArray('thumbnail', baseType, mimeType);
+  const duration = shortDuration(info.duration);
   return (
-    <div draggable="true" onClick={onClick} onDragStart={onDragStart} onContextMenu={onContextMenu} className={className.toString()} style={style}>
+    <div draggable="true" data-duration={duration} onClick={onClick} onDragStart={onDragStart} onContextMenu={onContextMenu} className={className.toString()} style={style}>
       <div className="thumbinfo">
         <div className="name">{renderName(props, info)}</div>
       </div>
@@ -314,6 +338,7 @@ function renderWithFrame(props: ThumbnailProps, onClick: () => void, onContextMe
   const baseType = `mime-${info.type.split('/')[0]}`;
   const mimeType = `mime-${info.type.replace(s_slashRE, '-')}`;
   const className = cssArray('thumbnail', baseType, mimeType);
+  const duration = shortDuration(info.duration);
   const frameStyle = {
     left: px(pos.x),
     top: px(pos.y),
@@ -323,7 +348,7 @@ function renderWithFrame(props: ThumbnailProps, onClick: () => void, onContextMe
   return (
     <div>
       <div className="thumbnail-frame" style={frameStyle}></div>
-      <div draggable="true" onClick={onClick} onContextMenu={onContextMenu} onDragStart={onDragStart} className={className.toString()} style={style}>
+      <div draggable="true" data-duration={duration} onClick={onClick} onContextMenu={onContextMenu} onDragStart={onDragStart} className={className.toString()} style={style}>
         <div className="thumbinfo">
           <div className="name">{renderName(props, info)}</div>
         </div>

@@ -630,7 +630,7 @@ div::-webkit-scrollbar-corner {
 }
 
 .mime-video:before {
-    content: "▶";
+    content: attr(data-duration);
 }
 
 /* ----- react-contextmenu ----- */
