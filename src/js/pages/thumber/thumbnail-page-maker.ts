@@ -29,6 +29,7 @@ import {
   range,
 } from '../../lib/utils';
 import {separateFilesByPages} from './folder-utils';
+import { ImageInfo } from './thumbnail-maker';
 import { MakeThumbnailPagesFn } from './thumbnail-page-maker-def';
 
 // Given an old and new hash of Object.<string, FileInfo> of
@@ -79,7 +80,7 @@ import { MakeThumbnailPagesFn } from './thumbnail-page-maker-def';
 export default function createThumbnailPageMaker(options: {
   thumbnailWidth: number;
   thumbnailMaker: (filename: string, type: string) => Promise<{
-    info: FileInfo,
+    info: ImageInfo,
     canvas: HTMLCanvasElement,
     release: () => void
   }>;

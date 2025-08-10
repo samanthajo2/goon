@@ -52,18 +52,18 @@ import ThumbnailRenderer from './thumbnail-renderer';
 // when the event returns we are free to re-use the canvas. With a promise
 // the canvas would be need to be available forever.
 
-type ImageInfo = {
+export type ImageInfo = {
   orientation: number;
   width: number;
   height: number;
 };
 
-type ThumbnailMakerInfo = {
+export type ThumbnailMakerInfo = {
   release: () => void;
   canvas: HTMLCanvasElement;
 };
 
-type LoadInfo = ThumbnailMakerInfo & {
+export type LoadInfo = ThumbnailMakerInfo & {
   info: ImageInfo;
 };
 

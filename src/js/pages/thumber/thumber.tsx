@@ -19,14 +19,14 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import {ipcRenderer} from 'electron'; // eslint-disable-line
+import {BrowserWindow, ipcRenderer} from 'electron'; // eslint-disable-line
 import {getCurrentWindow, require as req} from '@electron/remote';
-import otherWindowIPC from 'other-window-ipc';
+import otherWindowIPC, { Channel, ChannelStream } from 'other-window-ipc';
 import fs from 'graceful-fs';
 import path from 'path';
 import _ from 'lodash';
 
-import createLimitedResourceManager from '../../lib/limited-resource-manager';
+import createLimitedResourceManager, { LimitedResourceManager } from '../../lib/limited-resource-manager';
 import createMediaLoader from './media-loader';
 import createThumbnailMaker from './thumbnail-maker';
 import createThumbnailPageMaker from './thumbnail-page-maker';
@@ -40,14 +40,36 @@ import MediaManagerServer from './media-manager-server';
 import ImageLoader from './image-loader';
 import WatcherManager from '../../lib/watcher/watcher-manager';
 import createThrottledReaddir from '../../lib/readdir-throttler';
-import stacktraceLog from '../../lib/stacktrace-log'; // eslint-disable-line
+//import stacktraceLog from '../../lib/stacktrace-log'; // eslint-disable-line
+import { ProgOptions } from '../../main/program-options';
+import { Preferences } from '../prefs/default-prefs';
 import '../../lib/title';
 
 const isDevMode = process.env.NODE_ENV === 'development';
 
 const {windowTrackerIsAnyWindowFullScreen} = req('./out/js/src/js/lib/remote-helpers');
 
-function start(args) {
+type G = {
+  dataDir: string;
+  maxParallelDownloads: number;
+  maxSeekTime: number;
+  maxWidth: number;
+  thumbCtx: CanvasRenderingContext2D;
+  visible: boolean;
+  window: BrowserWindow;
+  hideTimeoutDuration: number;
+  prefs?: Preferences;
+  watcherManager: WatcherManager;
+  mediaManagerServer: MediaManagerServer;
+  thumbnailManager: ThumbnailManager
+  thumbnailPageMaker: ReturnType<typeof createThumbnailPageMaker>;
+  thumbnailPageMakerManager: LimitedResourceManager<ReturnType<typeof createThumbnailPageMaker>>;
+
+  channel: otherWindowIPC.Channel;
+  prefsStream: otherWindowIPC.ChannelStream;
+};
+
+function start(args: ProgOptions) {
   const log = debug('Thumber');
   log('start');
   const g = {
@@ -56,11 +78,11 @@ function start(args) {
     maxSeekTime: 30,
     // TODO: fix
     maxWidth: 256,
-    thumbCtx: document.querySelector('canvas').getContext('2d'),
+    thumbCtx: document.querySelector('canvas')!.getContext('2d')!,
     visible: false,
     window: getCurrentWindow(),
     hideTimeoutDuration: isDevMode ? 5000000000 : 5000,  // 5 seconds
-  };
+  } as G;
 
   //g.window.show();
 
@@ -86,7 +108,7 @@ function start(args) {
     hide();  // works because this is debounced
   }
 
-  function drawProgressImage(info, canvas) {
+  function drawProgressImage(info: { width: number; height: number }, canvas: HTMLCanvasElement) {
     const ctx = g.thumbCtx;
     utils.resizeCanvasToDisplaySize(ctx.canvas, window.devicePixelRatio);
     clearProgressImage();
@@ -103,24 +125,28 @@ function start(args) {
     show();
   }
 
-  function make2DContext(...args) {
-    return document.createElement('canvas').getContext('2d', ...args);
+  function make2DContext(settings?: CanvasRenderingContext2DSettings ) {
+    return document.createElement('canvas').getContext('2d', settings) as CanvasRenderingContext2D;
   }
 
   g.watcherManager = new WatcherManager();
-  function createWatcher(filepath) {
+  function createWatcher(filepath: string) {
     return g.watcherManager.watch(filepath);
   }
 
-  const thumbnailRendererMgr = createLimitedResourceManager([new ThumbnailRenderer(document.createElement('canvas').getContext('2d'))]);
-  const loaders = [];
-  for (let ii = 0; ii < g.maxParallelDownloads; ++ii) {
-    loaders.push(createMediaLoader({
-      maxSeekTime: g.maxSeekTime,
-    }));
-  }
+  const thumbnailRendererMgr = createLimitedResourceManager([new ThumbnailRenderer(make2DContext())]);
+  const loaders = utils.range(g.maxParallelDownloads, () => createMediaLoader({
+    maxSeekTime: g.maxSeekTime,
+  }));
 
-  fs.readdir = createThrottledReaddir(fs.readdir.bind(fs), args.maxParallelReaddirs, args.readdirsThrottleDuration);
+  const localFS = {
+    readdir: createThrottledReaddir(fs.readdir.bind(fs), args.maxParallelReaddirs, args.readdirsThrottleDuration),
+    readFileSync: fs.readFileSync.bind(fs),
+    unlinkSync: fs.unlinkSync.bind(fs),
+    writeFileSync: (filename: string, data: string, encoding?: string) => {
+      fs.writeFileSync(filename, data, { encoding: encoding as BufferEncoding });
+    },
+  };
 
   const thumbnailMaker = createThumbnailMaker({
     maxWidth: g.maxWidth,
@@ -131,7 +157,7 @@ function start(args) {
     thumbnailMaker: thumbnailMaker,
     thumbnailWidth: g.maxWidth,
     pageSize: 2048,
-    fs: fs,
+    fs: localFS,
     context2DFactory: make2DContext,
     imgLoader: new ImageLoader(),
     thumbnailObserver: drawProgressImage,
@@ -151,12 +177,12 @@ function start(args) {
     updateFilesEventForwarder(folders, ...args);
   });
 
-  function updatePrefs(prefs) {
+  function updatePrefs(prefs: Preferences) {
     g.prefs = prefs;
     const isPrefs = !args._.length;
     const dirs = isPrefs ? prefs.folders : args._;
-    g.dirsToPrefixMap = Object.entries(utils.dirsToPrefixMap(dirs))
-      .sort((a, b) => Math.sign(b.length - a.length));
+    //g.dirsToPrefixMap = Object.entries(utils.dirsToPrefixMap(dirs))
+    //  .sort((a, b) => Math.sign(b.length - a.length));
     g.thumbnailManager.setFolders(utils.removeChildFolders(utils.filterNonExistingDirs(dirs)), isPrefs);
   }
 
@@ -172,10 +198,10 @@ function start(args) {
       }
     });
 
-  const targets = [];
+  const targets: ChannelStream[] = [];
 
-  function makeEventForwarder(eventName) {
-    return (...argss) => {
+  function makeEventForwarder(eventName: string) {
+    return (...argss: any[]) => {
       log('send:', eventName, 'to', targets.length, 'targets');
       targets.forEach((target) => {
         target.send(eventName, ...argss);
@@ -196,7 +222,7 @@ function start(args) {
       }
       targets.splice(ndx, 1);
     });
-    stream.on('refreshFolder', (folderName) => {
+    stream.on('refreshFolder', (folderName: string) => {
       g.thumbnailManager.refreshFolder(folderName);
     });
     g.thumbnailManager.sendAll(stream);

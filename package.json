@@ -60,6 +60,7 @@
   "devDependencies": {
     "@tsconfig/recommended": "^1.0.10",
     "@types/express": "^5.0.3",
+    "@types/graceful-fs": "^4.1.9",
     "@types/hjson": "^2.4.6",
     "@types/lodash": "^4.17.18",
     "@types/mime-types": "^3.0.1",
