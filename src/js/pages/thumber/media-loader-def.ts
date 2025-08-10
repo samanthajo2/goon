@@ -19,7 +19,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-export type MediaElement = HTMLImageElement | VideoFrame;
+export type MediaElement = HTMLImageElement | HTMLVideoElement;
 
 export type MediaMetaData = {
   width: number;
@@ -30,6 +30,7 @@ export type MediaMetaData = {
 export type MediaLoaderInfo = {
   elem: MediaElement,
   metaData: MediaMetaData
+  release: () => void,
 }
 
 export type MediaLoaderFn = (filename: string, type: string) => Promise<MediaLoaderInfo>;

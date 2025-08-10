@@ -34,26 +34,13 @@ let g_id = 0;
 //
 // Usage:
 //
-//   loader = new ThumbLoader();
-//   loader.on('ready', ...);
-//   loader.on('error', ...);
-//   loader.on('free', ...);
-//   loader.load({url: url}, id);
+// ```
+// loaderFn = createMediaLoader();
+// loaded = await loaderFn(someUrl, mimeType);
+// use loaded.elem
+// loaded.release();
 //
-// Events:
-//   ready: (element, width, height)
-//      emitted when the video/image as loaded
-//   free:
-//      emitted when it's safe to request another url. You will always get a
-//      free event even if there was an error
-//   error: (element)
-//      emitted when there was an error trying to load URL
-//
-// Why isn't this promise based? Because there is an assumption
-// we can't keep the image around. We need the code that wants
-// to use the image to use it immediately during the 'ready' event.
-// when the event returns we are free to re-use the image. With a promise
-// the image would be need to be available forever.
+// Note: calling loaderFn again before calling loaded.release() is an error!
 export default function createMediaLoader(options: {
   maxSeekTime: number,
 }): MediaLoaderFn {
@@ -64,21 +51,29 @@ export default function createMediaLoader(options: {
   let resolveFn: (({ elem, metaData }: {
     elem: MediaElement,
     metaData: MediaMetaData,
+    release: () => void,
   }) => void) | undefined;
   let rejectFn: ((elem: HTMLVideoElement | HTMLImageElement) => void) | undefined;
-  let videoFrame: VideoFrame | undefined;
+  let busy = false;
+
+  function release() {
+    video.removeAttribute('src');
+    image.removeAttribute('src');
+    busy = false;
+  }
 
   function resolve(elem: MediaElement, metaData: MediaMetaData) {
     const fn = resolveFn;
     resolveFn = undefined;
     rejectFn = undefined;
-    fn?.({ elem, metaData });
+    fn?.({ elem, metaData, release });
   }
 
   function reject(elem: HTMLVideoElement | HTMLImageElement) {
     const fn = rejectFn;
     resolveFn = undefined;
     rejectFn = undefined;
+    release();
     fn?.(elem);
   }
 
@@ -97,11 +92,8 @@ export default function createMediaLoader(options: {
   video.addEventListener('playing', (e) => {
     const videoElement = e.target as HTMLVideoElement;
     logger('paying: ready:', videoElement.src);
-    video.requestVideoFrameCallback(() => {
-      videoFrame = new VideoFrame(video);
-      video.pause();
-      resolve(videoFrame, { width: video.videoWidth, height: video.videoHeight, duration: video.duration });
-    });
+    video.pause();
+    resolve(videoElement, { width: video.videoWidth, height: video.videoHeight, duration: video.duration });
   });
   video.addEventListener('error', (e) => {
     const videoElement = e.target as HTMLVideoElement;
@@ -124,12 +116,8 @@ export default function createMediaLoader(options: {
 
   return function load(filename: string, type: string) {
     logger('load:', filename);
-    if (resolveFn) {
+    if (busy) {
       throw new Error('in use');
-    }
-    if (videoFrame) {
-      videoFrame.close();
-      videoFrame = undefined;
     }
     const p = new Promise<MediaLoaderInfo>((resolve, reject) => {
       resolveFn = resolve;
@@ -138,12 +126,12 @@ export default function createMediaLoader(options: {
     video.pause();
     const url = urlFromFilename(filename);
     if (filters.isMimeVideo(type)) {
-      video.src = url;
+      video.setAttribute('src', url);
       video.load();
     } else if (filters.isMimeAudio(type)) {
-      image.src = createImageFromString(path.basename(filename));
+      image.setAttribute('src', createImageFromString(path.basename(filename)));
     } else {
-      image.src = url;
+      image.setAttribute('src', url);
     }
     return p;
   };

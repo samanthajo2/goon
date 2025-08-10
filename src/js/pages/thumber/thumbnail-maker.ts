@@ -21,7 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import createLogger from '../../lib/debug';
 import { LimitedResourceManager } from '../../lib/limited-resource-manager';
-import { MediaLoaderFn } from './media-loader-def';
+import { MediaLoaderFn, MediaLoaderInfo } from './media-loader-def';
 import ThumbnailRenderer from './thumbnail-renderer';
 
 // Manages a bunch of ThumbLoaders
@@ -105,11 +105,16 @@ export default function createThumbnailMaker(options: {
     logger('load:', filename);
     let loaderHndl: Awaited<ReturnType<typeof mediaLoaderMgr>> | undefined;
     let thumbInfo: ThumbnailMakerInfo | undefined;
+    let imgInfo: MediaLoaderInfo | undefined;
 
     function release() {
       if (thumbInfo) {
         thumbInfo.release();
         thumbInfo = undefined;
+      }
+      if (imgInfo) {
+        imgInfo.release();
+        imgInfo = undefined;
       }
       if (loaderHndl) {
         loaderHndl.release();
