@@ -42,6 +42,7 @@ import listCacheFiles from './list-cache-files';
 import compareFoldersToCache from './compare-folders-to-cache';
 import { Rect } from '../lib/rect';
 import { WinState } from '../lib/win-state';
+import { ProgOptions } from './program-options';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const {windowTrackerInit} = require('../lib/remote-helpers');
@@ -69,18 +70,6 @@ program
   .argument('[folders...]', 'folders');
 
 program.parse(process.argv);
-
-type ProgOptions = {
-  help: boolean;
-  userDataDir: string;
-  inspector: string;
-  listCacheFiles: boolean;
-  compareFoldersToCache: boolean;
-  deleteFolderDataIfNoFilesForArchive: boolean;
-  maxParallelReaddirs: number;
-  readdirsThrottleDuration: number;
-  _: string[];
-};
 
 const args = program.opts() as unknown as ProgOptions;
 
