@@ -20,7 +20,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import {shell, ipcRenderer} from 'electron';  // eslint-disable-line
-import remote from '@electron/remote';
 import path from 'node:path';
 import { version } from '../../../../package.json';
 import '../../lib/title';
