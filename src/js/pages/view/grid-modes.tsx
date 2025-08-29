@@ -133,17 +133,15 @@ function computeGridStyle(displayAspect: number, props: ThumbnailProps) {
   let bkHeight;
 
   if (imageAspect > displayAspect) {
-    const expand = height / thumbnail.height;
-    const thWidth = expand * thumbnail.width;
-    bkX      = expand * (-thumbnail.x) - (thWidth - width) / 2;
+    const expand = height / zoom(thumbnail.height);
+    bkX      = expand * (-thumbnail.x - (thumbnail.width - width / zoom(expand)) / 2);
     bkY      = expand * (-thumbnail.y);
     bkWidth  = expand * thumbnailPageSize;
     bkHeight = expand * thumbnailPageSize;
   } else {
-    const expand = width / thumbnail.width;
-    const thHeight = expand * thumbnail.height;
+    const expand = width / zoom(thumbnail.width);
     bkX      = expand * -thumbnail.x;
-    bkY      = expand * -thumbnail.y - (thHeight - height) / 2;
+    bkY      = expand * (-thumbnail.y - (thumbnail.height - height / zoom(expand)) / 2);
     bkWidth  = expand * thumbnailPageSize;
     bkHeight = expand * thumbnailPageSize;
   }
@@ -216,8 +214,9 @@ function computeFitStyle(displayAspect: number, props: ThumbnailProps) {
 
   if (imageAspect > displayAspect) {
     // it's wider than the area
-    const shrink = areaWidth / pos.width;
-    const thHeight = pos.height * shrink;
+    //const shrink = areaWidth / pos.width;
+    const shrink = areaWidth / zoom(thumbnail.width);
+    const thHeight = areaWidth / imageAspect;
     x        = pos.x;
     y        = pos.y + (areaHeight - thHeight) / 2;
     width    = areaWidth;
@@ -228,8 +227,8 @@ function computeFitStyle(displayAspect: number, props: ThumbnailProps) {
     bkHeight = shrink * thumbnailPageSize;
   } else {
     // it's taller than the area
-    const shrink = areaHeight / pos.height;
-    const thWidth = pos.width * shrink;
+    const shrink = areaHeight / zoom(thumbnail.height);
+    const thWidth = areaHeight * imageAspect;
     x        = pos.x + (areaWidth - thWidth) / 2;
     y        = pos.y;
     width    = thWidth;
