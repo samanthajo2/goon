@@ -27,6 +27,7 @@ import React from 'react';
 import _ from 'lodash';
 import {autorun, observable, action} from 'mobx';
 import {observer} from 'mobx-react';
+import ExifReader from 'exifreader'
 import {hideMenu, showMenu} from '../../lib/ui/context-menu';
 import ActionEvent from '../../lib/action-event';
 import ActionListener from '../../lib/action-listener';
@@ -39,6 +40,7 @@ import {
 // import '../src/js/3rdparty/react-reflex/reflex-styles.scss';
 import FileContextMenu from './file-context-menu';
 import FolderContextMenu from './folder-context-menu';
+import FileInfo from './file-info';
 import OkayCancel from '../../lib/ui/okay-cancel';
 import Folders from './folders';
 import {sortModes, FolderStateHelper} from './folder-state-helper';
@@ -110,6 +112,7 @@ export default class App extends React.Component {
       },
       contextFileInfo: null,
       contextFolderInfo: null,
+      fileInfo: null,
       showDeleteFilePrompt: false,
       showDeleteFolderPrompt: false,
       filter: '',
@@ -138,6 +141,7 @@ export default class App extends React.Component {
       '_handleActions',
       '_handleKeyDown',
       '_handleRotate',
+      '_handleShowFileInfo',
       '_handleFileContextMenu',
       '_handleFolderContextMenu',
       '_handleUpdateFilter',
@@ -218,6 +222,7 @@ export default class App extends React.Component {
     this._eventBus.on('deleteFolder', this._handleDeleteFolder);
     this._eventBus.on('copyFile', this._handleCopyFile);
     this._eventBus.on('copyFolder', this._handleCopyFolder);
+    this._eventBus.on('showFileInfo', this._handleShowFileInfo);
 
     this._toolbarEventBus = new ForwardableEventDispatcher();
     this._imageGridToolbarEventBus = new ForwardableEventDispatcher();
@@ -427,6 +432,19 @@ export default class App extends React.Component {
   }
   _handleRefreshFolder(event, folderName) {
     this._thumberStream.send('refreshFolder', folderName);
+  }
+  _handleShowFileInfo(event, fileInfo) {
+    (async () => {
+      try {
+        console.log('loading:', fileInfo.filename);
+        const tags = await ExifReader.load(fileInfo.filename);
+        console.log('loaded:', tags);
+        this.setState({ fileInfo: tags });
+      } catch (error) {
+        console.error('Error loading EXIF data:', error);
+        this.setState({ fileInfo: `Error loading EXIF data: ${error}`});
+      }
+    })();
   }
   _handleCopyFile(event, fileInfo) {
     const type = "text/plain";
@@ -747,6 +765,16 @@ export default class App extends React.Component {
                 onCancel={() => { this.setState({showForceDelete: false}); }}
               />
               )
+            : ''
+          }
+          {
+            this.state.fileInfo
+            ? (
+              <FileInfo
+                fileInfo={this.state.fileInfo}
+                onClose={() => { this.setState({fileInfo: null}); }}
+              />
+            )
             : ''
           }
         </div>

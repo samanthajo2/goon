@@ -40,6 +40,7 @@ export default class FileContextMenu extends React.Component {
       this,
       '_handleCopy',
       '_handleOpen',
+      '_handleInfo',
       '_handleDelete',
       '_handleRefreshFolder',
       '_handleSyncFolderView',
@@ -51,6 +52,9 @@ export default class FileContextMenu extends React.Component {
   }
   _handleOpen() {
     showItem(this.props.file.archiveName ? this.props.file.archiveName : this.props.file.filename);
+  }
+  _handleInfo() {
+    this.props.eventBus.dispatch(new ForwardableEvent('showFileInfo'), this.props.file);
   }
   _handleDelete() {
     if (this.props.file.archiveName) {
@@ -86,6 +90,9 @@ export default class FileContextMenu extends React.Component {
       >
         <MenuItem onClick={this._handleOpen}>
           Show in Finder/Explorer
+        </MenuItem>
+        <MenuItem onClick={this._handleInfo}>
+          Get Meta Data (EXIF...)
         </MenuItem>
         {this._deleteMenuItem()}
         <MenuItem onClick={this._handleRefreshFolder}>
