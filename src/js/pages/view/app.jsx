@@ -27,11 +27,11 @@ import React from 'react';
 import _ from 'lodash';
 import {autorun, observable, action} from 'mobx';
 import {observer} from 'mobx-react';
-import ExifReader from 'exifreader'
 import {hideMenu, showMenu} from '../../lib/ui/context-menu';
 import ActionEvent from '../../lib/action-event';
 import ActionListener from '../../lib/action-listener';
 import bind from '../../lib/bind';
+import { getMetaData } from '../../lib/metadata';
 import {
   ReflexContainer,
   ReflexSplitter,
@@ -436,12 +436,9 @@ export default class App extends React.Component {
   _handleShowFileInfo(event, fileInfo) {
     (async () => {
       try {
-        console.log('loading:', fileInfo.filename);
-        const tags = await ExifReader.load(fileInfo.filename);
-        console.log('loaded:', tags);
-        this.setState({ fileInfo: tags });
+        const metaData = await getMetaData(fileInfo.filename);
+        this.setState({ fileInfo: metaData });
       } catch (error) {
-        console.error('Error loading EXIF data:', error);
         this.setState({ fileInfo: `Error loading EXIF data: ${error}`});
       }
     })();

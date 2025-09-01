@@ -16,7 +16,7 @@ export default function FileInfo({
                     {JSON.stringify(fileInfo, null, 2)}
         </pre>
         <div className="options">
-          <button type="button" onClick={onClose}>{close}goobar</button>
+          <button type="button" onClick={onClose}>{close}</button>
         </div>
       </div>
     </Modal>
