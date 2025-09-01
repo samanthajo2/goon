@@ -6,12 +6,24 @@ export async function getMetaData(filename: string) {
   if (isImageExtension(filename)) {
     return await ExifReader.load(filename);
   } else if (isVideoExtension(filename)) {
-
     return await extractData(filename);
-    // Future: implement video metadata extraction if needed
-    throw new Error('Video metadata extraction not implemented yet.');
   } else {
     // not yet supported.
     throw new Error(`metadata extraction not implemented yet for: ${filename}`);
+  }
+}
+
+export async function getGenerationData(filename: string) {
+  if (isImageExtension(filename)) {
+    return await ExifReader.load(filename);
+  } else if (isVideoExtension(filename)) {
+    const data = await extractData(filename);
+    if (!data.comment) {
+      throw new Error(`No generation data found in video file: ${filename}`);
+    }
+    return JSON.parse(data.comment);
+  } else {
+    // not yet supported.
+    throw new Error(`generation data extraction not implemented yet for: ${filename}`);
   }
 }

@@ -92,7 +92,7 @@ export default class FileContextMenu extends React.Component {
           Show in Finder/Explorer
         </MenuItem>
         <MenuItem onClick={this._handleInfo}>
-          Get Meta Data (EXIF...)
+          Get Info
         </MenuItem>
         {this._deleteMenuItem()}
         <MenuItem onClick={this._handleRefreshFolder}>

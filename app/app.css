@@ -893,7 +893,8 @@ Resizer.disabled:hover {
     z-index: 1002;
 }
 .modal>div {
-
+    max-height: 80%;
+    overflow-y: auto;
 }
 .modal>div .msg {
     padding: 1em;
@@ -943,4 +944,16 @@ Resizer.disabled:hover {
 }
 .modal .dialog button:hover {
     background: #F00;
+}
+
+.data-table {
+  border-collapse: collapse;
+}
+.data-table td {
+  padding: 0.25em;
+  border: 1px solid #ccc;
+  word-break: break-all;
+}
+.data-table td:nth-child(1) {
+  white-space: nowrap;
 }

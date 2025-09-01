@@ -31,7 +31,7 @@ import {hideMenu, showMenu} from '../../lib/ui/context-menu';
 import ActionEvent from '../../lib/action-event';
 import ActionListener from '../../lib/action-listener';
 import bind from '../../lib/bind';
-import { getMetaData } from '../../lib/metadata';
+import { getGenerationData } from '../../lib/metadata';
 import {
   ReflexContainer,
   ReflexSplitter,
@@ -436,10 +436,10 @@ export default class App extends React.Component {
   _handleShowFileInfo(event, fileInfo) {
     (async () => {
       try {
-        const metaData = await getMetaData(fileInfo.filename);
+        const metaData = await getGenerationData(fileInfo.filename);
         this.setState({ fileInfo: metaData });
       } catch (error) {
-        this.setState({ fileInfo: `Error loading EXIF data: ${error}`});
+        this.setState({ fileInfo: `Error loading generation data: ${error}`});
       }
     })();
   }
