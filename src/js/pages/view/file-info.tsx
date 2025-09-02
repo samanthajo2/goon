@@ -1,5 +1,7 @@
 import React from 'react';
 import Modal from '../../lib/ui/modal';
+import { set } from 'lodash';
+import { cssArray } from '../../lib/css-utils';
 
 function JSONArray({ value }: { value: any[] }) {
   return (
@@ -38,7 +40,16 @@ function JSONObject({ value }: { value: { [key: string]: any } }) {
 }
 
 function CopyOnClick({ value }: { value: any }) {
-  return (<div onClick={() => navigator.clipboard.writeText(value)}>{value}</div>)
+  const [flash, setFlash] = React.useState(false);
+  return (
+    <div className={(cssArray('flashable').addIf(flash, 'flash')).toString()} onClick={() => {
+      navigator.clipboard.writeText(value);
+      setFlash(false);
+      requestAnimationFrame(() => {
+        setFlash(true);
+      });
+    }}>{value}</div>
+  )
 }
 
 function JSONValue({ value }: { value: any }) {

@@ -958,6 +958,20 @@ Resizer.disabled:hover {
     background: #F00;
 }
 
+.flashable {
+  cursor: copy;
+}
+
+/* Define a flash animation */
+@keyframes flash-bg {
+  0%   { background-color: red; }
+  100% { background-color: #444; }
+}
+
+.flash {
+  animation: flash-bg 0.3s;
+}
+
 .data-table {
   border-collapse: collapse;
   width: 100%;
@@ -972,3 +986,4 @@ Resizer.disabled:hover {
   white-space: nowrap;
   width: 1px;
 }
+
