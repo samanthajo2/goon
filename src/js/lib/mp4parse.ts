@@ -1,8 +1,6 @@
 
 
 // ---- Minimal MP4 title/comment extractor (TypeScript) ----
-import { readFile } from 'node:fs/promises';
-import { Blob } from 'node:buffer';
 
 const tdAscii = new TextDecoder('ascii');
 const tdUtf8 = new TextDecoder('utf-8');
@@ -307,8 +305,7 @@ async function extractMetaData(blob: Blob): Promise<TitleComment> {
   return found; // may be nulls if not present
 }
 
-export async function extractData(filename: string) {
-  const data = await readFile(filename);
-  const blob = new Blob([data], { type: "application/octet-stream" });
+export async function extractData(url: string) {
+  const blob = await (await fetch(url)).blob();
   return await extractMetaData(blob);
 }

@@ -60,6 +60,7 @@ import ToolbarHolder from './toolbar-holder';
 import WaitForFiles from './wait-for-files';
 import Loading from './loading';
 import {setupFullscreen, toggleFullscreen} from '../../lib/fullscreen';
+import MediaManagerClient from '../../lib/media-manager-client';
 
 function reload() {
   console.log('queue reload');
@@ -168,6 +169,7 @@ export default class App extends React.Component {
     );
     this._saveLayout = _.debounce(this._saveLayout, 250);
     this._setNewRoot = _.throttle(this._setNewRoot, 150);
+    this._fileInfoMediaManager = new MediaManagerClient();
 
     this._folderDB = new FolderDB();
     this._folderDB.on('updateFiles', this._addFilesToFolderFilter);
@@ -434,14 +436,20 @@ export default class App extends React.Component {
     this._thumberStream.send('refreshFolder', folderName);
   }
   _handleShowFileInfo(event, fileInfo) {
-    (async () => {
-      try {
-        const metaData = await getGenerationData(fileInfo.filename);
-        this.setState({ fileInfo: metaData });
-      } catch (error) {
-        this.setState({ fileInfo: `Error loading generation data: ${error}`});
+    this._fileInfoMediaManager.requestMedia(fileInfo, (err, mediaInfo) => {
+      if (err || !mediaInfo) {
+        this.setState({ fileInfo: `Error loading generation data: ${err}`});
       }
-    })();
+      const { url, type } = mediaInfo;
+      (async () => {
+        try {
+          const metaData = await getGenerationData(url, type, fileInfo.filename);
+          this.setState({ fileInfo: { metaData, filename: fileInfo.filename }});
+        } catch (error) {
+          this.setState({ fileInfo: `Error loading generation data: ${error}`});
+        }
+      })();
+    })
   }
   _handleCopyFile(event, fileInfo) {
     const type = "text/plain";

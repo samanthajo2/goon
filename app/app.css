@@ -948,6 +948,7 @@ Resizer.disabled:hover {
 
 .data-table {
   border-collapse: collapse;
+  width: 100%;
 }
 .data-table td {
   padding: 0.25em;
@@ -956,4 +957,5 @@ Resizer.disabled:hover {
 }
 .data-table td:nth-child(1) {
   white-space: nowrap;
+  width: 1px;
 }

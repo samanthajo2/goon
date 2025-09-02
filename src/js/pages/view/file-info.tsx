@@ -1,7 +1,6 @@
 import React from 'react';
 import Modal from '../../lib/ui/modal';
 
-
 function JSONArray({ value }: { value: any[] }) {
   return (
     <table className="data-table">
@@ -67,14 +66,17 @@ export default function FileInfo({
   parent, fileInfo, onClose, close = 'close'
 }: {
   parent: HTMLElement,
-  fileInfo: any,
+  fileInfo: { filename: string, metaData: any },
   onClose: () => void,
   close: string,
 }) {
   return (
     <Modal parent={parent}>
       <div className="dialog">
-        <JSONValue value={fileInfo}/>
+        <div>
+          <h2>{fileInfo.filename}</h2>
+          <JSONValue value={fileInfo.metaData}/>
+        </div>
         <div className="options">
           <button type="button" onClick={onClose}>{close}</button>
         </div>

@@ -1,5 +1,5 @@
 import ExifReader from 'exifreader'
-import { isImageExtension, isVideoExtension } from './filters';
+import { isImageExtension, isMimeImage, isMimeVideo, isVideoExtension } from './filters';
 import { extractData } from './mp4parse';
 
 export async function getMetaData(filename: string) {
@@ -13,11 +13,12 @@ export async function getMetaData(filename: string) {
   }
 }
 
-export async function getGenerationData(filename: string) {
-  if (isImageExtension(filename)) {
-    return await ExifReader.load(filename);
-  } else if (isVideoExtension(filename)) {
-    const data = await extractData(filename);
+export async function getGenerationData(url: string, type: string, filename: string) {
+  if (isMimeImage(type)) {
+    const ab = await (await fetch(url)).arrayBuffer();
+    return ExifReader.load(ab);
+  } else if (isMimeVideo(type)) {
+    const data = await extractData(url);
     if (!data.comment) {
       throw new Error(`No generation data found in video file: ${filename}`);
     }
