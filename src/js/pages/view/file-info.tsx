@@ -73,8 +73,8 @@ export default function FileInfo({
   return (
     <Modal parent={parent}>
       <div className="dialog">
+        <h2>{fileInfo.filename}</h2>
         <div>
-          <h2>{fileInfo.filename}</h2>
           <JSONValue value={fileInfo.metaData}/>
         </div>
         <div className="options">
