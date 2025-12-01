@@ -120,7 +120,7 @@ function gatherRarFiles(entry: RarEntry, files: ArchiveFiles, logger: Logger) {
       }
       const type = mime.lookup(name) || '';
       const content = entry.fileContent.buffer;
-      const blob = async () => new Blob([content], { type: type, });
+      const blob = async () => new Blob([content.buffer as ArrayBuffer], { type: type, });
       const safeName = makeSafeName(name);
       files[safeName] = {
         type,
