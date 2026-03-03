@@ -6,9 +6,9 @@ const tdAscii = new TextDecoder('ascii');
 const tdUtf8 = new TextDecoder('utf-8');
 const tdUtf16BE = new TextDecoder('utf-16be');
 
-function be16(v: DataView, o: number): number {
-  return v.getUint16(o, false);
-}
+// function be16(v: DataView, o: number): number {
+//   return v.getUint16(o, false);
+// }
 function be32(v: DataView, o: number): number {
   return v.getUint32(o, false);
 }

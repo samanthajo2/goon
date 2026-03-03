@@ -21,7 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import {BrowserWindow, ipcRenderer} from 'electron'; // eslint-disable-line
 import {getCurrentWindow, require as req} from '@electron/remote';
-import otherWindowIPC, { Channel, ChannelStream } from 'other-window-ipc';
+import otherWindowIPC, { ChannelStream } from 'other-window-ipc';
 import fs from 'graceful-fs';
 import path from 'path';
 import _ from 'lodash';
@@ -201,10 +201,11 @@ function start(args: ProgOptions) {
   const targets: ChannelStream[] = [];
 
   function makeEventForwarder(eventName: string) {
-    return (...argss: any[]) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (...args: any[]) => {
       log('send:', eventName, 'to', targets.length, 'targets');
       targets.forEach((target) => {
-        target.send(eventName, ...argss);
+        target.send(eventName, ...args);
       });
     };
   }

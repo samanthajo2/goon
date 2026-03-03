@@ -111,7 +111,6 @@ describe('SimpleFolderWatcher', () => {
     await wait();
 
     resolveReaddir(['foo.jpg']);
-    resolveReaddir;  // readdir for foo.jpg? no - stat is called
     resolveStat('foo.jpg', makeStat(1000, 1700000000000));
 
     await wait();

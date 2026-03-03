@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import createLogger from '../../lib/debug';
-import { FileInfo, FilesByPath } from '../../lib/fileinfo';
+import { FilesByPath } from '../../lib/fileinfo';
 import {
   filenameFromUrl,
   getDifferentFilenames,

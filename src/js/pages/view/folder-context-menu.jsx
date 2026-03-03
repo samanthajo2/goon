@@ -21,7 +21,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import React from 'react';
 import {ipcRenderer} from 'electron';  // eslint-disable-line
-import {shell} from 'electron';  // eslint-disable-line
 import {ContextMenu, MenuItem} from '../../lib/ui/context-menu';
 import bind from '../../lib/bind';
 import debug from '../../lib/debug';

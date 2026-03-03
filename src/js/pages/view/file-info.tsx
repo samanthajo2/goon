@@ -1,8 +1,8 @@
 import React from 'react';
 import Modal from '../../lib/ui/modal';
-import { set } from 'lodash';
 import { cssArray } from '../../lib/css-utils';
 
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
 function JSONArray({ value }: { value: any[] }) {
   return (
     <table className="data-table">
@@ -22,6 +22,7 @@ function JSONArray({ value }: { value: any[] }) {
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function JSONObject({ value }: { value: { [key: string]: any } }) {
   return (
     <table className="data-table">
@@ -39,6 +40,7 @@ function JSONObject({ value }: { value: { [key: string]: any } }) {
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function CopyOnClick({ value }: { value: any }) {
   const [flash, setFlash] = React.useState(false);
   return (
@@ -52,6 +54,7 @@ function CopyOnClick({ value }: { value: any }) {
   )
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function JSONValue({ value }: { value: any }) {
   if (Array.isArray(value)) {
     return (<JSONArray value={value}/>);
@@ -77,7 +80,7 @@ export default function FileInfo({
   parent, fileInfo, onClose, close = 'close'
 }: {
   parent: HTMLElement,
-  fileInfo: { filename: string, metaData: any },
+  fileInfo: { filename: string, metaData: any }, // eslint-disable-line @typescript-eslint/no-explicit-any
   onClose: () => void,
   close: string,
 }) {
