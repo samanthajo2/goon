@@ -238,6 +238,9 @@ ipcMain.on('dragStart', (event, file) => {
 ipcMain.handle('deleteFile', async (_event, filename: string) => {
   await fs.promises.unlink(filename);
 });
+ipcMain.handle('trashItem', async (_event, filename: string) => {
+  await shell.trashItem(filename);
+});
 
 const staticOptions = {
   fallthrough: true,

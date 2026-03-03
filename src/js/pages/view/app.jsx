@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import {rimraf} from 'rimraf';
-import {shell, ipcRenderer} from 'electron';  // eslint-disable-line
+import {ipcRenderer} from 'electron';  // eslint-disable-line
 import otherWindowIPC from 'other-window-ipc';
 import React from 'react';
 import _ from 'lodash';
@@ -494,7 +494,7 @@ export default class App extends React.Component {
     });
     const filename = this.state.contextFolderInfo.filename;
     try {
-      await shell.trashItem(filename);
+      await ipcRenderer.invoke('trashItem', filename);
     } catch {
       this.setState((prevState) => ({
           showForceDelete: true,
@@ -509,7 +509,7 @@ export default class App extends React.Component {
     });
     const filename = this.state.contextFileInfo.filename;
     try {
-      await shell.trashItem(filename);
+      await ipcRenderer.invoke('trashItem', filename);
     } catch {
       this.setState({
         showForceDelete: true,
