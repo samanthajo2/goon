@@ -235,6 +235,9 @@ ipcMain.on('openPath', (event, fullPath) => {
 ipcMain.on('dragStart', (event, file) => {
   event.sender.startDrag({ file, icon: dragIcon });
 });
+ipcMain.handle('deleteFile', async (_event, filename: string) => {
+  await fs.promises.unlink(filename);
+});
 
 const staticOptions = {
   fallthrough: true,

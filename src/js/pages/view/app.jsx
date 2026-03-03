@@ -19,7 +19,6 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import fs from 'fs';
 import {rimraf} from 'rimraf';
 import {shell, ipcRenderer} from 'electron';  // eslint-disable-line
 import otherWindowIPC from 'other-window-ipc';
@@ -528,7 +527,7 @@ export default class App extends React.Component {
         this._logger(e);
       });
     } else {
-      fs.unlink(this.state.forceDeleteFilename, (err) => {
+      ipcRenderer.invoke('deleteFile', this.state.forceDeleteFilename).catch((err) => {
         this._logger(err);
       });
     }
