@@ -151,7 +151,8 @@ export default class SimpleFolderWatcher extends EventEmitter {
         // Check removed
         this._entries.forEach((state, entryPath) => {
           if (validFileNames.indexOf(entryPath) < 0) {
-            this.emit('remove', entryPath);
+            this._entries.delete(entryPath);
+            this.emit('remove', path.join(this._filePath, entryPath), state);
           }
         });
 
@@ -204,7 +205,7 @@ export default class SimpleFolderWatcher extends EventEmitter {
         this._entries.set(fileName, stats);
         if (oldStats) {
           if (oldStats.size !== stats.size ||
-              oldStats.mtime !== stats.mtime) {
+              oldStats.mtimeMs !== stats.mtimeMs) {
             this._logger('emit change:', fullPath);
             this.emit('change', fullPath, stats, oldStats);
           }
