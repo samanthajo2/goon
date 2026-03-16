@@ -1,7 +1,7 @@
 {
   "name": "goon",
   "productName": "Goon",
-  "version": "0.0.17",
+  "version": "0.0.18",
   "description": "Multiple Movie/Photo Viewer",
   "build": {
     "appId": "com.samanthajo.goon",
