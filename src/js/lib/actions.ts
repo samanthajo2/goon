@@ -66,6 +66,7 @@ const actions = {
   toggleFullscreen:   { hint: 'fullscreen',      icon: 'images/buttons/???.svg',             desc: 'toggle fullscreen', },
   newWindow:          { hint: 'new window',      icon: 'images/buttons/???.svg',             desc: 'open a new window', },
   playAll:            { hint: 'play all',        icon: 'images/buttons/play-all.svg',        desc: 'play/pause all videos', },
+  launchBrowser:      { hint: 'launch browser',  icon: 'images/buttons/browser.svg',         desc: 'launch browser', },
 } as const;
 
 export type ActionId = keyof typeof actions;

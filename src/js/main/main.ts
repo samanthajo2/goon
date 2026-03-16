@@ -33,6 +33,7 @@ import * as electronRemoteMain from '@electron/remote/main';
 import {getUpdateCheckDate} from '../lib/update-manager';
 import appdata from '../lib/appdata';
 import * as utils from '../lib/utils';
+import { getFreePort } from '../lib/get-free-port';
 import {loadPrefs, Preferences} from '../pages/prefs/default-prefs';
 import {
   isTitlebarOnAtLeastOneDisplay,
@@ -167,6 +168,7 @@ let oldProgState: SavedProgramState | undefined;
 let hideInsteadOfCloseOneOffWindows = true;
 let quitting = false;
 let server: Server | undefined;
+let serverPort: number = 0; 
 let router: express.Router | undefined;
 
 if (args.compareFoldersToCache) {
@@ -223,13 +225,13 @@ ipcMain.on('unlock', () => {
   passwordWindow.close();
 });
 ipcMain.on('setupMenus', setupMenus);
-ipcMain.on('prefs', (event, prefs) => {
+ipcMain.on('prefs', (_event, prefs) => {
   updatePrefs(prefs);
 });
-ipcMain.on('showItemInFolder', (event, fullPath) => {
+ipcMain.on('showItemInFolder', (_event, fullPath) => {
   shell.showItemInFolder(fullPath);
 });
-ipcMain.on('openPath', (event, fullPath) => {
+ipcMain.on('openPath', (_event, fullPath) => {
   shell.openPath(fullPath);
 });
 ipcMain.on('dragStart', (event, file) => {
@@ -240,6 +242,12 @@ ipcMain.handle('deleteFile', async (_event, filename: string) => {
 });
 ipcMain.handle('trashItem', async (_event, filename: string) => {
   await shell.trashItem(filename);
+});
+ipcMain.handle('launchBrowser', async(_event, path: string) => {
+  const url = new URL(`http://localhost:${serverPort}/out/vr.html`);
+  url.searchParams.set('url', path);
+  console.log(url.toString());
+  await shell.openExternal(url.toString());
 });
 
 const staticOptions = {
@@ -272,14 +280,15 @@ function updatePrefs(newPrefs: Preferences) {
 }
 
 // TODO: do this only if prefs, and respond to prefs updates to turn it off and change port?
-function startWebServer() {
+async function startWebServer() {
   if (server) {
     stopWebServer();
   }
   const app = express();
   app.use('/', router!);
-  server = app.listen(8080);
-  debug('Web server started on port 8080');
+  serverPort = await getFreePort(8080);
+  server = app.listen(serverPort);
+  debug(`Web server started on port: ${serverPort}`);
 }
 
 function stopWebServer() {

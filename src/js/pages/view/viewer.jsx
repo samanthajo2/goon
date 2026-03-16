@@ -22,6 +22,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import React from 'react';
 import _ from 'lodash';
 import {autorun, action} from 'mobx';
+import {ipcRenderer} from 'electron';
 import {observer} from 'mobx-react';
 import Measure from 'react-measure';
 import bind from '../../lib/bind';
@@ -250,6 +251,7 @@ export default class Viewer extends React.Component {
       '_handleLoadedData',
       '_handleTimeUpdate',
       '_handleWheel',
+      '_launchBrowser',
     );
 
     this.state = {
@@ -344,6 +346,7 @@ export default class Viewer extends React.Component {
     actionListener.on('toggleSlideshow', (fe) => { this.toggleSlideshow(fe.domEvent); });
     actionListener.on('rotate', (fe) => { fe.stopPropagation(); this._rotate(fe.domEvent); });
     actionListener.on('changeStretchMode', (fe) => { this._changeStretchMode(fe.domEvent); });
+    actionListener.on('launchBrowser', this._launchBrowser);
     on(this._eventBus, 'action', this._actionListener.routeAction);
 
     this._logger('register for action on emitter:', this.props.eventBus.debugId);
@@ -619,6 +622,10 @@ export default class Viewer extends React.Component {
     this.setState({
       infoFlash: false,
     });
+  }
+
+  _launchBrowser() {
+    ipcRenderer.invoke('launchBrowser', this.props.viewerState.filename);
   }
 
   @action _showNewMedia(err, mediaInfo, fileInfo) {
