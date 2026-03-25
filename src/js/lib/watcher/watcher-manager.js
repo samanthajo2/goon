@@ -37,7 +37,7 @@ import TreeWatcher from './tree-watcher';
 // Returns FolderWatchers which watch only a single
 // folder
 
-class FolderWatcher extends EventEmitter {
+export class FolderWatcher extends EventEmitter {
   constructor(folderName, unwatchFn) {
     super();
     this._logger = debug('FolderWatcher', folderName);

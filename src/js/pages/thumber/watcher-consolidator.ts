@@ -23,13 +23,14 @@ import EventEmitter from 'node:events';
 import _ from 'lodash';
 
 import bind from '../../lib/bind';
-import debug from '../../lib/debug';
+import debug, { Logger } from '../../lib/debug';
 import SimpleFolderWatcher from '../../lib/simple-folder-watcher';
 import ListenerManager from '../../lib/listener-manager';
+import { FolderWatcher } from '../../lib/watcher/watcher-manager';
 
 const s_sendDebounceDuration = 1000;
 
-function statToFileInfo(stat) {
+function statToFileInfo(stat: { size: number; mtimeMs: number; isDirectory: () => boolean } ) {
   return {
     size: stat.size,
     mtime: stat.mtimeMs,
@@ -37,15 +38,27 @@ function statToFileInfo(stat) {
   };
 }
 
+type LocalFsAPI = {
+  readdir: (path: string, callback: (err: Error | null, files: string[]) => void) => void;
+  stat: (path: string, callback: (err: Error | null, stats: { size: number; mtimeMs: number; isDirectory: () => boolean }) => void) => void;
+};
+
 // Wrapper SimpleFolderWatcher. emits ALL files
 export default class WatcherConsolidator extends EventEmitter {
-  constructor(filepath, watcherFactory, fs) {
+  _logger: Logger;
+  _filepath: string;
+  _files: Record<string, { size: number; mtime: number; isDirectory: boolean }>;
+  _queueSend: () => void;
+  _listenerManager: ListenerManager;
+  _watcher: SimpleFolderWatcher;
+
+  constructor(filepath: string, watcherFactory: (filePath: string, options: any) => FolderWatcher, fs: LocalFsAPI) {
     super();
     this._filepath = filepath;
     this._logger = debug('WatcherConsolidator', filepath);
     this._watcher = new SimpleFolderWatcher(filepath, {
-      watcherFactory: watcherFactory,
-      fs: fs,
+      watcherFactory,
+      fs,
     });
     bind(
       this,
@@ -77,17 +90,17 @@ export default class WatcherConsolidator extends EventEmitter {
   _send() {
     this.emit('files', this._files);
   }
-  _addFile(filePath, stat) {
+  _addFile(filePath: string, stat: { size: number; mtimeMs: number; isDirectory: () => boolean }) {
     this._logger('addFile:', filePath);
     this._files[filePath] = statToFileInfo(stat);
     this._queueSend();
   }
-  _changeFile(filePath, stat) {
+  _changeFile(filePath: string, stat: { size: number; mtimeMs: number; isDirectory: () => boolean }) {
     this._logger('changeFile:', filePath);
     this._files[filePath] = statToFileInfo(stat);
     this._queueSend();
   }
-  _removeFile(filePath /* , stat */) {
+  _removeFile(filePath: string /* , stat */) {
     this._logger('removeFile:', filePath);
     delete this._files[filePath];
     this._queueSend();

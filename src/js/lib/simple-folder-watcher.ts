@@ -22,22 +22,49 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import EventEmitter from 'node:events';
 import path from 'node:path';
 import ListenerManager from './listener-manager';
-import debug from './debug';
+import debug, { Logger } from './debug';
 import bind from './bind';
 import ResettableTimeout from './resettable-timeout';
+import WatcherConsolidator from '../pages/thumber/watcher-consolidator';
+import { FolderWatcher } from './watcher/watcher-manager';
 
-function shallowCopy(src) {
-  const dst = {};
-  Object.keys(src).forEach((key) => {
-    dst[key] = src[key];
-  });
-  return dst;
-}
+type Stats = {
+  size: number;
+  mtimeMs: number;
+};
+
+type LocalFsAPI = {
+  readdir: (path: string, callback: (err: Error | null, files: string[]) => void) => void;
+  stat: (path: string, callback: (err: Error | null, stats: Stats) => void) => void;
+};
 
 // Should I add option to normalize path (as in always '/' never '\'?
-
 export default class SimpleFolderWatcher extends EventEmitter {
-  constructor(filePath, options) {
+  _logger: Logger;
+  _filePath: string;
+  _fs: LocalFsAPI;
+  _entries?: Map<string, Stats>;
+  _listenerManager: ListenerManager;
+  _closed: boolean;
+  _scanning: boolean;
+  _filter: (filepath: string) => boolean;
+  _watcher?: FolderWatcher;
+  _timeout?: ResettableTimeout;
+  _options: {
+    filter?: (filepath: string) => boolean;
+    watcherFactory: (filePath: string, options: any) => FolderWatcher;
+    addOrCreate?: 'add' | 'create';
+  }
+
+  constructor(
+    filePath: string,
+    options: {
+      fs: LocalFsAPI;
+      filter?: (filepath: string) => boolean;
+      watcherFactory: (filePath: string, options: any) => FolderWatcher;
+      addOrCreate?: 'add' | 'create';
+    },
+  ) {
     super();
     bind(
       this,
@@ -48,14 +75,16 @@ export default class SimpleFolderWatcher extends EventEmitter {
       '_sendEnd',
       '_sendEndAfterTimeout',
     );
-    const opt = shallowCopy(options || {});
-    opt.addOrCreate = opt.addOrCreate || 'add';
+    const opt = {...(options ?? {})};
+    opt.addOrCreate = opt.addOrCreate ?? 'add';
     this._fs = opt.fs;
     this._logger = debug('SimpleFolderWatcher', filePath);
     this._entries = new Map();
     this._filePath = filePath;
     this._options = opt;
-    this._filter = opt.filter || this._pass;
+    this._filter = opt.filter ?? this._pass;
+    this._closed = false;
+    this._scanning = false;
     this._listenerManager = new ListenerManager();
 
     process.nextTick(() => {
@@ -68,10 +97,10 @@ export default class SimpleFolderWatcher extends EventEmitter {
       return;
     }
     this._listenerManager.removeAll();
-    this._watcher.close();
-    this._watcher = null;
+    this._watcher?.close();
+    this._watcher = undefined;
     // I hope there's no queued events.
-    this._entries = null;
+    this._entries = undefined;
     this._closed = true;
   }
 
@@ -81,7 +110,7 @@ export default class SimpleFolderWatcher extends EventEmitter {
     }
   }
 
-  _start(watcherFactory) {
+  _start(watcherFactory: (filePath: string, options: any) => FolderWatcher) {
     // because this is async we might be closed before this fires
     if (this._closed) {
       return;
@@ -92,18 +121,18 @@ export default class SimpleFolderWatcher extends EventEmitter {
     on(this._watcher, 'change', this._handleChange);
     on(this._watcher, 'remove', this._handleRemove);
     on(this._watcher, 'error', this._handleError);
-    this._scan(this._options.addOrCreate);
+    this._scan(this._options.addOrCreate ?? 'add');
   }
 
-  _handleChange(filepath) {
+  _handleChange(filepath: string) {
     this._onChange('change', path.basename(filepath));
   }
 
-  _handleCreate(filepath) {
+  _handleCreate(filepath: string) {
     this._onChange('create', path.basename(filepath));
   }
 
-  _handleRemove(filepath) {
+  _handleRemove(filepath: string) {
     this._onChange('remove', path.basename(filepath));
   }
 
@@ -113,17 +142,17 @@ export default class SimpleFolderWatcher extends EventEmitter {
   }
 
   _sendEndAfterTimeout() {
-    this._timeout = this._timeout || new ResettableTimeout(this._sendEnd, 250);
+    this._timeout = this._timeout ?? new ResettableTimeout(this._sendEnd, 250);
     this._timeout.reset();
   }
 
-  _onChange(event, filename) {
+  _onChange(event: string, filename: string) {
     this._logger('ONCHANGE:', event, filename);
     this._checkFile(filename, undefined, this._sendEndAfterTimeout);
   }
 
   // TODO add this back in?
-  _handleError(err) {
+  _handleError(err: NodeJS.ErrnoException) {
     this._logger('ONERROR:', this._filePath);
     // not really sure what errors to check for here
     if (err && err.code === 'EPERM') {
@@ -133,7 +162,7 @@ export default class SimpleFolderWatcher extends EventEmitter {
     }
   }
 
-  _scan(addOrCreate) {
+  _scan(addOrCreate: 'add' | 'create') {
     if (this._scanning) {
       return;
     }
@@ -149,9 +178,9 @@ export default class SimpleFolderWatcher extends EventEmitter {
       } else {
         const validFileNames = fileNames.filter((fileName) => this._filter(path.join(this._filePath, fileName)));
         // Check removed
-        this._entries.forEach((state, entryPath) => {
+        this._entries?.forEach((state, entryPath) => {
           if (validFileNames.indexOf(entryPath) < 0) {
-            this._entries.delete(entryPath);
+            this._entries?.delete(entryPath);
             this.emit('remove', path.join(this._filePath, entryPath), state);
           }
         });
@@ -172,7 +201,7 @@ export default class SimpleFolderWatcher extends EventEmitter {
     });
   }
 
-  _checkFile(fileName, addOrCreate = 'create', callback = () => {}) {
+  _checkFile(fileName: string, addOrCreate = 'create', callback = (foo: boolean) => {}) {
     this._logger('_checkFile', fileName);
     // how am I getting here if this is done? Looks like I'm getting notification for self.?
     if (this._closed) {
@@ -192,17 +221,17 @@ export default class SimpleFolderWatcher extends EventEmitter {
         callback(true);
         return;
       }
-      const oldStats = this._entries.get(fileName);
+      const oldStats = this._entries?.get(fileName);
       if (err) {
         // TODO: check for type of error?
         if (oldStats) {
-          this._entries.delete(fileName);
+          this._entries?.delete(fileName);
           this._logger('emit remove:', fullPath);
           this.emit('remove', fullPath, oldStats);
         }
         callback(true);
       } else {
-        this._entries.set(fileName, stats);
+        this._entries?.set(fileName, stats);
         if (oldStats) {
           if (oldStats.size !== stats.size ||
               oldStats.mtimeMs !== stats.mtimeMs) {
@@ -223,7 +252,7 @@ export default class SimpleFolderWatcher extends EventEmitter {
     if (this._closed) {
       return;
     }
-    this._entries.forEach((stats, fileName) => {
+    this._entries?.forEach((stats, fileName) => {
       this.emit('remove', path.join(this._filePath, fileName), stats);
     });
     this._sendEnd();
