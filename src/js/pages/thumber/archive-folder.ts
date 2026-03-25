@@ -20,11 +20,35 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import EventEmitter from 'node:events';
-import debug from '../../lib/debug';
+import debug, { Logger } from '../../lib/debug';
 import {getImagesAndVideos, getSeparateFilenames, deleteThumbnails} from './folder-utils';
+import FolderData from './folder-data';
+import { FilesByPath } from '../../lib/fileinfo';
+
+type LocalFsAPI = {
+  unlinkSync: (filename: string) => void;
+  statSync: (filename: string) => { mtimeMs: number };
+};
+
+type ArchiveThumbnailMakerFn = (filepath: string, baseFilename: string) => Promise<FilesByPath>;
 
 export default class ArchiveFolder extends EventEmitter {
-  constructor(filename, options) {
+  _logger: Logger
+  _filename: string;
+  _folderData: FolderData;
+  _thumbnailPageMakerFn: ArchiveThumbnailMakerFn;
+  _fs: LocalFsAPI;
+  _isMakingThumbnails: boolean;
+  _needUpdate: boolean;
+
+  constructor(
+    filename: string,
+    options: {
+      folderData: FolderData;
+      fs: any;
+      thumbnailPageMakerFn: ArchiveThumbnailMakerFn,
+    },
+  ) {
     super();
     this._logger = debug('ArchiveFolder', filename);
     this._logger('new ArchiveFolder');
