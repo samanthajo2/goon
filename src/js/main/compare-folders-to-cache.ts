@@ -109,11 +109,19 @@ export default function compareFoldersToCache(
   }
 }
 
+const localFS = {
+  existsSync: fs.existsSync,
+  readdir: fs.readdir,
+  readFileAsStringSync: (path: string) => fs.readFileSync(path, {encoding: 'utf8'}),
+  unlinkSync: fs.unlinkSync,
+  writeFileSync: fs.writeFileSync,
+};
+
 function readDataFolderTree(folderPath: string, userDataDir: string) {
   logLine('read folder data:', folderPath);
   const folderData = new FolderData(folderPath, {
     readOnly: true,
-    fs: fs,
+    fs: localFS,
     dataDir: userDataDir,
   });
   const folders: { [key: string]: FolderData } = {};

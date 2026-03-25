@@ -20,78 +20,44 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import _ from 'lodash';
-import debug from '../../lib/debug';
+import debug, { Logger } from '../../lib/debug';
 import bind from '../../lib/bind';
 import {createBasename} from '../../lib/utils';
+import { FileInfo } from '../../lib/fileinfo';
 
 const s_saveDebounceDuration = 2000;
 const s_folderVersion = 6;
 
-function assert(cond, ...msg) {
-  if (!cond) {
-    throw new Error([...msg].join(' '));
-  }
-}
-
-function convertVersion1To2OrThrow(data) {
-  assert(data.version === 1);
-  // only bad if archive data
-  for (const fileInfo of Object.values(data.files)) {
-    if (fileInfo.archiveName) {
-      throw new Error('archives need new data from version 1');
-    }
-  }
-  return {...data, version: 2};
-}
-
-function convertVersion2To3OrThrow(data) {
-  assert(data.version === 2);
-  // only bad if archive data
-  for (const fileInfo of Object.values(data.files)) {
-    if (fileInfo.thumbnail) {
-      Object.assign(fileInfo.thumbnail, {
-        pageSize: 2048,
-      });
-    }
-  }
-  return {...data, version: 3};
-}
-
-function convertVersion3To4OrThrow(data) {
-  assert(data.version === 3);
-  // only bad thumbnail.height < 1
-  for (const fileInfo of Object.values(data.files)) {
-    if (fileInfo.thumbnail && !(fileInfo.thumbnail.height > 0)) {
-      throw new Error('bad thumbnail');
-    }
-  }
-  return {...data, version: 4};
-}
-
-function convertVersion4To5OrThrow(data, folderPath) {
-  assert(data.version === 4);
-  data.folderPath = folderPath;
-  return {...data, version: 5};
-}
-
-function convertVersion5To6OrThrow(data) {
-  assert(data.version === 5);
-  if (!data.scannedTime) {
-    data.scannedTime = Date.now();
-  }
-  return {...data, version: 6};
-}
-
-const versionConverters = {
-  '1': convertVersion1To2OrThrow,
-  '2': convertVersion2To3OrThrow,
-  '3': convertVersion3To4OrThrow,
-  '4': convertVersion4To5OrThrow,
-  '5': convertVersion5To6OrThrow,
+type LocalFsAPI = {
+  existsSync: (path: string) => boolean;
+  readdir: (path: string, callback: (err: NodeJS.ErrnoException | null, files: string[]) => void) => void;
+  readFileAsStringSync: (path: string) => string;
+  unlinkSync: (path: string) => void;
+  writeFileSync: (path: string, data: string | Buffer) => void;
 };
 
+const versionConverters: Record<string, (data: any, filepath: string) => any> = {};
+
 export default class FolderData {
-  constructor(filepath, options) {
+  _logger: Logger;
+  _filepath: string;
+  _fs: LocalFsAPI;
+  _fileExists: boolean;
+  _baseFilename: string;
+  _jsonFilename: string;
+  _data: {
+    version: number;
+    folderPath: string;
+    files: Record<string, FileInfo>;
+    scannedTime?: number;
+  }
+  _queueWrite: () => void;
+
+  constructor(filepath: string, options: {
+    fs: LocalFsAPI;
+    dataDir: string;
+    readOnly?: boolean;
+  }) {
     this._logger = debug('FolderData', filepath);
     this._filepath = filepath;
     this._fs = options.fs;
@@ -110,14 +76,14 @@ export default class FolderData {
       folderPath: filepath,
       files: {},
     };
-    this._queueWrite = _.debounce(this._save, s_saveDebounceDuration);  // save if we haven't added anyhting in 1 second
+    this._queueWrite = _.debounce(this._save, s_saveDebounceDuration);  // save if we haven't added anything in 1 second
     this._logger('checking:', this._jsonFilename);
     if (this._fs.existsSync(this._jsonFilename)) {
       this._logger('read:', this._jsonFilename);
       try {
-        const json = this._fs.readFileSync(this._jsonFilename, {encoding: 'utf8'});
+        const json = this._fs.readFileAsStringSync(this._jsonFilename);
         this._fileExists = true;
-        let data = JSON.parse(json);
+        let data = JSON.parse(json as string);
         while (data.version !== s_folderVersion) {
           const converter = versionConverters[data.version];
           if (!converter) {
@@ -161,11 +127,10 @@ export default class FolderData {
     this._fs.writeFileSync(
       this._jsonFilename,
       JSON.stringify(this._data, null, 2),
-      'utf8',
     );
     this._fileExists = true;
   }
-  addFiles(files) {
+  addFiles(files: Record<string, FileInfo>) {
     let changed = false;
     for (const [filePath, fileInfo] of Object.entries(files)) {
       if (!_.isEqual(this._data.files[filePath], fileInfo)) {
@@ -181,7 +146,7 @@ export default class FolderData {
     this._data.scannedTime = Date.now();
     this._queueWrite();
   }
-  removeFiles(filepaths) {
+  removeFiles(filepaths: string[]) {
     let changed = false;
     for (const filepath of filepaths) {
       if (this._data.files[filepath]) {
