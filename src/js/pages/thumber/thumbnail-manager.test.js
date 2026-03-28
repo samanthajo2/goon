@@ -173,6 +173,27 @@ describe('ThumbnailManager', () => {
     assert.ok(mockFolders['/a/b/c'].close.called, '/a/b/c native folder closed');
   });
 
+  it('handles subfolder rename by removing old and adding new', () => {
+    manager.setFolders(['/a']);
+    mockFolders['/a'].emit('updateFolders', '/a', { '/a/sub1': { isDirectory: true } });
+
+    assert.ok(manager._folders['/a/sub1'], '/a/sub1 exists before rename');
+
+    const updateFilesSpy = sinon.spy();
+    manager.on('updateFiles', updateFilesSpy);
+
+    // Simulate rename: /a now reports /a/sub2 instead of /a/sub1
+    mockFolders['/a'].emit('updateFolders', '/a', { '/a/sub2': { isDirectory: true } });
+
+    assert.isUndefined(manager._folders['/a/sub1'], '/a/sub1 removed after rename');
+    assert.ok(mockFolders['/a/sub1'].close.called, '/a/sub1 native folder was closed');
+    assert.ok(manager._folders['/a/sub2'], '/a/sub2 added after rename');
+
+    const removedCall = updateFilesSpy.getCalls().find(call => '/a/sub1' in call.args[0]);
+    assert.ok(removedCall, 'updateFiles emitted signaling /a/sub1 removal');
+    assert.deepEqual(removedCall.args[0]['/a/sub1'], {}, 'empty data emitted for removed /a/sub1');
+  });
+
   it('removes archives when parent folder is removed', () => {
     manager.setFolders(['/a']);
     mockFolders['/a'].emit('updateArchives', '/a', { '/a/b.zip': {} }, []);

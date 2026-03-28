@@ -55,7 +55,7 @@ function addFileMetaData(files: FilesByPath): DBFilesByPath {
 function folderInfoToDisplayFolderInfo(folder: FolderInfo): DBFolderInfo {
   const info = {
     ...folder,
-    files: addFileMetaData(folder.files),
+    files: addFileMetaData(folder.files ?? {}),
   };
   info.files = info.files ?? {};
   info.status = info.status ?? {};
