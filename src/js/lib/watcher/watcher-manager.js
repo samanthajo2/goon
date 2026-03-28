@@ -52,12 +52,12 @@ export class FolderWatcher extends EventEmitter {
     // only emit start once
     if (eventName === 'start') {
       if (this._started) {
-        return;
+        return false;
       }
       this._started = true;
     }
     this._logger(eventName, ...args);
-    super.emit(eventName, ...args);
+    return super.emit(eventName, ...args);
   }
   close() {
     if (this._unwatchFn) {
