@@ -277,14 +277,13 @@ export default class ThumbnailManager extends EventEmitter {
       // emit events we're would not receive events because we need to
       // unsubscribe from the folder.
 
-      const childNames = folder.folder.getSeparateFilenames();
       if (deleteMetaData) {
         folder.folder.deleteData();
       }
-      childNames.folders.forEach((folderPath: string) => {
+      Object.keys(folder.folders).forEach((folderPath: string) => {
         this._removeFolder(folderPath, deleteMetaData);
       });
-      childNames.archives.forEach((archivePath: string) => {
+      Object.keys(folder.archives).forEach((archivePath: string) => {
         this._removeArchive(archivePath, deleteMetaData);
       });
       folder.folder.close();
