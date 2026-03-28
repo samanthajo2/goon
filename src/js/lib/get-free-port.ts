@@ -4,7 +4,7 @@ import {Server} from 'node:net';
 // If connecting works then the port is good to use.
 // If not the port is busy, try another
 export function getFreePort(port: number, host?: string): Promise<number> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve/*, reject*/) => {
     const server = new Server();
 
     const next = () => {
@@ -24,4 +24,4 @@ export function getFreePort(port: number, host?: string): Promise<number> {
       exclusive: true,
     });
   });
-};
+}

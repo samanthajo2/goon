@@ -52,7 +52,7 @@ export default class WatcherConsolidator extends EventEmitter {
   _listenerManager: ListenerManager;
   _watcher: SimpleFolderWatcher;
 
-  constructor(filepath: string, watcherFactory: (filePath: string, options: any) => FolderWatcher, fs: LocalFsAPI) {
+  constructor(filepath: string, watcherFactory: (filePath: string) => FolderWatcher, fs: LocalFsAPI) {
     super();
     this._filepath = filepath;
     this._logger = debug('WatcherConsolidator', filepath);

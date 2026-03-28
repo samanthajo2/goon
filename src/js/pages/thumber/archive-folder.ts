@@ -45,7 +45,7 @@ export default class ArchiveFolder extends EventEmitter {
     filename: string,
     options: {
       folderData: FolderData;
-      fs: any;
+      fs: LocalFsAPI;
       thumbnailPageMakerFn: ArchiveThumbnailMakerFn,
     },
   ) {

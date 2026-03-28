@@ -36,7 +36,8 @@ type LocalFsAPI = {
   writeFileSync: (path: string, data: string | Buffer) => void;
 };
 
-const versionConverters: Record<string, (data: any, filepath: string) => any> = {};
+// TODO: figure out a better way type this. Or use ajv or something?
+const versionConverters: Record<string, (data: unknown, filepath: string) => unknown> = {};
 
 export default class FolderData {
   _logger: Logger;

@@ -25,7 +25,6 @@ import ListenerManager from './listener-manager';
 import debug, { Logger } from './debug';
 import bind from './bind';
 import ResettableTimeout from './resettable-timeout';
-import WatcherConsolidator from '../pages/thumber/watcher-consolidator';
 import { FolderWatcher } from './watcher/watcher-manager';
 
 type Stats = {
@@ -52,7 +51,7 @@ export default class SimpleFolderWatcher extends EventEmitter {
   _timeout?: ResettableTimeout;
   _options: {
     filter?: (filepath: string) => boolean;
-    watcherFactory: (filePath: string, options: any) => FolderWatcher;
+    watcherFactory: (filePath: string) => FolderWatcher;
     addOrCreate?: 'add' | 'create';
   }
 
@@ -61,7 +60,7 @@ export default class SimpleFolderWatcher extends EventEmitter {
     options: {
       fs: LocalFsAPI;
       filter?: (filepath: string) => boolean;
-      watcherFactory: (filePath: string, options: any) => FolderWatcher;
+      watcherFactory: (filePath: string) => FolderWatcher;
       addOrCreate?: 'add' | 'create';
     },
   ) {
@@ -110,12 +109,12 @@ export default class SimpleFolderWatcher extends EventEmitter {
     }
   }
 
-  _start(watcherFactory: (filePath: string, options: any) => FolderWatcher) {
+  _start(watcherFactory: (filePath: string) => FolderWatcher) {
     // because this is async we might be closed before this fires
     if (this._closed) {
       return;
     }
-    this._watcher = watcherFactory(this._filePath, this._options);
+    this._watcher = watcherFactory(this._filePath);
     const on = this._listenerManager.on.bind(this._listenerManager);
     on(this._watcher, 'create', this._handleCreate);
     on(this._watcher, 'change', this._handleChange);
@@ -201,7 +200,7 @@ export default class SimpleFolderWatcher extends EventEmitter {
     });
   }
 
-  _checkFile(fileName: string, addOrCreate = 'create', callback = (foo: boolean) => {}) {
+  _checkFile(fileName: string, addOrCreate = 'create', callback = (_: boolean) => {}) {
     this._logger('_checkFile', fileName);
     // how am I getting here if this is done? Looks like I'm getting notification for self.?
     if (this._closed) {
