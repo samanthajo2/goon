@@ -25,7 +25,7 @@ import ListenerManager from './listener-manager';
 import debug, { Logger } from './debug';
 import bind from './bind';
 import ResettableTimeout from './resettable-timeout';
-import { FolderWatcher } from './watcher/watcher-manager';
+import { FolderWatcherInterface } from './watcher/folder-watcher';
 
 type Stats = {
   size: number;
@@ -47,11 +47,11 @@ export default class SimpleFolderWatcher extends EventEmitter {
   _closed: boolean;
   _scanning: boolean;
   _filter: (filepath: string) => boolean;
-  _watcher?: FolderWatcher;
+  _watcher?: FolderWatcherInterface | null;
   _timeout?: ResettableTimeout;
   _options: {
     filter?: (filepath: string) => boolean;
-    watcherFactory: (filePath: string) => FolderWatcher;
+    watcherFactory: (filePath: string) => FolderWatcherInterface | null;
     addOrCreate?: 'add' | 'create';
   }
 
@@ -60,7 +60,7 @@ export default class SimpleFolderWatcher extends EventEmitter {
     options: {
       fs: LocalFsAPI;
       filter?: (filepath: string) => boolean;
-      watcherFactory: (filePath: string) => FolderWatcher;
+      watcherFactory: (filePath: string) => FolderWatcherInterface | null;
       addOrCreate?: 'add' | 'create';
     },
   ) {
@@ -109,7 +109,7 @@ export default class SimpleFolderWatcher extends EventEmitter {
     }
   }
 
-  _start(watcherFactory: (filePath: string) => FolderWatcher) {
+  _start(watcherFactory: (filePath: string) => FolderWatcherInterface | null) {
     // because this is async we might be closed before this fires
     if (this._closed) {
       return;

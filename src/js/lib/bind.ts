@@ -19,11 +19,10 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-type AnyFunc = (...args: any[]) => any;
-
 // Intentionally accept `any` for context to match dynamic bind usage across
 // classes that don't have an index signature. This avoids forcing adding
 // index signatures on many classes during migration.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function bind(context: any, ...funcNames: string[]): void {
   funcNames.forEach((funcName) => {
     const fn = context[funcName];

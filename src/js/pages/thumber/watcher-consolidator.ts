@@ -26,7 +26,7 @@ import bind from '../../lib/bind';
 import debug, { Logger } from '../../lib/debug';
 import SimpleFolderWatcher from '../../lib/simple-folder-watcher';
 import ListenerManager from '../../lib/listener-manager';
-import { FolderWatcher } from '../../lib/watcher/watcher-manager';
+import { FolderWatcherInterface } from '../../lib/watcher/folder-watcher';
 
 const s_sendDebounceDuration = 1000;
 
@@ -52,7 +52,7 @@ export default class WatcherConsolidator extends EventEmitter {
   _listenerManager: ListenerManager;
   _watcher: SimpleFolderWatcher;
 
-  constructor(filepath: string, watcherFactory: (filePath: string) => FolderWatcher, fs: LocalFsAPI) {
+  constructor(filepath: string, watcherFactory: (filePath: string) => FolderWatcherInterface | null, fs: LocalFsAPI) {
     super();
     this._filepath = filepath;
     this._logger = debug('WatcherConsolidator', filepath);

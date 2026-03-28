@@ -142,9 +142,7 @@ function start(args: ProgOptions) {
   const localFS = {
     existsSync: fs.existsSync.bind(fs),
     readdir: createThrottledReaddir(fs.readdir.bind(fs), args.maxParallelReaddirs, args.readdirsThrottleDuration),
-    readFileAsStringSync: (filename: string) => {
-      return fs.readFileSync(filename, { encoding: 'utf-8' });
-    },
+    readFileAsStringSync: (filename: string) => fs.readFileSync(filename, { encoding: 'utf-8' }),
     stat: fs.stat.bind(fs),
     statSync: fs.statSync.bind(fs),
     unlinkSync: fs.unlinkSync.bind(fs),

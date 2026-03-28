@@ -77,8 +77,9 @@ import FolderData from './folder-data';
 import { FilesByPath } from '../../lib/fileinfo';
 import { LimitedResourceManager } from '../../lib/limited-resource-manager';
 import { MakeThumbnailPagesFn } from './thumbnail-page-maker-def';
+import { FolderWatcherInterface } from '../../lib/watcher/folder-watcher';
 
-function arrayInANotB(a: string[], b: string[]) {
+function arrayInANotB<T>(a: T[], b: T[]) {
   return a.filter((elem) => b.indexOf(elem) < 0);
 }
 
@@ -131,7 +132,7 @@ type SentFolder = {
 export default class ThumbnailManager extends EventEmitter {
   _dataDir: string;
   _fs: FsApi;
-  _watcherFactory: (filePath: string, options?: any) => any;
+  _watcherFactory: (filePath: string) => FolderWatcherInterface | null;
   _folders: Record<string, FolderInfo> = {};
   _archives: Record<string, FolderInfo> = {};
   _rootFolderNames: string[] = [];
@@ -145,7 +146,7 @@ export default class ThumbnailManager extends EventEmitter {
   constructor(options: {
     dataDir: string;
     fs: FsApi;
-    watcherFactory: (filePath: string, options?: any) => any;
+    watcherFactory: (filePath: string) => FolderWatcherInterface | null;
     thumbnailPageMakerManager: LimitedResourceManager<MakeThumbnailPagesFn>;
   }) {
     super();
@@ -281,6 +282,7 @@ export default class ThumbnailManager extends EventEmitter {
       delete this._folders[filename];
       const parent = this._folders[path.dirname(filename)] || this._rootFolder;
       delete parent.folders[filename];
+      // eslint-disable-next-line @typescript-eslint/no-empty-object-type
       const folders: Record<string, {}> = {};
       folders[filename] = {};
       this.emit('updateFiles', folders);
@@ -321,6 +323,7 @@ export default class ThumbnailManager extends EventEmitter {
     const newFiles: FilesByPath = {};
     const files = folder.files;
     for (const [filename, fileInfo] of Object.entries(files)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       newFiles[filename] = { ...fileInfo, displayName: this._createDisplayPath(filename) } as any;
     }
     folders[folderName] = { ...folder, files: newFiles } as SentFolder;
@@ -341,7 +344,7 @@ export default class ThumbnailManager extends EventEmitter {
   // they seem to work someone differently. Maybe I can refactor later
   _addArchive(filename: string, needUpdate?: boolean) {
     this._logger('addArchive:', filename);
-    let archiveFolder = this._archives[filename];
+    const archiveFolder = this._archives[filename];
     if (!archiveFolder) {
       const folderData = new FolderData(filename, { fs: this._fs, dataDir: this._dataDir });
       const archiveOptions: {
@@ -353,6 +356,7 @@ export default class ThumbnailManager extends EventEmitter {
         fs: this._fs,
         thumbnailPageMakerFn: this._archiveThumbnailPageMakerFn,
       };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const af = new ArchiveFolder(filename, archiveOptions as any);
       const folderInfo: FolderInfo = {
         folder: af,
@@ -385,6 +389,7 @@ export default class ThumbnailManager extends EventEmitter {
       delete this._archives[filename];
       const parent = this._folders[path.dirname(filename)] || this._rootFolder;
       delete parent.archives[filename];
+      // eslint-disable-next-line @typescript-eslint/no-empty-object-type
       const archives: Record<string, {}> = {};
       archives[filename] = {};
       this.emit('updateFiles', archives);
