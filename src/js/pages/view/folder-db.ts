@@ -92,6 +92,7 @@ export default class FolderDB extends EventEmitter {
   _processNewFolders() {
     const folders = this._newFolders;
     this._newFolders = {};
+    const processedFolders: DBFoldersByPath = {};
     for (const [folderName, srcFolder] of Object.entries(folders)) {
       const folder = folderInfoToDisplayFolderInfo(srcFolder);
       const status = folder.status;
@@ -105,8 +106,9 @@ export default class FolderDB extends EventEmitter {
         this._folders[folderName] = folder;
       }
       this._totalFiles += Object.keys(folder.files).length;
+      processedFolders[folderName] = folder;
     }
-    this.emit('updateFiles', folders);
+    this.emit('updateFiles', processedFolders);
   }
   sendAll() {
     process.nextTick(() => {

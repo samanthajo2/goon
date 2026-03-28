@@ -194,6 +194,87 @@ describe('ThumbnailManager', () => {
     assert.deepEqual(removedCall.args[0]['/a/sub1'], {}, 'empty data emitted for removed /a/sub1');
   });
 
+  it('does not re-emit stale file data for a folder after it is removed', () => {
+    manager.setFolders(['/a']);
+    mockFolders['/a'].emit('updateFolders', '/a', { '/a/sub1': { isDirectory: true } });
+
+    // Two updateFiles calls for /a/sub1 — the first fires the throttle leading edge,
+    // the second gets queued as the trailing edge (deferred by 500ms)
+    mockFolders['/a/sub1'].emit('updateFiles', '/a/sub1', {
+      files: { '/a/sub1/img.jpg': { type: 'image/jpeg' } },
+      status: {},
+    });
+    mockFolders['/a/sub1'].emit('updateFiles', '/a/sub1', {
+      files: { '/a/sub1/img.jpg': { type: 'image/jpeg' } },
+      status: {},
+    });
+
+    // Remove the folder (simulating a rename)
+    mockFolders['/a'].emit('updateFolders', '/a', {});
+
+    const updateFilesSpy = sinon.spy();
+    manager.on('updateFiles', updateFilesSpy);
+
+    // Force the throttled trailing emission — this should NOT re-emit stale data for /a/sub1
+    manager._emitUpdateFiles.flush();
+
+    const staleEmit = updateFilesSpy.getCalls().find((call) => {
+      const data = call.args[0]['/a/sub1'];
+      return data && data.files && Object.keys(data.files).length > 0;
+    });
+    assert.isUndefined(staleEmit, 'no stale file data emitted for removed /a/sub1');
+  });
+
+  it('does not emit stale data for a folder renamed away then back within the throttle window', () => {
+    manager.setFolders(['/a']);
+    mockFolders['/a'].emit('updateFolders', '/a', { '/a/sub1': { isDirectory: true } });
+
+    // Two updateFiles calls so the second sits in the pending throttle queue
+    mockFolders['/a/sub1'].emit('updateFiles', '/a/sub1', {
+      files: { '/a/sub1/img.jpg': { type: 'image/jpeg' } },
+      status: {},
+    });
+    mockFolders['/a/sub1'].emit('updateFiles', '/a/sub1', {
+      files: { '/a/sub1/img.jpg': { type: 'image/jpeg' } },
+      status: {},
+    });
+
+    // Rename: sub1 → sub2
+    mockFolders['/a'].emit('updateFolders', '/a', { '/a/sub2': { isDirectory: true } });
+    assert.isUndefined(manager._folders['/a/sub1'], '/a/sub1 removed after rename');
+    assert.ok(manager._folders['/a/sub2'], '/a/sub2 added after rename');
+
+    // sub2 also gets pending updates
+    mockFolders['/a/sub2'].emit('updateFiles', '/a/sub2', {
+      files: { '/a/sub2/img.jpg': { type: 'image/jpeg' } },
+      status: {},
+    });
+    mockFolders['/a/sub2'].emit('updateFiles', '/a/sub2', {
+      files: { '/a/sub2/img.jpg': { type: 'image/jpeg' } },
+      status: {},
+    });
+
+    // Rename back: sub2 → sub1
+    mockFolders['/a'].emit('updateFolders', '/a', { '/a/sub1': { isDirectory: true } });
+    assert.isUndefined(manager._folders['/a/sub2'], '/a/sub2 removed after rename-back');
+    assert.ok(manager._folders['/a/sub1'], '/a/sub1 re-added after rename-back');
+
+    const updateFilesSpy = sinon.spy();
+    manager.on('updateFiles', updateFilesSpy);
+
+    // Flush the throttle — neither sub1 nor sub2 should have stale file data
+    manager._emitUpdateFiles.flush();
+
+    const staleEmit = updateFilesSpy.getCalls().find((call) => {
+      const sub1Data = call.args[0]['/a/sub1'];
+      const sub2Data = call.args[0]['/a/sub2'];
+      const sub1HasFiles = sub1Data && sub1Data.files && Object.keys(sub1Data.files).length > 0;
+      const sub2HasFiles = sub2Data && sub2Data.files && Object.keys(sub2Data.files).length > 0;
+      return sub1HasFiles || sub2HasFiles;
+    });
+    assert.isUndefined(staleEmit, 'no stale file data from either intermediate name');
+  });
+
   it('removes archives when parent folder is removed', () => {
     manager.setFolders(['/a']);
     mockFolders['/a'].emit('updateArchives', '/a', { '/a/b.zip': {} }, []);

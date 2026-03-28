@@ -291,6 +291,7 @@ export default class ThumbnailManager extends EventEmitter {
       delete this._folders[filename];
       const parent = this._folders[path.dirname(filename)] || this._rootFolder;
       delete parent.folders[filename];
+      delete this._updateFilesPendingFolders[filename];
       // eslint-disable-next-line @typescript-eslint/no-empty-object-type
       const folders: Record<string, {}> = {};
       folders[filename] = {};
@@ -398,6 +399,7 @@ export default class ThumbnailManager extends EventEmitter {
       delete this._archives[filename];
       const parent = this._folders[path.dirname(filename)] || this._rootFolder;
       delete parent.archives[filename];
+      delete this._updateFilesPendingFolders[filename];
       // eslint-disable-next-line @typescript-eslint/no-empty-object-type
       const archives: Record<string, {}> = {};
       archives[filename] = {};

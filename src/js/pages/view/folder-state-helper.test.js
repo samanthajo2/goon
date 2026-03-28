@@ -163,6 +163,24 @@ describe('FolderStateHelper', () => {
     assert.sameOrderedMembers(getFileNames(root.folders[2].files), ['a/y/f', 'a/y/e', 'a/y/d']);
   });
 
+  it('removes a folder when updated with empty files and no scanning status', () => {
+    const root = FolderStateHelper.createRoot('sortPath');
+    FolderStateHelper.updateFolders(root, {
+      'a/a': { files: { 'a/a/d': {}, 'a/a/e': {}, }, status: {} },
+      'b/b': { files: { 'b/b/x': {}, }, status: {} },
+    });
+    assert.strictEqual(root.folders.length, 2);
+
+    // Simulate rename/removal: 'a/a' gets empty files + empty status (the removal signal after FolderDB processing)
+    FolderStateHelper.updateFolders(root, {
+      'a/a': { files: {}, status: {} },
+    });
+
+    assert.strictEqual(root.folders.length, 1, 'removed folder is gone');
+    assert.strictEqual(root.folders[0].filename, 'b/b', 'remaining folder is correct');
+    assert.strictEqual(root.totalFiles, 1, 'totalFiles updated correctly');
+  });
+
   it('sorts by numbers', () => {
     {
       const root = FolderStateHelper.createRoot('sortPath');
