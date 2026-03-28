@@ -25,7 +25,9 @@ import * as unzipit from 'unzipit';
 import debug, { Logger } from '../../lib/debug';
 import * as filters from '../../lib/filters';
 import * as utils from '../../lib/utils';
-import readRARContent from '../../../../app/3rdparty/libunrar-js/libunrar';
+// Defer loading the native libunrar module until it's actually needed so
+// unit tests (which run in Node) don't attempt to execute browser-only
+// code at module import time.
 
 const pfs = fs.promises;
 const s_slashRE = /[/\\]/g;
@@ -148,9 +150,13 @@ function gatherRarFiles(entry: RarEntry, files: ArchiveFiles, logger: Logger) {
 async function rarDecompress(filename: string) {
   const _logger = debug('RarDecompressor', filename);
   const _files = {};
-
   const data = await pfs.readFile(filename);
   _logger('unrar:', filename);
+  // Require libunrar lazily. This module assumes a non-Node environment
+  // in some builds; requiring it at module-load time can throw during
+  // unit tests. Load it only when needed.
+  // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
+  const readRARContent = require('../../../../app/3rdparty/libunrar-js/libunrar');
   const rarContent = readRARContent([
     { name: 'tmp.rar', content: data },
   ], undefined, (/* ...args */) => {
