@@ -66,7 +66,7 @@ describe('ThumbnailPageMaker', () => {
 
   function makeMockFileSystem() {
     return {
-      writeFileSync: sinon.stub(),
+      writeFileBase64Sync: sinon.stub(),
       unlinkSync: sinon.stub(),
     };
   }
@@ -243,7 +243,7 @@ describe('ThumbnailPageMaker', () => {
     console.log('thumbMaker.addUrl callCount', r.mockThumbnailMaker.addUrl.callCount);
     console.log('imgLoaderStub callCount', r.mockImageLoader.loadImage.callCount);
     console.log('unlinkStub callCount', r.mockFS.unlinkSync.callCount);
-    console.log('writeFileStub callCount', r.mockFS.writeFileSync.callCount);
+    console.log('writeFileBase64Sync callCount', r.mockFS.writeFileBase64Sync.callCount);
     console.log('numContexts:', r.ctxManager.contexts.length);
     const thumbCtx = r.ctxManager.contexts[0];
     console.log('thumbCtx.drawImage callCount', thumbCtx.drawImage.callCount);
@@ -266,7 +266,7 @@ describe('ThumbnailPageMaker', () => {
     });
     assert.strictEqual(r.mockThumbnailMaker.release.callCount, 3, '3 thumbnails made');
     assert.strictEqual(r.thumbnailObserver.callCount, 3, '3 thumbnails observed');
-    assert.strictEqual(r.mockFS.writeFileSync.callCount, 1, 'writes one page');
+    assert.strictEqual(r.mockFS.writeFileBase64Sync.callCount, 1, 'writes one page');
   });
 
   it('makes 3 pages', async () => {
@@ -281,7 +281,7 @@ describe('ThumbnailPageMaker', () => {
     });
     assert.strictEqual(r.mockThumbnailMaker.release.callCount, 3, '3 thumbnails made');
     assert.strictEqual(r.thumbnailObserver.callCount, 3, '3 thumbnails observed');
-    assert.strictEqual(r.mockFS.writeFileSync.callCount, 3, 'writes 3 pages');
+    assert.strictEqual(r.mockFS.writeFileBase64Sync.callCount, 3, 'writes 3 pages');
   });
 
   it('remakes a page', async () => {
@@ -299,7 +299,7 @@ describe('ThumbnailPageMaker', () => {
     assert.strictEqual(r.mockThumbnailMaker.release.callCount, 0, '0 thumbnails made');
     assert.strictEqual(r.thumbnailObserver.callCount, 0, '0 thumbnails observed');
     assert.strictEqual(r.mockFS.unlinkSync.callCount, 1, 'deletes one page');
-    assert.strictEqual(r.mockFS.writeFileSync.callCount, 1, 'writes one page');
+    assert.strictEqual(r.mockFS.writeFileBase64Sync.callCount, 1, 'writes one page');
   });
 
   it('remakes 3 pages', async () => {
@@ -317,7 +317,7 @@ describe('ThumbnailPageMaker', () => {
     assert.strictEqual(r.mockThumbnailMaker.release.callCount, 0, '0 thumbnails made');
     assert.strictEqual(r.thumbnailObserver.callCount, 0, '0 thumbnails observed');
     assert.strictEqual(r.mockFS.unlinkSync.callCount, 3, 'deletes 3 pages');
-    assert.strictEqual(r.mockFS.writeFileSync.callCount, 3, 'writes 3 pages');
+    assert.strictEqual(r.mockFS.writeFileBase64Sync.callCount, 3, 'writes 3 pages');
   });
 
   it('delete 3 pages makes 1', async () => {
@@ -335,7 +335,7 @@ describe('ThumbnailPageMaker', () => {
     assert.strictEqual(r.mockThumbnailMaker.release.callCount, 0, '0 thumbnails made');
     assert.strictEqual(r.thumbnailObserver.callCount, 0, '0 thumbnails observed');
     assert.strictEqual(r.mockFS.unlinkSync.callCount, 3, 'deletes 3 pages');
-    assert.strictEqual(r.mockFS.writeFileSync.callCount, 1, 'writes 1 pages');
+    assert.strictEqual(r.mockFS.writeFileBase64Sync.callCount, 1, 'writes 1 pages');
     for (const fileInfo of Object.values(r.tFiles)) {
       assert.isTrue(fileInfo.thumbnail.url.indexOf('_0.png?') > 0);
     }
@@ -356,7 +356,7 @@ describe('ThumbnailPageMaker', () => {
     assert.strictEqual(r.mockThumbnailMaker.release.callCount, 1, '1 thumbnails made');
     assert.strictEqual(r.thumbnailObserver.callCount, 1, '1 thumbnails observed');
     assert.strictEqual(r.mockFS.unlinkSync.callCount, 1, 'deletes one page');
-    assert.strictEqual(r.mockFS.writeFileSync.callCount, 1, 'writes one page');
+    assert.strictEqual(r.mockFS.writeFileBase64Sync.callCount, 1, 'writes one page');
   });
 
   it('works if can not make a thumbnail', async () => {
@@ -372,7 +372,7 @@ describe('ThumbnailPageMaker', () => {
     });
     assert.strictEqual(r.mockThumbnailMaker.release.callCount, 2, '2 thumbnails made');
     assert.strictEqual(r.thumbnailObserver.callCount, 2, '2 thumbnails observed');
-    assert.strictEqual(r.mockFS.writeFileSync.callCount, 1, 'writes one page');
+    assert.strictEqual(r.mockFS.writeFileBase64Sync.callCount, 1, 'writes one page');
     for (const [filename, fileInfo] of Object.entries(r.tFiles)) {
       const expected = files[filename];
       if (expected.fail) {
@@ -405,6 +405,6 @@ describe('ThumbnailPageMaker', () => {
     assert.strictEqual(r.mockThumbnailMaker.release.callCount, 3, '3 thumbnails made');
     assert.strictEqual(r.thumbnailObserver.callCount, 3, '3 thumbnails observed');
     assert.strictEqual(r.mockFS.unlinkSync.callCount, 0, 'deletes no page');
-    assert.strictEqual(r.mockFS.writeFileSync.callCount, 1, 'writes one page');
+    assert.strictEqual(r.mockFS.writeFileBase64Sync.callCount, 1, 'writes one page');
   });
 });
