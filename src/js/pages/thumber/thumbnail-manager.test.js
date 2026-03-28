@@ -275,6 +275,104 @@ describe('ThumbnailManager', () => {
     assert.isUndefined(staleEmit, 'no stale file data from either intermediate name');
   });
 
+  // Helper to create a manager with a custom fs mock (for tests needing existsSync control)
+  function createManagerWithFs(mockFs) {
+    const localMockFolders = {};
+    const localMockArchives = {};
+
+    const nativeFolderFactory = (filename) => {
+      const mock = createMockNativeFolder(filename);
+      localMockFolders[filename] = mock;
+      mockFolders[filename] = mock;
+      return mock;
+    };
+
+    const archiveFolderFactory = (filename) => {
+      const mock = createMockArchiveFolder(filename);
+      localMockArchives[filename] = mock;
+      mockArchives[filename] = mock;
+      return mock;
+    };
+
+    const mockWatcher = new EventEmitter();
+    mockWatcher.close = sinon.spy();
+
+    return new ThumbnailManager({
+      dataDir: '/data',
+      fs: mockFs,
+      watcherFactory: sinon.stub().returns(mockWatcher),
+      nativeFolderFactory,
+      archiveFolderFactory,
+      thumbnailPageMakerManager: {},
+    });
+  }
+
+  describe('thumbnail file deletion on folder removal', () => {
+    it('deletes thumbnail data (.png/.json) when a sub-folder disappears via updateFolders', () => {
+      // Sub-folders that disappear via watcher events should have their thumbnail
+      // data deleted so stale .png/.json files do not accumulate.
+      manager.setFolders(['/a']);
+      mockFolders['/a'].emit('updateFolders', '/a', { '/a/b': {} });
+      assert.ok(manager._folders['/a/b'], 'sub-folder is tracked before removal');
+
+      // /a/b disappears from the filesystem — watcher reports it gone
+      mockFolders['/a'].emit('updateFolders', '/a', {});
+
+      assert.isUndefined(manager._folders['/a/b'], 'sub-folder removed from _folders');
+      assert.ok(
+        mockFolders['/a/b'].deleteData.called,
+        'deleteData called on removed sub-folder to clean up .png/.json files',
+      );
+    });
+
+    it('deletes thumbnail data for deeply nested sub-folders that disappear', () => {
+      manager.setFolders(['/a']);
+      mockFolders['/a'].emit('updateFolders', '/a', { '/a/b': {} });
+      mockFolders['/a/b'].emit('updateFolders', '/a/b', { '/a/b/c': {} });
+
+      // /a/b (and thus /a/b/c) disappear
+      mockFolders['/a'].emit('updateFolders', '/a', {});
+
+      assert.isUndefined(manager._folders['/a/b'], '/a/b removed');
+      assert.isUndefined(manager._folders['/a/b/c'], '/a/b/c removed');
+      assert.ok(mockFolders['/a/b'].deleteData.called, 'deleteData called for /a/b');
+      assert.ok(mockFolders['/a/b/c'].deleteData.called, 'deleteData called for /a/b/c');
+    });
+
+    it('deletes thumbnail data for a root folder explicitly removed when it exists on disk', () => {
+      // When a root folder is intentionally removed from config AND it still exists on
+      // disk, its thumbnail data should be cleaned up.
+      const mockFs = createMockFs();
+      mockFs.existsSync.withArgs('/a').returns(true);
+      const mgr = createManagerWithFs(mockFs);
+
+      mgr.setFolders(['/a']);
+      mgr.setFolders([], /* deleteMetaDataOnRemovedFolders= */ true);
+
+      assert.ok(
+        mockFolders['/a'].deleteData.called,
+        'deleteData called when root removed from config and folder exists on disk',
+      );
+    });
+
+    it('does NOT delete thumbnail data for a root folder that is missing (mount point gone)', () => {
+      // Root folders are often mount points. If the drive is unmounted the folder
+      // will not exist on disk. In that case we must NOT delete the thumbnail data —
+      // the files are just temporarily inaccessible and should be preserved.
+      const mockFs = createMockFs();
+      mockFs.existsSync.withArgs('/mnt/drive').returns(false); // drive is not mounted
+      const mgr = createManagerWithFs(mockFs);
+
+      mgr.setFolders(['/mnt/drive']);
+      mgr.setFolders([], /* deleteMetaDataOnRemovedFolders= */ true);
+
+      assert.notOk(
+        mockFolders['/mnt/drive'].deleteData.called,
+        'deleteData NOT called when root folder is missing (unmounted drive)',
+      );
+    });
+  });
+
   it('removes archives when parent folder is removed', () => {
     manager.setFolders(['/a']);
     mockFolders['/a'].emit('updateArchives', '/a', { '/a/b.zip': {} }, []);

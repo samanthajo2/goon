@@ -193,7 +193,8 @@ export default class ThumbnailManager extends EventEmitter {
     this._baseFolderNames = dirs.map((folderPath) => path.dirname(folderPath));
     const foldersToRemove = _.difference(this._rootFolderNames, dirs);
     foldersToRemove.forEach((folder) => {
-      this._removeFolder(folder, deleteMetaDataOnRemovedFolders);
+      const shouldDelete = deleteMetaDataOnRemovedFolders && this._fs.existsSync(folder);
+      this._removeFolder(folder, shouldDelete);
     });
     this._rootFolderNames = dirs;
     dirs.forEach(this._addFolder as (s: string) => void);
@@ -308,7 +309,7 @@ export default class ThumbnailManager extends EventEmitter {
     const addedFolderNames = arrayInANotB(newFolderNames, oldFolderNames);
 
     removedFolderNames.forEach((folderName) => {
-      this._removeFolder(folderName);
+      this._removeFolder(folderName, true);
     });
     addedFolderNames.forEach((folderName) => {
       this._addFolder(folderName);

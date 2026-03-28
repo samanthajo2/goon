@@ -96,6 +96,9 @@ export default class ArchiveFolder extends EventEmitter {
     if (this._isMakingThumbnails) {
       throw new Error('already making thumbnails');
     }
+    // Record time before scanning so any modification during the scan
+    // (mtime > scanStartTime) will trigger a re-scan on next startup.
+    const scanStartTime = Date.now();
     this._isMakingThumbnails = true;
     this._sendImagesAndVideos();
     // remove all the files since we just got a new archive
@@ -109,7 +112,7 @@ export default class ArchiveFolder extends EventEmitter {
       console.warn(`could not make thumbnails for: ${this._filename}`, e);
     } finally {
       this._isMakingThumbnails = false;
-      this._folderData.setScannedTime();
+      this._folderData.setScannedTime(scanStartTime);
     }
     this._sendImagesAndVideos();
     this._processArchive();

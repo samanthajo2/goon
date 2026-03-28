@@ -142,4 +142,36 @@ describe('NativeFolder', () => {
     assert.isAtLeast(nf.updateFiles.callCount, 3);
     assert.deepEqual(nf.updateFiles.lastCall.args[1].files, thumbnailFiles, 'thumbnail files');
   });
+
+  it('re-scans when file changes arrive while a scan is running', async () => {
+    const nf = setupNativeFolder({}, {}, {});
+    await wait();
+
+    // Set up a deferred first scan so we control when it completes
+    let resolveFirstScan;
+    const firstScanResult = {'thumb_a.jpg': {type: 'image/jpeg', thumbnail: {url: 'a'}}};
+    const secondScanResult = {'thumb_b.jpg': {type: 'image/jpeg', thumbnail: {url: 'b'}}};
+    nf.thumbnailPageMaker.onFirstCall().returns(
+      new Promise(resolve => { resolveFirstScan = () => resolve(firstScanResult); }),
+    );
+    nf.thumbnailPageMaker.onSecondCall().resolves(secondScanResult);
+
+    // Watcher reports one file — triggers first scan
+    nf.watcher.emit('files', {'a.png': {type: 'image/png'}});
+    assert.strictEqual(nf.thumbnailPageMaker.callCount, 1, 'first scan started');
+
+    // New file arrives while the first scan is still in progress
+    nf.watcher.emit('files', {'a.png': {type: 'image/png'}, 'b.png': {type: 'image/png'}});
+    assert.strictEqual(nf.thumbnailPageMaker.callCount, 1, 'no second scan while first is running');
+
+    // Complete the first scan — the queued watcher result should trigger a second scan
+    resolveFirstScan();
+    await wait();
+    await wait();
+    await wait();
+
+    assert.strictEqual(nf.thumbnailPageMaker.callCount, 2, 'second scan triggered for queued changes');
+    const secondCallNewFiles = nf.thumbnailPageMaker.secondCall.args[1];
+    assert.ok(secondCallNewFiles['b.png'], 'b.png included in the second scan');
+  });
 });

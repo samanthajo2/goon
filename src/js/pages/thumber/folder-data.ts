@@ -143,8 +143,8 @@ export default class FolderData {
       this._queueWrite();
     }
   }
-  setScannedTime() {
-    this._data.scannedTime = Date.now();
+  setScannedTime(time?: number) {
+    this._data.scannedTime = time ?? Date.now();
     this._queueWrite();
   }
   removeFiles(filepaths: string[]) {
