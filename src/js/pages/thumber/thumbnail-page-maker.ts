@@ -86,7 +86,7 @@ export default function createThumbnailPageMaker(options: {
   }>;
   fs: {
     unlinkSync: (filename: string) => void
-    writeFileSync: (filename: string, data: string, encoding: string) => void;
+    writeFileBase64Sync: (filename: string, data: string) => void;
   };
   context2DFactory: () => CanvasRenderingContext2D;
   imgLoader: { loadImage: (url: string) => Promise<HTMLImageElement> };
@@ -201,7 +201,7 @@ export default function createThumbnailPageMaker(options: {
     const uu = dataUrl.substring('data:image/png;base64,'.length);
     const filename = `${baseFilename}_${ndx}.png`;
     logger('write:', filename);
-    fs.writeFileSync(filename, uu, 'base64');
+    fs.writeFileBase64Sync(filename, uu);
     put2DContext(page.ctx);
     (page as unknown as { ctx: null }).ctx = null;
   }

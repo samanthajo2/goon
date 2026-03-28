@@ -140,11 +140,19 @@ function start(args: ProgOptions) {
   }));
 
   const localFS = {
+    existsSync: fs.existsSync.bind(fs),
     readdir: createThrottledReaddir(fs.readdir.bind(fs), args.maxParallelReaddirs, args.readdirsThrottleDuration),
-    readFileSync: fs.readFileSync.bind(fs),
+    readFileAsStringSync: (filename: string) => {
+      return fs.readFileSync(filename, { encoding: 'utf-8' });
+    },
+    stat: fs.stat.bind(fs),
+    statSync: fs.statSync.bind(fs),
     unlinkSync: fs.unlinkSync.bind(fs),
-    writeFileSync: (filename: string, data: string, encoding?: string) => {
-      fs.writeFileSync(filename, data, { encoding: encoding as BufferEncoding });
+    writeFileSync: (filename: string, data: string | Buffer) => {
+      fs.writeFileSync(filename, data);
+    },
+    writeFileBase64Sync: (filename: string, data: string) => {
+      fs.writeFileSync(filename, data, 'base64');
     },
   };
 
@@ -169,7 +177,7 @@ function start(args: ProgOptions) {
   g.thumbnailManager = new ThumbnailManager({
     dataDir: g.dataDir,
     thumbnailPageMakerManager: g.thumbnailPageMakerManager,
-    fs: fs,
+    fs: localFS,
     watcherFactory: createWatcher,
   });
   const updateFilesEventForwarder = makeEventForwarder('updateFiles');

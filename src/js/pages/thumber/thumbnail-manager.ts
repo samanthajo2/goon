@@ -42,7 +42,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //   Otherwise the emits `addFile`, `removeFile`
 //   events for each thumbnail
 //
-//
 
 // * ThumbnailCollection
 //
@@ -61,6 +60,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //   Loads exis
 //   Waits for add/change/remove events
 //
+//
+
 
 import EventEmitter from 'node:events';
 import path from 'node:path';
@@ -69,20 +70,84 @@ import bind from '../../lib/bind';
 import debug from '../../lib/debug';
 import NativeFolder from './native-folder';
 import ArchiveFolder from './archive-folder';
-import createThumbnailsForFolder from './folder-thumbnail-maker';
+import createThumbnailsForFolder, { ThumbnailPageMakerFn } from './folder-thumbnail-maker';
 import createThumbnailsForArchive from './archive-thumbnail-maker';
 import WatcherConsolidator from './watcher-consolidator';
 import FolderData from './folder-data';
+import { FilesByPath } from '../../lib/fileinfo';
+import { LimitedResourceManager } from '../../lib/limited-resource-manager';
+import { MakeThumbnailPagesFn } from './thumbnail-page-maker-def';
 
-function arrayInANotB(a, b) {
+function arrayInANotB(a: string[], b: string[]) {
   return a.filter((elem) => b.indexOf(elem) < 0);
 }
 
 // This runs on the "server" and watches the filesystem
 // for changes. It uses a Thumbnailer to generate
 // thumbnails
+
+type NativeFolderInst = InstanceType<typeof NativeFolder>;
+type ArchiveFolderInst = InstanceType<typeof ArchiveFolder>;
+
+type FolderInfo = {
+  folder: NativeFolderInst | ArchiveFolderInst;
+  folders: Record<string, FolderInfo>;
+  archives: Record<string, FolderInfo>;
+};
+
+type RootFolderInfo = {
+  folder?: NativeFolderInst | ArchiveFolderInst;
+  folders: Record<string, FolderInfo>;
+  archives: Record<string, FolderInfo>;
+};
+
+type StreamLike = { send: (eventName: string, data: unknown) => void };
+
+// Filesystem API required by the Thumber modules. Methods are optional because
+// different modules require different subsets.
+// Filesystem API required by thumber modules. Methods listed here are expected
+// to exist on the `fs` object passed into ThumbnailManager.
+type FsApi = {
+  existsSync: (path: string) => boolean;
+  readdir: (path: string, callback: (err: Error | null, files: string[]) => void) => void;
+  readFileAsStringSync: (path: string) => string;
+  unlinkSync: (path: string) => void;
+  writeFileSync: (path: string, data: string | Buffer) => void;
+  statSync: (path: string) => { mtimeMs: number };
+  stat: (path: string, callback: (err: Error | null, stats: { size: number; mtimeMs: number; isDirectory: () => boolean }) => void) => void;
+};
+
+type SentFolder = {
+  files: FilesByPath;
+  status?: {
+    scanning?: boolean;
+    checking?: boolean;
+    scannedTime?: number;
+    archive?: boolean;
+  };
+  [k: string]: unknown;
+};
+
 export default class ThumbnailManager extends EventEmitter {
-  constructor(options) {
+  _dataDir: string;
+  _fs: FsApi;
+  _watcherFactory: (filePath: string, options?: any) => any;
+  _folders: Record<string, FolderInfo> = {};
+  _archives: Record<string, FolderInfo> = {};
+  _rootFolderNames: string[] = [];
+  _baseFolderNames: string[] = [];
+  _updateFilesPendingFolders: Record<string, SentFolder> = {};
+  _rootFolder: RootFolderInfo = { folders: {}, archives: {} };
+  _logger: ReturnType<typeof debug>;
+  _folderThumbnailPageMakerFn: ThumbnailPageMakerFn;
+  _archiveThumbnailPageMakerFn: (filepath: string, baseFilename: string) => Promise<FilesByPath>;
+
+  constructor(options: {
+    dataDir: string;
+    fs: FsApi;
+    watcherFactory: (filePath: string, options?: any) => any;
+    thumbnailPageMakerManager: LimitedResourceManager<MakeThumbnailPagesFn>;
+  }) {
     super();
     this._dataDir = options.dataDir;
     this._fs = options.fs;
@@ -93,10 +158,7 @@ export default class ThumbnailManager extends EventEmitter {
     this._baseFolderNames = [];
     this._updateFilesPendingFolders = {};
     // this smells :(
-    this._rootFolder = {
-      folders: {},
-      archives: {},
-    };
+    this._rootFolder = { folders: {}, archives: {} };
     const thumbnailPageMakerManager = options.thumbnailPageMakerManager;
     bind(
       this,
@@ -110,39 +172,39 @@ export default class ThumbnailManager extends EventEmitter {
       '_emitUpdateFiles',
       'refreshFolder',
     );
-    this._emitUpdateFiles = _.throttle(this._emitUpdateFiles, 500);
+    this._emitUpdateFiles = _.throttle(this._emitUpdateFiles.bind(this), 500);
     this._logger = debug('ThumbnailManager');
     this._folderThumbnailPageMakerFn = (oldFiles, newFiles, baseFilename) => createThumbnailsForFolder(oldFiles, newFiles, baseFilename, thumbnailPageMakerManager);
     this._archiveThumbnailPageMakerFn = (filepath, baseFilename) => createThumbnailsForArchive(filepath, baseFilename, thumbnailPageMakerManager);
   }
 
-  setFolders(dirs, deleteMetaDataOnRemovedFolders) {
+  setFolders(dirs: string[], deleteMetaDataOnRemovedFolders?: boolean) {
     this._baseFolderNames = dirs.map((folderPath) => path.dirname(folderPath));
     const foldersToRemove = _.difference(this._rootFolderNames, dirs);
     foldersToRemove.forEach((folder) => {
       this._removeFolder(folder, deleteMetaDataOnRemovedFolders);
     });
     this._rootFolderNames = dirs;
-    dirs.forEach(this._addFolder);
+    dirs.forEach(this._addFolder as (s: string) => void);
   }
 
-  sendAll(stream) {
+  sendAll(stream: StreamLike) {
     this._sendFolder(this._rootFolder, stream);
   }
 
-  refreshFolder(folderName) {
+  refreshFolder(folderName: string) {
     const folder = this._folders[folderName] || this._archives[folderName];
     if (folder) {
       folder.folder.refresh();
-      Object.keys(folder.folders).forEach(this.refreshFolder);
-      Object.keys(folder.archives).forEach(this.refreshFolder);
+      Object.keys(folder.folders).forEach(this.refreshFolder.bind(this));
+      Object.keys(folder.archives).forEach(this.refreshFolder.bind(this));
     } else {
       this._logger('no such folder:', folderName);
     }
   }
 
-  _sendFolder(folder, stream) {
-    if (folder.folder) {
+  _sendFolder(folder: RootFolderInfo | FolderInfo, stream: StreamLike) {
+    if ('folder' in folder && folder.folder) {
       const data = folder.folder.getData();
       const filename = folder.folder.filename;
       stream.send('updateFiles', this._prepFilesForSending(filename, data));
@@ -157,41 +219,43 @@ export default class ThumbnailManager extends EventEmitter {
     });
   }
 
-  _logFile(eventName, d) {
+  _logFile(eventName: string, d: unknown) {
     this._logger(eventName, JSON.stringify(d));
   }
 
-  _addFolder(filename) {
+  _addFolder(filename: string) {
     let folder = this._folders[filename];
     if (!folder) {
-      const options = {
-        dataDir: this._dataDir,
-        fs: this._fs,
-      };
-      const folderData = new FolderData(filename, options);
-      Object.assign(options, {
+      const folderData = new FolderData(filename, { fs: this._fs, dataDir: this._dataDir });
+      const folderOptions: {
+        folderData: FolderData;
+        thumbnailPageMakerFn: ThumbnailPageMakerFn;
+        watcher: WatcherConsolidator;
+        fs: FsApi;
+      } = {
+        folderData,
         thumbnailPageMakerFn: this._folderThumbnailPageMakerFn,
         watcher: new WatcherConsolidator(filename, this._watcherFactory, this._fs),
-        folderData: folderData,
-      });
-      folder = new NativeFolder(filename, options);
-      const folderInfo = {
-        folder: folder,
+        fs: this._fs,
+      };
+      const nativeFolder = new NativeFolder(filename, folderOptions);
+      folder = {
+        folder: nativeFolder,
         folders: {}, // this smells. Like `Folder` should handle this?
         archives: {}, // this smells. Like `Folder` should handle it?
       };
-      this._folders[filename] = folderInfo;
+      this._folders[filename] = folder;
       const parent = this._folders[path.dirname(filename)] || this._rootFolder;
-      parent.folders[filename] = folderInfo;
+      parent.folders[filename] = folder;
 
-      folder.on('updateFiles', this._updateFiles);
-      folder.on('updateFolders', this._updateFolders);
-      folder.on('updateArchives', this._updateArchives);
+      nativeFolder.on('updateFiles', this._updateFiles);
+      nativeFolder.on('updateFolders', this._updateFolders);
+      nativeFolder.on('updateArchives', this._updateArchives);
     }
     return folder;
   }
 
-  _removeFolder(filename, deleteMetaData) {
+  _removeFolder(filename: string, deleteMetaData?: boolean) {
     this._logger('removeFolder:', filename);
     const folder = this._folders[filename];
     if (folder) {
@@ -206,10 +270,10 @@ export default class ThumbnailManager extends EventEmitter {
       if (deleteMetaData) {
         folder.folder.deleteData();
       }
-      childNames.folders.forEach((folderPath) => {
+      childNames.folders.forEach((folderPath: string) => {
         this._removeFolder(folderPath, deleteMetaData);
       });
-      childNames.archives.forEach((archivePath) => {
+      childNames.archives.forEach((archivePath: string) => {
         this._removeArchive(archivePath, deleteMetaData);
       });
       folder.folder.close();
@@ -217,13 +281,13 @@ export default class ThumbnailManager extends EventEmitter {
       delete this._folders[filename];
       const parent = this._folders[path.dirname(filename)] || this._rootFolder;
       delete parent.folders[filename];
-      const folders = {};
+      const folders: Record<string, {}> = {};
       folders[filename] = {};
       this.emit('updateFiles', folders);
     }
   }
 
-  _updateFolders(folderPath, folders) {
+  _updateFolders(folderPath: string, folders: Record<string, unknown>) {
     this._logger('updateFolders:', folderPath, folders);
     const folder = this._folders[folderPath];
     const oldFolderNames = Object.keys(folder.folders);
@@ -239,9 +303,9 @@ export default class ThumbnailManager extends EventEmitter {
     });
   }
 
-  _updateFiles(folderName, folder) {
+  _updateFiles(folderName: string, folder: SentFolder) {
     this._logger('updateFiles', folderName);
-    const folders = this._prepFilesForSending(folderName, folder);
+    const folders = this._prepFilesForSending(folderName, folder as SentFolder);
     Object.assign(this._updateFilesPendingFolders, folders);
     this._emitUpdateFiles();
   }
@@ -252,21 +316,21 @@ export default class ThumbnailManager extends EventEmitter {
     this.emit('updateFiles', folders);
   }
 
-  _prepFilesForSending(folderName, folder) {
-    const folders = {};
-    const newFiles = {};
+  _prepFilesForSending(folderName: string, folder: SentFolder) {
+    const folders: Record<string, SentFolder> = {};
+    const newFiles: FilesByPath = {};
     const files = folder.files;
     for (const [filename, fileInfo] of Object.entries(files)) {
-      newFiles[filename] = {...fileInfo, displayName: this._createDisplayPath(filename)};
+      newFiles[filename] = { ...fileInfo, displayName: this._createDisplayPath(filename) } as any;
     }
-    folders[folderName] = {...folder, files: newFiles};
+    folders[folderName] = { ...folder, files: newFiles } as SentFolder;
     return folders;
   }
 
-  _createDisplayPath(filename) {
+  _createDisplayPath(filename: string) {
     let base = '';
     for (const baseFolderName of this._baseFolderNames) {
-      if (filename.startsWith(baseFolderName) && baseFolderName.length > base) {
+      if (filename.startsWith(baseFolderName) && baseFolderName.length > base.length) {
         base = baseFolderName;
       }
     }
@@ -275,22 +339,23 @@ export default class ThumbnailManager extends EventEmitter {
 
   // Originally I planned to make archives a kind of virtual folder but for the time being
   // they seem to work someone differently. Maybe I can refactor later
-  _addArchive(filename, needUpdate) {
+  _addArchive(filename: string, needUpdate?: boolean) {
     this._logger('addArchive:', filename);
     let archiveFolder = this._archives[filename];
     if (!archiveFolder) {
-      const options = {
-        dataDir: this._dataDir,
+      const folderData = new FolderData(filename, { fs: this._fs, dataDir: this._dataDir });
+      const archiveOptions: {
+        folderData: FolderData;
+        fs: FsApi;
+        thumbnailPageMakerFn: (filepath: string, baseFilename: string) => Promise<FilesByPath>;
+      } = {
+        folderData,
         fs: this._fs,
-      };
-      const folderData = new FolderData(filename, options);
-      Object.assign(options, {
         thumbnailPageMakerFn: this._archiveThumbnailPageMakerFn,
-        folderData: folderData,
-      });
-      archiveFolder = new ArchiveFolder(filename, options);
-      const folderInfo = {
-        folder: archiveFolder,
+      };
+      const af = new ArchiveFolder(filename, archiveOptions as any);
+      const folderInfo: FolderInfo = {
+        folder: af,
         folders: {}, // this smells. Like `Folder` should handle this?
         archives: {}, // this smells. Like `Folder` should handle it?
       };
@@ -298,18 +363,17 @@ export default class ThumbnailManager extends EventEmitter {
       const parent = this._folders[path.dirname(filename)] || this._rootFolder;
       parent.archives[filename] = folderInfo;
 
-      archiveFolder.on('updateFiles', this._updateFiles);
-      // for now I'm not supporting nested archives
-      // archiveFolder.on('updateFolders', this._updateFolders);
-      // archiveFolder.on('updateArchives', this._updateArchives);
+      af.on('updateFiles', this._updateFiles);
     }
     if (needUpdate) {
-      archiveFolder.update();
+      const af = this._archives[filename];
+      // `update` exists on ArchiveFolder; assert the folder is an ArchiveFolder
+      (af.folder as ArchiveFolderInst).update();
     }
-    return archiveFolder;
+    return this._archives[filename];
   }
 
-  _removeArchive(filename, deleteMetaData) {
+  _removeArchive(filename: string, deleteMetaData?: boolean) {
     this._logger('removeArchive', filename);
     const arc = this._archives[filename];
     if (arc) {
@@ -321,13 +385,13 @@ export default class ThumbnailManager extends EventEmitter {
       delete this._archives[filename];
       const parent = this._folders[path.dirname(filename)] || this._rootFolder;
       delete parent.archives[filename];
-      const archives = {};
+      const archives: Record<string, {}> = {};
       archives[filename] = {};
       this.emit('updateFiles', archives);
     }
   }
 
-  _updateArchives(folderPath, archives, archiveFilenamesThatNeedUpdate) {
+  _updateArchives(folderPath: string, archives: Record<string, unknown>, archiveFilenamesThatNeedUpdate: string[]) {
     this._logger('updateArchive:', folderPath);
     const folder = this._folders[folderPath];
     const oldArchiveNames = Object.keys(folder.archives);

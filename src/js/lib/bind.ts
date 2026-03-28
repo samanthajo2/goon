@@ -19,9 +19,17 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+type AnyFunc = (...args: any[]) => any;
 
-export default function bind(context, ...funcNames) {
-  [...funcNames].forEach((funcName) => {
-    context[funcName] = context[funcName].bind(context);
+// Intentionally accept `any` for context to match dynamic bind usage across
+// classes that don't have an index signature. This avoids forcing adding
+// index signatures on many classes during migration.
+export default function bind(context: any, ...funcNames: string[]): void {
+  funcNames.forEach((funcName) => {
+    const fn = context[funcName];
+    if (typeof fn !== 'function') {
+      throw new Error(`bind: ${String(funcName)} is not a function`);
+    }
+    context[funcName] = fn.bind(context);
   });
 }
