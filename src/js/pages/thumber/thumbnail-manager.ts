@@ -129,6 +129,10 @@ type SentFolder = {
   [k: string]: unknown;
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Factory<T extends new (...args: any) => any> = 
+    (...args: ConstructorParameters<T>) => InstanceType<T>;
+
 export default class ThumbnailManager extends EventEmitter {
   _dataDir: string;
   _fs: FsApi;
@@ -142,17 +146,23 @@ export default class ThumbnailManager extends EventEmitter {
   _logger: ReturnType<typeof debug>;
   _folderThumbnailPageMakerFn: ThumbnailPageMakerFn;
   _archiveThumbnailPageMakerFn: (filepath: string, baseFilename: string) => Promise<FilesByPath>;
+  _nativeFolderFactory: Factory<typeof NativeFolder>;
+  _archiveFolderFactory: Factory<typeof ArchiveFolder>;
 
   constructor(options: {
     dataDir: string;
     fs: FsApi;
     watcherFactory: (filePath: string) => FolderWatcherInterface | null;
+    nativeFolderFactory: Factory<typeof NativeFolder>;
+    archiveFolderFactory: Factory<typeof ArchiveFolder>;
     thumbnailPageMakerManager: LimitedResourceManager<MakeThumbnailPagesFn>;
   }) {
     super();
     this._dataDir = options.dataDir;
     this._fs = options.fs;
     this._watcherFactory = options.watcherFactory;
+    this._nativeFolderFactory = options.nativeFolderFactory;
+    this._archiveFolderFactory = options.archiveFolderFactory;
     this._folders = {};
     this._archives = {};
     this._rootFolderNames = [];
@@ -239,7 +249,7 @@ export default class ThumbnailManager extends EventEmitter {
         watcher: new WatcherConsolidator(filename, this._watcherFactory, this._fs),
         fs: this._fs,
       };
-      const nativeFolder = new NativeFolder(filename, folderOptions);
+      const nativeFolder = this._nativeFolderFactory(filename, folderOptions);
       folder = {
         folder: nativeFolder,
         folders: {}, // this smells. Like `Folder` should handle this?
@@ -357,7 +367,7 @@ export default class ThumbnailManager extends EventEmitter {
         thumbnailPageMakerFn: this._archiveThumbnailPageMakerFn,
       };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const af = new ArchiveFolder(filename, archiveOptions as any);
+      const af = this._archiveFolderFactory(filename, archiveOptions as any);
       const folderInfo: FolderInfo = {
         folder: af,
         folders: {}, // this smells. Like `Folder` should handle this?

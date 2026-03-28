@@ -32,6 +32,8 @@ import createThumbnailMaker from './thumbnail-maker';
 import createThumbnailPageMaker from './thumbnail-page-maker';
 import ThumbnailManager from './thumbnail-manager';
 import ThumbnailRenderer from './thumbnail-renderer';
+import NativeFolder from './native-folder';
+import ArchiveFolder from './archive-folder';
 import appdata from '../../lib/appdata';
 import debug from '../../lib/debug';
 import * as sizing from '../../lib/sizing';
@@ -177,6 +179,8 @@ function start(args: ProgOptions) {
     thumbnailPageMakerManager: g.thumbnailPageMakerManager,
     fs: localFS,
     watcherFactory: createWatcher,
+    nativeFolderFactory: (filepath, options) => new NativeFolder(filepath, options),
+    archiveFolderFactory: (filepath, options) => new ArchiveFolder(filepath, options),
   });
   const updateFilesEventForwarder = makeEventForwarder('updateFiles');
   g.thumbnailManager.on('updateFiles', (folders, ...args) => {
