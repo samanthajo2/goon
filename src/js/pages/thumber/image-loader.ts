@@ -24,22 +24,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 // but I'd preferring to re-use one
 // as I can hopefully use less memory?
 export default class ImageLoader {
-  _img: HTMLImageElement;
+  #img: HTMLImageElement;
 
   constructor() {
-    this._img = new Image();
+    this.#img = new Image();
   }
 
-  loadImage(url: string): Promise<HTMLImageElement> {
-    this._img.src = url
-    return new Promise((resolve, reject) => {
-      this._img.onload = () => {
-        resolve(this._img);
-      };
-      this._img.onerror = (e) => {
-        reject(e);
-      };
-      this._img.src = url;
-    });
+  async loadImage(url: string): Promise<HTMLImageElement> {
+    this.#img.src = url;
+    await this.#img.decode();
+    return this.#img;
   }
 }

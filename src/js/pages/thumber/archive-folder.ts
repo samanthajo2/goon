@@ -33,13 +33,13 @@ type LocalFsAPI = {
 type ArchiveThumbnailMakerFn = (filepath: string, baseFilename: string) => Promise<FilesByPath>;
 
 export default class ArchiveFolder extends EventEmitter {
-  _logger: Logger
-  _filename: string;
-  _folderData: FolderData;
-  _thumbnailPageMakerFn: ArchiveThumbnailMakerFn;
-  _fs: LocalFsAPI;
-  _isMakingThumbnails: boolean;
-  _needUpdate: boolean;
+  #logger: Logger
+  #filename: string;
+  #folderData: FolderData;
+  #thumbnailPageMakerFn: ArchiveThumbnailMakerFn;
+  #fs: LocalFsAPI;
+  #isMakingThumbnails: boolean;
+  #needUpdate: boolean;
 
   constructor(
     filename: string,
@@ -50,37 +50,37 @@ export default class ArchiveFolder extends EventEmitter {
     },
   ) {
     super();
-    this._logger = debug('ArchiveFolder', filename);
-    this._logger('new ArchiveFolder');
-    this._filename = filename;
-    this._folderData = options.folderData;
-    this._fs = options.fs;
-    this._thumbnailPageMakerFn = options.thumbnailPageMakerFn;
+    this.#logger = debug('ArchiveFolder', filename);
+    this.#logger('new ArchiveFolder');
+    this.#filename = filename;
+    this.#folderData = options.folderData;
+    this.#fs = options.fs;
+    this.#thumbnailPageMakerFn = options.thumbnailPageMakerFn;
     try {
-      const stat = this._fs.statSync(filename);
-      const scannedTime = this._folderData.scannedTime;
-      this._needUpdate = !scannedTime || stat.mtimeMs > scannedTime;
+      const stat = this.#fs.statSync(filename);
+      const scannedTime = this.#folderData.scannedTime;
+      this.#needUpdate = !scannedTime || stat.mtimeMs > scannedTime;
     }  catch {
       console.error('failed to stat archive', filename);
-      this._needUpdate = true;
+      this.#needUpdate = true;
     }
-    this._isMakingThumbnails = false;
+    this.#isMakingThumbnails = false;
 
     process.nextTick(() => {
-      this._sendImagesAndVideos();
-      this._processArchive();
+      this.#sendImagesAndVideos();
+      this.#processArchive();
     });
   }
 
   get filename() {
-    return this._filename;
+    return this.#filename;
   }
 
   deleteData() {
-    const files = this._folderData.files;
+    const files = this.#folderData.files;
     const names = getSeparateFilenames(files);
-    deleteThumbnails(this._fs, this._folderData.files);
-    this._folderData.deleteData();
+    deleteThumbnails(this.#fs, this.#folderData.files);
+    this.#folderData.deleteData();
     return names;
   }
 
@@ -88,60 +88,60 @@ export default class ArchiveFolder extends EventEmitter {
   }
 
   getSeparateFilenames() {
-    return getSeparateFilenames(this._folderData.files);
+    return getSeparateFilenames(this.#folderData.files);
   }
 
-  async _updateThumbnails() {
-    this._logger('updateThumbnails');
-    if (this._isMakingThumbnails) {
+  async #updateThumbnails() {
+    this.#logger('updateThumbnails');
+    if (this.#isMakingThumbnails) {
       throw new Error('already making thumbnails');
     }
     // Record time before scanning so any modification during the scan
     // (mtime > scanStartTime) will trigger a re-scan on next startup.
     const scanStartTime = Date.now();
-    this._isMakingThumbnails = true;
-    this._sendImagesAndVideos();
+    this.#isMakingThumbnails = true;
+    this.#sendImagesAndVideos();
     // remove all the files since we just got a new archive
-    this._folderData.removeFiles(Object.keys(this._folderData.files));
+    this.#folderData.removeFiles(Object.keys(this.#folderData.files));
     try {
-      const baseFilename = this._folderData.baseFilename;
-      const files = await this._thumbnailPageMakerFn(this._filename, baseFilename);
-      this._logger('got thumbnails', files);
-      this._folderData.addFiles(files);
+      const baseFilename = this.#folderData.baseFilename;
+      const files = await this.#thumbnailPageMakerFn(this.#filename, baseFilename);
+      this.#logger('got thumbnails', files);
+      this.#folderData.addFiles(files);
     } catch (e) {
-      console.warn(`could not make thumbnails for: ${this._filename}`, e);
+      console.warn(`could not make thumbnails for: ${this.#filename}`, e);
     } finally {
-      this._isMakingThumbnails = false;
-      this._folderData.setScannedTime(scanStartTime);
+      this.#isMakingThumbnails = false;
+      this.#folderData.setScannedTime(scanStartTime);
     }
-    this._sendImagesAndVideos();
-    this._processArchive();
+    this.#sendImagesAndVideos();
+    this.#processArchive();
   }
 
-  _sendImagesAndVideos() {
-    this.emit('updateFiles', this._filename, this.getData());
+  #sendImagesAndVideos() {
+    this.emit('updateFiles', this.#filename, this.getData());
   }
 
   getData() {
     return {
-      files: getImagesAndVideos(this._folderData.files),
+      files: getImagesAndVideos(this.#folderData.files),
       status: {
-        scanning: this._isMakingThumbnails,
-        scannedTime: this._folderData.scannedTime,
+        scanning: this.#isMakingThumbnails,
+        scannedTime: this.#folderData.scannedTime,
         archive: true,
       },
     };
   }
 
-  _processArchive() {
-    if (this._isMakingThumbnails) {
+  #processArchive() {
+    if (this.#isMakingThumbnails) {
       return;
     }
-    if (!this._needUpdate) {
+    if (!this.#needUpdate) {
       return;
     }
-    this._needUpdate = false;
-    this._updateThumbnails();
+    this.#needUpdate = false;
+    this.#updateThumbnails();
   }
 
   refresh() {
@@ -149,9 +149,9 @@ export default class ArchiveFolder extends EventEmitter {
   }
 
   update() {
-    if (!this._needUpdate) {
-      this._needUpdate = true;
-      this._processArchive();
+    if (!this.#needUpdate) {
+      this.#needUpdate = true;
+      this.#processArchive();
     }
   }
 }

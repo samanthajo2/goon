@@ -43,7 +43,15 @@ export default function createLimitedResourceManager<T extends object>(_resource
 
   function createProxy(resource: T) {
     let released = false;
-    const { proxy, revoke } = Proxy.revocable<T>(resource, {});
+    const { proxy, revoke } = Proxy.revocable<T>(resource, {
+      get(target, prop, _receiver) {
+        const value = Reflect.get(target, prop, target);
+        if (typeof value === 'function') {
+          return value.bind(target);
+        }
+        return value;
+      },
+    });
     function release() {
       if (!released) {
         released = true;

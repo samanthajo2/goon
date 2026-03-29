@@ -20,10 +20,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 export default class ThumbnailRenderer {
-  _ctx: CanvasRenderingContext2D;
+  #ctx: CanvasRenderingContext2D;
 
   constructor(ctx: CanvasRenderingContext2D) {
-    this._ctx = ctx;
+    this.#ctx = ctx;
   }
   makeThumbnail(
     elem: HTMLVideoElement | HTMLImageElement | VideoFrame,
@@ -55,7 +55,7 @@ export default class ThumbnailRenderer {
     // 88          88      88  88
     // 88          88  888888  888888
 
-    const ctx = this._ctx;
+    const ctx = this.#ctx;
 
     orientation = orientation ? orientation : 1;
     const swap = (orientation - 1) & 0x4;  // eslint-disable-line no-bitwise
