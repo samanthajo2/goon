@@ -42,6 +42,9 @@ const g_folderHeaderHeight = 30;
 
 // Should pass this down to imagegrid
 function computeFolderHeight(folder, gridMode, width, zoom, options) {
+  if (!folder.files || folder.files.length === 0) {
+    return 0;
+  }
   const manager = gridModes.value(gridMode).helper(width, options);
   folder.files.forEach((file) => {
     const info = file.info;
@@ -49,6 +52,80 @@ function computeFolderHeight(folder, gridMode, width, zoom, options) {
     /* const pos = */ manager.getPositionForElement(thumbnail.width, thumbnail.height);
   });
   return manager.height;
+}
+
+// Finds the first fully-visible thumbnail at or after `scrollTop`.
+// "Fully visible" means the thumbnail's top edge is >= scrollTop (not clipped above).
+// Returns {folderIndex, fileIndex} or null if nothing found.
+//
+// NOTE: ColumnManager places items in the shortest column, so y-values across
+// insertion order are NOT monotonically increasing in multi-column layouts.
+// We must scan all items in the folder and find the minimum y >= relScrollTop.
+//
+// `folders` must be an array of {folder} objects (same shape as this._folders).
+export function findAnchorThumbnail(folders, gridMode, width, zoomFn, options, scrollTop) {
+  let folderTop = 0;
+  for (let fi = 0; fi < folders.length; fi++) {
+    const folder = folders[fi].folder;
+    const files = folder.files;
+    const gridHeight = computeFolderHeight(folder, gridMode, width, zoomFn, options);
+    const folderBottom = folderTop + g_folderHeaderHeight + gridHeight;
+
+    if (folderBottom > scrollTop) {
+      // scrollTop falls within this folder's area
+      const relScrollTop = scrollTop - folderTop - g_folderHeaderHeight;
+      // if relScrollTop <= 0, the viewport is on the header; thumbnails at y=0 will match
+      const manager = gridModes.value(gridMode).helper(width, options);
+      let bestTi = -1;
+      let bestY = Infinity;
+      // Allow 1px tolerance: browsers round fractional scrollTop values, which
+      // can shift a thumbnail's top edge just above the viewport. Without
+      // tolerance this causes the anchor to advance by one thumbnail per zoom
+      // step, drifting the view across many folders over a series of steps.
+      const snapTolerance = 1;
+      for (let ti = 0; ti < (files ? files.length : 0); ti++) {
+        const thumbnail = files[ti].info.thumbnail;
+        const pos = manager.getPositionForElement(thumbnail.width, thumbnail.height);
+        if (pos.y >= relScrollTop - snapTolerance && pos.y < bestY) {
+          bestY = pos.y;
+          bestTi = ti;
+        }
+      }
+      if (bestTi >= 0) {
+        return {folderIndex: fi, fileIndex: bestTi};
+      }
+    }
+
+    folderTop = folderBottom;
+  }
+  return null;
+}
+
+// Given a folder+file anchor, computes the absolute scrollTop such that the
+// anchor thumbnail's top edge is at the top of the viewport.
+//
+// `folders` must be an array of {folder} objects (same shape as this._folders).
+export function computeThumbScrollTop(folders, gridMode, width, zoomFn, options, folderIndex, fileIndex) {
+  let top = 0;
+  for (let fi = 0; fi < folderIndex; fi++) {
+    top += g_folderHeaderHeight + computeFolderHeight(folders[fi].folder, gridMode, width, zoomFn, options);
+  }
+  top += g_folderHeaderHeight;
+
+  const anchorFolder = folders[folderIndex].folder;
+  const files = anchorFolder.files;
+  if (!files || fileIndex < 0) {
+    return top;
+  }
+  const manager = gridModes.value(gridMode).helper(width, options);
+  for (let ti = 0; ti <= fileIndex && ti < files.length; ti++) {
+    const thumbnail = files[ti].info.thumbnail;
+    const pos = manager.getPositionForElement(thumbnail.width, thumbnail.height);
+    if (ti === fileIndex) {
+      top += pos.y;
+    }
+  }
+  return top;
 }
 
 class ImageGrid extends React.Component {
@@ -203,6 +280,29 @@ export default class ImageGrids extends React.Component {
     this.props.eventBus.setForward(null);
     this._listenerManager.removeAll();
   }
+  componentDidUpdate() {
+    const anchor = this._scrollAnchor;
+    if (!anchor || !this._imagegrids || !this._folders) {
+      return;
+    }
+    this._scrollAnchor = null;
+    const newZoom = this._zoom;
+    const newOptions = {
+      padding: this.props.options.padding,
+      minColumnWidth: newZoom(this.props.options.columnWidth),
+    };
+    const newScrollTop = computeThumbScrollTop(
+      this._folders,
+      this.props.winState.gridMode,
+      this.state.width,
+      newZoom,
+      newOptions,
+      anchor.folderIndex,
+      anchor.fileIndex,
+    );
+    this._imagegrids.scrollTop = newScrollTop;
+    this.props.saveScrollTop(newScrollTop);
+  }
   @action _handleSetCollection(event) {
     this.props.imagegridState.currentCollection = event.collection;
   }
@@ -309,6 +409,32 @@ export default class ImageGrids extends React.Component {
         this.state.width !== this._width ||
         zoom !== this._lastZoom) {
       this._logger('getFoldersFromState-InRender');
+
+      // Capture scroll anchor before recomputing layout. This must happen here
+      // (not in getSnapshotBeforeUpdate) because MobX mutates observables
+      // in-place, so prevProps.winState === this.props.winState by the time
+      // getSnapshotBeforeUpdate fires and change detection would always be false.
+      // At this point this._folders, this._gridMode, this._width, and
+      // this._lastZoom still reflect the previous layout.
+      const scrollTop = this._imagegrids ? this._imagegrids.scrollTop : 0;
+      if (this._folders && this._imagegrids && scrollTop > 0 &&
+          this.props.root === this._root) {
+        const oldZoom = (v) => this._lastZoom * v;
+        const oldOptions = {
+          padding: this.props.options.padding,
+          minColumnWidth: oldZoom(this.props.options.columnWidth),
+        };
+        this._scrollAnchor = findAnchorThumbnail(
+          this._folders,
+          this._gridMode,
+          this._width,
+          oldZoom,
+          oldOptions,
+          scrollTop,
+        );
+      } else {
+        this._scrollAnchor = null;
+      }
 
       this._getFoldersFromState(this.props);
       this._gridMode = this.props.winState.gridMode;
