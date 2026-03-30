@@ -51,6 +51,7 @@ export default class FolderData {
     folderPath: string;
     files: Record<string, FileInfo>;
     scannedTime?: number;
+    dirMtime?: number;
   }
   #queueWrite: () => void;
 
@@ -108,6 +109,15 @@ export default class FolderData {
   }
   get scannedTime() {
     return this.#data.scannedTime;
+  }
+  get dirMtime() {
+    return this.#data.dirMtime;
+  }
+  setDirMtime(mtime: number) {
+    if (this.#data.dirMtime !== mtime) {
+      this.#data.dirMtime = mtime;
+      this.#queueWrite();
+    }
   }
   get exists() {
     return this.#fileExists;

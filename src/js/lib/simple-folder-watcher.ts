@@ -53,6 +53,9 @@ export default class SimpleFolderWatcher extends EventEmitter {
     filter?: (filepath: string) => boolean;
     watcherFactory: (filePath: string) => FolderWatcherInterface | null;
     addOrCreate?: 'add' | 'create';
+    cachedDirMtime?: number;
+    initialEntries?: Map<string, { size: number; mtimeMs: number; isDirectory: boolean }>;
+    onDirMtime?: (mtime: number) => void;
   }
 
   constructor(
@@ -62,6 +65,9 @@ export default class SimpleFolderWatcher extends EventEmitter {
       filter?: (filepath: string) => boolean;
       watcherFactory: (filePath: string) => FolderWatcherInterface | null;
       addOrCreate?: 'add' | 'create';
+      cachedDirMtime?: number;
+      initialEntries?: Map<string, { size: number; mtimeMs: number; isDirectory: boolean }>;
+      onDirMtime?: (mtime: number) => void;
     },
   ) {
     super();
@@ -166,37 +172,75 @@ export default class SimpleFolderWatcher extends EventEmitter {
       return;
     }
     this._scanning = true;
-    this._fs.readdir(this._filePath, (err, fileNames) => {
-      this._scanning = false;
-      // because this is async we might be closed when this fires
+    const { cachedDirMtime, initialEntries, onDirMtime } = this._options;
+    this._fs.stat(this._filePath, (statErr, dirStats) => {
       if (this._closed) {
+        this._scanning = false;
         return;
       }
-      if (err) {
-        this.emit('error', `error ${err}: ${this._filePath}`);
-      } else {
-        const validFileNames = fileNames.filter((fileName) => this._filter(path.join(this._filePath, fileName)));
-        // Check removed
-        this._entries?.forEach((state, entryPath) => {
-          if (validFileNames.indexOf(entryPath) < 0) {
-            this._entries?.delete(entryPath);
-            this.emit('remove', path.join(this._filePath, entryPath), state);
+      // Fast path: directory mtime unchanged — use cached entries, skip readdir + per-file stats
+      if (!statErr &&
+          cachedDirMtime !== undefined &&
+          dirStats.mtimeMs === cachedDirMtime &&
+          initialEntries) {
+        this._scanning = false;
+        initialEntries.forEach((entryInfo, fileName) => {
+          if (this._closed) {
+            return;
           }
-        });
-
-
-        let numToComplete = validFileNames.length + 1;
-        const sendEndIfFinished = () => {
-          --numToComplete;
-          if (numToComplete === 0) {
-            this._sendEnd();
+          const fullPath = path.join(this._filePath, fileName);
+          if (!this._filter(fullPath)) {
+            return;
           }
-        };
-        validFileNames.forEach((fileName) => {
-          this._checkFile(fileName, addOrCreate, sendEndIfFinished);
+          const fakeStat = {
+            size: entryInfo.size,
+            mtimeMs: entryInfo.mtimeMs,
+            isDirectory: () => entryInfo.isDirectory,
+          };
+          this._entries?.set(fileName, { size: entryInfo.size, mtimeMs: entryInfo.mtimeMs });
+          this.emit(addOrCreate, fullPath, fakeStat);
         });
-        sendEndIfFinished();
+        this._sendEnd();
+        return;
       }
+      // Slow path: full readdir + per-file stat
+      // Save the dir mtime so we can persist it after the scan completes
+      const currentDirMtime = statErr ? undefined : dirStats.mtimeMs;
+      this._fs.readdir(this._filePath, (err, fileNames) => {
+        this._scanning = false;
+        // because this is async we might be closed when this fires
+        if (this._closed) {
+          return;
+        }
+        if (err) {
+          this.emit('error', `error ${err}: ${this._filePath}`);
+        } else {
+          const validFileNames = fileNames.filter((fileName) => this._filter(path.join(this._filePath, fileName)));
+          // Check removed
+          this._entries?.forEach((state, entryPath) => {
+            if (validFileNames.indexOf(entryPath) < 0) {
+              this._entries?.delete(entryPath);
+              this.emit('remove', path.join(this._filePath, entryPath), state);
+            }
+          });
+
+          let numToComplete = validFileNames.length + 1;
+          const sendEndIfFinished = () => {
+            --numToComplete;
+            if (numToComplete === 0) {
+              // Persist dir mtime only after a successful full scan
+              if (currentDirMtime !== undefined && onDirMtime) {
+                onDirMtime(currentDirMtime);
+              }
+              this._sendEnd();
+            }
+          };
+          validFileNames.forEach((fileName) => {
+            this._checkFile(fileName, addOrCreate, sendEndIfFinished);
+          });
+          sendEndIfFinished();
+        }
+      });
     });
   }
 

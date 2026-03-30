@@ -38,6 +38,8 @@ function makeStat(size, mtimeMs, isDirectory = false) {
   };
 }
 
+const DIR_STAT_DEFAULT_MTIME = 1_600_000_000_000;
+
 function setupWatcher(options = {}) {
   const mockWatcherEE = new EventEmitter();
   mockWatcherEE.close = sinon.spy();
@@ -46,12 +48,25 @@ function setupWatcher(options = {}) {
 
   const readdirCallbacks = [];
   const statCallbacks = {};
+  // Pending callbacks for the directory itself (path === TEST_DIR)
+  const dirStatCallbacks = [];
 
   const mockFs = {
-    readdir: sinon.stub().callsFake((dirPath, cb) => {
+    readdir: sinon.stub().callsFake((_dirPath, cb) => {
       readdirCallbacks.push(cb);
     }),
     stat: sinon.stub().callsFake((filePath, cb) => {
+      if (filePath === TEST_DIR) {
+        // If no dirStat option provided, auto-resolve synchronously with a
+        // default mtime so existing tests don't need to drive it manually.
+        // cachedDirMtime is undefined in those tests so the fast path is never taken.
+        if (options.dirStat === undefined) {
+          cb(null, makeStat(0, DIR_STAT_DEFAULT_MTIME, true));
+        } else {
+          dirStatCallbacks.push(cb);
+        }
+        return;
+      }
       const basename = path.basename(filePath);
       if (!statCallbacks[basename]) {
         statCallbacks[basename] = [];
@@ -71,6 +86,18 @@ function setupWatcher(options = {}) {
     const cb = readdirCallbacks.shift();
     assert.ok(cb, 'expected a readdir callback');
     cb(null, fileNames);
+  }
+
+  function resolveDirStat(stat) {
+    const cb = dirStatCallbacks.shift();
+    assert.ok(cb, 'expected a dir stat callback');
+    cb(null, stat);
+  }
+
+  function rejectDirStat(err) {
+    const cb = dirStatCallbacks.shift();
+    assert.ok(cb, 'expected a dir stat callback');
+    cb(err || new Error('ENOENT'));
   }
 
   function resolveStat(basename, stat) {
@@ -93,6 +120,8 @@ function setupWatcher(options = {}) {
     watcherFactory,
     mockFs,
     resolveReaddir,
+    resolveDirStat,
+    rejectDirStat,
     resolveStat,
     rejectStat,
   };
@@ -316,6 +345,122 @@ describe('SimpleFolderWatcher', () => {
 
     assert.strictEqual(remove.callCount, 1, 'remove fired');
     assert.strictEqual(remove.firstCall.args[0], path.join(TEST_DIR, 'bar.jpg'), 'full path');
+  });
+
+  it('uses fast path for empty dir when dir mtime matches cache', async () => {
+    const cachedMtime = 1_700_000_000_000;
+    const onDirMtime = sinon.spy();
+    const { watcher, mockFs, resolveDirStat } = setupWatcher({
+      cachedDirMtime: cachedMtime,
+      initialEntries: new Map(),
+      onDirMtime,
+      dirStat: true,
+    });
+
+    const end = sinon.spy();
+    watcher.on('end', end);
+
+    await wait();
+    resolveDirStat(makeStat(0, cachedMtime, true));
+    await wait();
+
+    assert.strictEqual(mockFs.readdir.callCount, 0, 'readdir not called');
+    assert.strictEqual(end.callCount, 1, 'end fired');
+  });
+
+  it('uses fast path when dir mtime matches cache, emitting cached entries without readdir', async () => {
+    const cachedMtime = 1_700_000_000_000;
+    const initialEntries = new Map([
+      ['foo.jpg', { size: 1000, mtimeMs: cachedMtime, isDirectory: false }],
+    ]);
+    const onDirMtime = sinon.spy();
+    const { watcher, mockFs, resolveDirStat } = setupWatcher({
+      cachedDirMtime: cachedMtime,
+      initialEntries,
+      onDirMtime,
+      dirStat: true,  // use manual dirStat control
+    });
+
+    const add = sinon.spy();
+    const end = sinon.spy();
+    watcher.on('add', add);
+    watcher.on('end', end);
+
+    await wait();
+
+    // Resolve dir stat with matching mtime — fast path should kick in
+    resolveDirStat(makeStat(0, cachedMtime, true));
+
+    await wait();
+
+    assert.strictEqual(mockFs.readdir.callCount, 0, 'readdir was NOT called on fast path');
+    assert.strictEqual(add.callCount, 1, 'cached entry was emitted');
+    assert.strictEqual(add.firstCall.args[0], path.join(TEST_DIR, 'foo.jpg'), 'correct full path');
+    assert.strictEqual(end.callCount, 1, 'end fired');
+    assert.strictEqual(onDirMtime.callCount, 0, 'onDirMtime not called on fast path (mtime already known)');
+  });
+
+  it('falls back to slow path when dir mtime differs from cache', async () => {
+    const cachedMtime = 1_700_000_000_000;
+    const newDirMtime = 1_700_000_001_000;
+    const initialEntries = new Map([
+      ['foo.jpg', { size: 1000, mtimeMs: cachedMtime, isDirectory: false }],
+    ]);
+    const onDirMtime = sinon.spy();
+    const { watcher, mockFs, resolveReaddir, resolveDirStat, resolveStat } = setupWatcher({
+      cachedDirMtime: cachedMtime,
+      initialEntries,
+      onDirMtime,
+      dirStat: true,
+    });
+
+    const add = sinon.spy();
+    watcher.on('add', add);
+
+    await wait();
+
+    // Dir mtime changed — must fall back to full scan
+    resolveDirStat(makeStat(0, newDirMtime, true));
+    await wait();
+
+    resolveReaddir(['foo.jpg', 'bar.jpg']);
+    resolveStat('foo.jpg', makeStat(1000, cachedMtime));
+    resolveStat('bar.jpg', makeStat(2000, cachedMtime));
+    await wait();
+
+    assert.strictEqual(mockFs.readdir.callCount, 1, 'readdir called on slow path');
+    assert.strictEqual(add.callCount, 2, 'both files emitted');
+    assert.strictEqual(onDirMtime.callCount, 1, 'onDirMtime called with new mtime after full scan');
+    assert.strictEqual(onDirMtime.firstCall.args[0], newDirMtime, 'new dir mtime persisted');
+  });
+
+  it('takes slow path when dir stat fails, and does not call onDirMtime', async () => {
+    const cachedMtime = 1_700_000_000_000;
+    const initialEntries = new Map([
+      ['foo.jpg', { size: 1000, mtimeMs: cachedMtime, isDirectory: false }],
+    ]);
+    const onDirMtime = sinon.spy();
+    const { watcher, resolveReaddir, resolveStat, rejectDirStat } = setupWatcher({
+      cachedDirMtime: cachedMtime,
+      initialEntries,
+      onDirMtime,
+      dirStat: true,
+    });
+
+    const add = sinon.spy();
+    watcher.on('add', add);
+
+    await wait();
+
+    rejectDirStat(new Error('EPERM'));
+    await wait();
+
+    resolveReaddir(['foo.jpg']);
+    resolveStat('foo.jpg', makeStat(1000, cachedMtime));
+    await wait();
+
+    assert.strictEqual(add.callCount, 1, 'file still emitted via slow path');
+    assert.strictEqual(onDirMtime.callCount, 0, 'onDirMtime not called when dir stat failed');
   });
 
   it('emits end after initial scan completes', async () => {

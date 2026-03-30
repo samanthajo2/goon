@@ -45,20 +45,27 @@ type LocalFsAPI = {
 
 // Wrapper SimpleFolderWatcher. emits ALL files
 export default class WatcherConsolidator extends EventEmitter {
-  _logger: Logger;
-  _filepath: string;
-  _files: Record<string, { size: number; mtime: number; isDirectory: boolean }>;
-  _queueSend: () => void;
-  _listenerManager: ListenerManager;
-  _watcher: SimpleFolderWatcher;
+  #logger: Logger;
+  #filepath: string;
+  #files: Record<string, { size: number; mtime: number; isDirectory: boolean }>;
+  #queueSend: () => void;
+  #listenerManager: ListenerManager;
+  #watcher: SimpleFolderWatcher;
 
-  constructor(filepath: string, watcherFactory: (filePath: string) => FolderWatcherInterface | null, fs: LocalFsAPI) {
+  constructor(filepath: string, watcherFactory: (filePath: string) => FolderWatcherInterface | null, fs: LocalFsAPI, options?: {
+    cachedDirMtime?: number;
+    initialEntries?: Map<string, { size: number; mtimeMs: number; isDirectory: boolean }>;
+    onDirMtime?: (mtime: number) => void;
+  }) {
     super();
-    this._filepath = filepath;
-    this._logger = debug('WatcherConsolidator', filepath);
-    this._watcher = new SimpleFolderWatcher(filepath, {
+    this.#filepath = filepath;
+    this.#logger = debug('WatcherConsolidator', filepath);
+    this.#watcher = new SimpleFolderWatcher(filepath, {
       watcherFactory,
       fs,
+      cachedDirMtime: options?.cachedDirMtime,
+      initialEntries: options?.initialEntries,
+      onDirMtime: options?.onDirMtime,
     });
     bind(
       this,
@@ -69,46 +76,46 @@ export default class WatcherConsolidator extends EventEmitter {
       '_send',
       '_error',
     );
-    this._queueSend = function noop() {};
-    this._files = {};
-    this._listenerManager = new ListenerManager();
-    const on = this._listenerManager.on.bind(this._listenerManager);
-    on(this._watcher, 'add', this._addFile);
-    on(this._watcher, 'create', this._addFile);
-    on(this._watcher, 'change', this._changeFile);
-    on(this._watcher, 'remove', this._removeFile);
-    on(this._watcher, 'end', this._end);
-    on(this._watcher, 'error', this._error);
+    this.#queueSend = function noop() {};
+    this.#files = {};
+    this.#listenerManager = new ListenerManager();
+    const on = this.#listenerManager.on.bind(this.#listenerManager);
+    on(this.#watcher, 'add', this._addFile);
+    on(this.#watcher, 'create', this._addFile);
+    on(this.#watcher, 'change', this._changeFile);
+    on(this.#watcher, 'remove', this._removeFile);
+    on(this.#watcher, 'end', this._end);
+    on(this.#watcher, 'error', this._error);
   }
   close() {
-    this._listenerManager.removeAll();
-    this._watcher.close();
+    this.#listenerManager.removeAll();
+    this.#watcher.close();
   }
   refresh() {
-    this._watcher.refresh();
+    this.#watcher.refresh();
   }
   _send() {
-    this.emit('files', this._files);
+    this.emit('files', this.#files);
   }
   _addFile(filePath: string, stat: { size: number; mtimeMs: number; isDirectory: () => boolean }) {
-    this._logger('addFile:', filePath);
-    this._files[filePath] = statToFileInfo(stat);
-    this._queueSend();
+    this.#logger('addFile:', filePath);
+    this.#files[filePath] = statToFileInfo(stat);
+    this.#queueSend();
   }
   _changeFile(filePath: string, stat: { size: number; mtimeMs: number; isDirectory: () => boolean }) {
-    this._logger('changeFile:', filePath);
-    this._files[filePath] = statToFileInfo(stat);
-    this._queueSend();
+    this.#logger('changeFile:', filePath);
+    this.#files[filePath] = statToFileInfo(stat);
+    this.#queueSend();
   }
   _removeFile(filePath: string /* , stat */) {
-    this._logger('removeFile:', filePath);
-    delete this._files[filePath];
-    this._queueSend();
+    this.#logger('removeFile:', filePath);
+    delete this.#files[filePath];
+    this.#queueSend();
   }
   _end() {
-    this._logger('end');
+    this.#logger('end');
     this._send();
-    this._queueSend = _.throttle(this._send, s_sendDebounceDuration);  // send if we haven't added anyhting in 1 second
+    this.#queueSend = _.throttle(this._send, s_sendDebounceDuration);  // send if we haven't added anyhting in 1 second
   }
   _error() {
     // does this matter?

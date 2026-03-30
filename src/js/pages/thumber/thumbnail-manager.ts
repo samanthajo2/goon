@@ -241,6 +241,15 @@ export default class ThumbnailManager extends EventEmitter {
     let folder = this._folders[filename];
     if (!folder) {
       const folderData = new FolderData(filename, { fs: this.#fs, dataDir: this.#dataDir });
+      const cachedFiles = folderData.files;
+      const initialEntries = new Map<string, { size: number; mtimeMs: number; isDirectory: boolean }>();
+      for (const [filePath, fileInfo] of Object.entries(cachedFiles)) {
+        initialEntries.set(path.basename(filePath), {
+          size: fileInfo.size,
+          mtimeMs: fileInfo.mtime,  // FileInfo.mtime is stored as stat.mtimeMs
+          isDirectory: fileInfo.isDirectory,
+        });
+      }
       const folderOptions: {
         folderData: FolderData;
         thumbnailPageMakerFn: ThumbnailPageMakerFn;
@@ -249,7 +258,11 @@ export default class ThumbnailManager extends EventEmitter {
       } = {
         folderData,
         thumbnailPageMakerFn: this.#folderThumbnailPageMakerFn,
-        watcher: new WatcherConsolidator(filename, this.#watcherFactory, this.#fs),
+        watcher: new WatcherConsolidator(filename, this.#watcherFactory, this.#fs, {
+          cachedDirMtime: folderData.dirMtime,
+          initialEntries,
+          onDirMtime: (mtime) => folderData.setDirMtime(mtime),
+        }),
         fs: this.#fs,
       };
       const nativeFolder = this.#nativeFolderFactory(filename, folderOptions);
