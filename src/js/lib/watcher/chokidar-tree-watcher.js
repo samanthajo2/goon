@@ -99,11 +99,11 @@ export default class ChokidarTreeWatcher {
     this._errorCallback(`${this._logger.getPrefix()} process error: ${error}`);
   }
 
-  close() {
+  async close() {
     this._logger('close');
     if (this._chokidar) {
       this._listenerManager.removeAll();
-      this._chokidar.close();
+      await this._chokidar.close();
       this._chokidar = null;
     }
   }

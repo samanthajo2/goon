@@ -100,7 +100,7 @@ export default class TreeWatcher extends EventEmitter {
   close() {
     this._logger('close');
     if (this._rawWatcher) {
-      this._rawWatcher.close();
+      return this._rawWatcher.close();
     }
   }
 }

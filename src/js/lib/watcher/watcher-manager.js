@@ -137,15 +137,17 @@ export default class WatcherManager {
     this._folderWatchersByPath = {};
     this._treeWatchersDispatcherByPath = {};
   }
-  close() {
+  async close() {
     if (!this.closed) {
       this._closed = true;
+      const promises = [];
       for (const treeWatcherDispatcher of Object.values(this._treeWatchersDispatcherByPath)) {
         const treeWatcher = treeWatcherDispatcher.treeWatcher;
         treeWatcherDispatcher.removeAllWatchers();
         treeWatcherDispatcher.close();
-        treeWatcher.close();
+        promises.push(treeWatcher.close());
       }
+      await Promise.all(promises);
       this._treeWatchersDispatcherByPath = {};
       this._folderWatchersByPath = {};
     }
