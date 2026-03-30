@@ -909,6 +909,12 @@ app.on('window-all-closed', () => {
   app.quit();
 });
 
+app.on('will-quit', () => {
+  // TODO: On macOS, Electron's C++ layer waits ~20s for renderer child processes to
+  // exit. It's not clear why. This is a hack that should be removed.
+  process.kill(process.pid, 'SIGKILL');
+});
+
 app.on('web-contents-created', (event, contents) => {
   if (contents.getType() === 'webview') {
     contents.on('will-navigate', (event, url) => {
