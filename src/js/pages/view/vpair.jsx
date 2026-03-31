@@ -72,6 +72,8 @@ export default class VPair extends React.Component {
       viewerState: initialViewerState = {},
       imagegridState: initialImagegridState = {},
       state: initialState = {},
+      scrollTop: initialScrollTop = 0,
+      scrollAnchor: initialScrollAnchor = null,
     } = initialStates;
     const {videoState: initialVideoState = {}} = initialViewerState;
 
@@ -125,7 +127,8 @@ export default class VPair extends React.Component {
       ...initialState,
     };
     // should this be state? I don't want it to re-render!
-    this._imagegridsScrollTop = 0;
+    this._imagegridsScrollTop = initialScrollTop;
+    this._imagegridsAnchor = initialScrollAnchor;
 
     this._viewing = false;
     this.props.setCurrentView(this);
@@ -162,6 +165,8 @@ export default class VPair extends React.Component {
       state: {
         ...this.state,
       },
+      scrollTop: this._imagegridsScrollTop,
+      scrollAnchor: this._imagegridsAnchor,
     };
   }
   // this is used by the toolbar. I need a mobx reactive object to tweak so changes
@@ -273,8 +278,9 @@ export default class VPair extends React.Component {
   _handleActions(...args) {
     this.props.actionListener.routeAction(...args);
   }
-  _saveScrollTop(scrollTop) {
+  _saveScrollTop(scrollTop, anchor) {
     this._imagegridsScrollTop = scrollTop;
+    this._imagegridsAnchor = anchor || null;
     // This is a hack! See _gotoImage above
     if (this.state.gotoFolderNdx >=  0) {
       this.setState({
@@ -302,6 +308,7 @@ export default class VPair extends React.Component {
           <ImageGrids
             gotoFolderNdx={this.state.gotoFolderNdx}
             scrollTop={this._imagegridsScrollTop}
+            initialAnchor={this._imagegridsAnchor}
             saveScrollTop={this._saveScrollTop}
             root={this.props.root}
             width={this.props.width}

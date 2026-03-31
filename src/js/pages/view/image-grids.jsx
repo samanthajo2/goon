@@ -267,11 +267,29 @@ export default class ImageGrids extends React.Component {
         this._reactList.scrollTo(startingFolderNdx);
       }, 2);
     } else {
-      this._logger('setScrollTop:', this.props.scrollTop);
-      const scrollTop = this.props.scrollTop;
-      setRAF(() => {
-        this._imagegrids.scrollTop = scrollTop;
-      }, 2);
+      const {initialAnchor} = this.props;
+      if (initialAnchor && this._folders) {
+        const zoom = this._zoom;
+        const options = {
+          padding: this.props.options.padding,
+          minColumnWidth: zoom(this.props.options.columnWidth),
+        };
+        const scrollTop = computeThumbScrollTop(
+          this._folders, this.props.winState.gridMode,
+          this._getWidth(), zoom, options,
+          initialAnchor.folderIndex, initialAnchor.fileIndex,
+        );
+        this._logger('setScrollTopFromAnchor:', scrollTop, initialAnchor);
+        setRAF(() => {
+          this._imagegrids.scrollTop = scrollTop;
+        }, 2);
+      } else {
+        this._logger('setScrollTop:', this.props.scrollTop);
+        const scrollTop = this.props.scrollTop;
+        setRAF(() => {
+          this._imagegrids.scrollTop = scrollTop;
+        }, 2);
+      }
     }
   }
   componentWillUnmount() {
@@ -401,7 +419,15 @@ export default class ImageGrids extends React.Component {
     return (this._imagegrids) ? this._imagegrids.clientWidth : this.state.width;
   }
   _handleScroll(e) {
-    this.props.saveScrollTop(e.target.scrollTop);
+    const scrollTop = e.target.scrollTop;
+    const anchor = this._folders
+      ? findAnchorThumbnail(
+          this._folders, this.props.winState.gridMode, this._getWidth(), this._zoom,
+          {padding: this.props.options.padding, minColumnWidth: this._zoom(this.props.options.columnWidth)},
+          scrollTop,
+        )
+      : null;
+    this.props.saveScrollTop(scrollTop, anchor);
   }
   render() {
     this._logger('imagegrids render count', ++g_imageGridsRenderCount);
