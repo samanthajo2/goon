@@ -278,7 +278,7 @@ export default class ImageGrids extends React.Component {
           this._folders, this.props.winState.gridMode,
           this._getWidth(), zoom, options,
           initialAnchor.folderIndex, initialAnchor.fileIndex,
-        );
+        ) - (initialAnchor.offset || 0);
         this._logger('setScrollTopFromAnchor:', scrollTop, initialAnchor);
         setRAF(() => {
           this._imagegrids.scrollTop = scrollTop;
@@ -317,9 +317,9 @@ export default class ImageGrids extends React.Component {
       newOptions,
       anchor.folderIndex,
       anchor.fileIndex,
-    );
+    ) - (anchor.offset || 0);
     this._imagegrids.scrollTop = newScrollTop;
-    this.props.saveScrollTop(newScrollTop);
+    this.props.saveScrollTop(newScrollTop, anchor);
   }
   @action _handleSetCollection(event) {
     this.props.imagegridState.currentCollection = event.collection;
@@ -427,6 +427,14 @@ export default class ImageGrids extends React.Component {
           scrollTop,
         )
       : null;
+    if (anchor) {
+      const anchorAbsoluteY = computeThumbScrollTop(
+        this._folders, this.props.winState.gridMode, this._getWidth(), this._zoom,
+        {padding: this.props.options.padding, minColumnWidth: this._zoom(this.props.options.columnWidth)},
+        anchor.folderIndex, anchor.fileIndex,
+      );
+      anchor.offset = anchorAbsoluteY - scrollTop;
+    }
     this.props.saveScrollTop(scrollTop, anchor);
   }
   render() {
@@ -465,6 +473,13 @@ export default class ImageGrids extends React.Component {
           oldOptions,
           scrollTop,
         );
+        if (this._scrollAnchor) {
+          const anchorAbsoluteY = computeThumbScrollTop(
+            this._folders, this._gridMode, this._width, oldZoom, oldOptions,
+            this._scrollAnchor.folderIndex, this._scrollAnchor.fileIndex,
+          );
+          this._scrollAnchor.offset = anchorAbsoluteY - scrollTop;
+        }
       } else {
         this._scrollAnchor = null;
       }
