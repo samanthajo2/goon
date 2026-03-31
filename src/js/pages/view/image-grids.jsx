@@ -233,6 +233,7 @@ export default class ImageGrids extends React.Component {
       '_zoom',
       '_gotoNext',
       '_gotoPrev',
+      '_tryRestoreScrollAnchor',
     );
     this._logger = debug('ImageGrids');
     this._listenerManager = new ListenerManager();
@@ -268,7 +269,13 @@ export default class ImageGrids extends React.Component {
       }, 2);
     } else {
       const {initialAnchor} = this.props;
-      if (initialAnchor && this._folders) {
+      if (initialAnchor && initialAnchor.folderName) {
+        // Filename-based anchor: deferred restore since files may not be loaded yet
+        this._pendingScrollAnchor = initialAnchor;
+        setRAF(() => {
+          this._tryRestoreScrollAnchor();
+        }, 2);
+      } else if (initialAnchor && this._folders) {
         const zoom = this._zoom;
         const options = {
           padding: this.props.options.padding,
@@ -297,29 +304,72 @@ export default class ImageGrids extends React.Component {
     this._actionListener.close();
     this.props.eventBus.setForward(null);
     this._listenerManager.removeAll();
+    clearTimeout(this._restoreAnchorTimer);
   }
-  componentDidUpdate() {
+  componentDidUpdate(prevProps) {
     const anchor = this._scrollAnchor;
-    if (!anchor || !this._imagegrids || !this._folders) {
+    if (anchor && this._imagegrids && this._folders) {
+      this._scrollAnchor = null;
+      const newZoom = this._zoom;
+      const newOptions = {
+        padding: this.props.options.padding,
+        minColumnWidth: newZoom(this.props.options.columnWidth),
+      };
+      const newScrollTop = computeThumbScrollTop(
+        this._folders,
+        this.props.winState.gridMode,
+        this._getWidth(),
+        newZoom,
+        newOptions,
+        anchor.folderIndex,
+        anchor.fileIndex,
+      ) - (anchor.offset || 0);
+      this._imagegrids.scrollTop = newScrollTop;
+      this.props.saveScrollTop(newScrollTop, anchor);
       return;
     }
-    this._scrollAnchor = null;
-    const newZoom = this._zoom;
-    const newOptions = {
+    if (this._pendingScrollAnchor && prevProps.root !== this.props.root) {
+      this._tryRestoreScrollAnchor();
+    }
+  }
+  _tryRestoreScrollAnchor() {
+    const anchor = this._pendingScrollAnchor;
+    if (!anchor || !this._folders || !this._imagegrids) {
+      return;
+    }
+    let folderIndex = -1;
+    let fileIndex = -1;
+    for (let fi = 0; fi < this._folders.length; fi++) {
+      if (this._folders[fi].folder.filename === anchor.folderName) {
+        const files = this._folders[fi].folder.files;
+        for (let ti = 0; ti < files.length; ti++) {
+          if (files[ti].info.filename === anchor.fileName) {
+            folderIndex = fi;
+            fileIndex = ti;
+            break;
+          }
+        }
+        if (folderIndex >= 0) {
+          break;
+        }
+      }
+    }
+    if (folderIndex < 0) {
+      return;
+    }
+    const zoom = this._zoom;
+    const options = {
       padding: this.props.options.padding,
-      minColumnWidth: newZoom(this.props.options.columnWidth),
+      minColumnWidth: zoom(this.props.options.columnWidth),
     };
-    const newScrollTop = computeThumbScrollTop(
-      this._folders,
-      this.props.winState.gridMode,
-      this._getWidth(),
-      newZoom,
-      newOptions,
-      anchor.folderIndex,
-      anchor.fileIndex,
-    ) - (anchor.offset || 0);
-    this._imagegrids.scrollTop = newScrollTop;
-    this.props.saveScrollTop(newScrollTop, anchor);
+    const scrollTop = Math.max(0, computeThumbScrollTop(
+      this._folders, this.props.winState.gridMode,
+      this._getWidth(), zoom, options,
+      folderIndex, fileIndex,
+    ) - (anchor.offset || 0));
+    this._logger('restoreScrollAnchor:', scrollTop, anchor.folderName, anchor.fileName);
+    this._programmaticScroll = true;
+    this._imagegrids.scrollTop = scrollTop;
   }
   @action _handleSetCollection(event) {
     this.props.imagegridState.currentCollection = event.collection;
@@ -419,6 +469,11 @@ export default class ImageGrids extends React.Component {
     return (this._imagegrids) ? this._imagegrids.clientWidth : this.state.width;
   }
   _handleScroll(e) {
+    if (this._programmaticScroll) {
+      this._programmaticScroll = false;
+      return;
+    }
+    this._pendingScrollAnchor = null;
     const scrollTop = e.target.scrollTop;
     const anchor = this._folders
       ? findAnchorThumbnail(
@@ -434,6 +489,9 @@ export default class ImageGrids extends React.Component {
         anchor.folderIndex, anchor.fileIndex,
       );
       anchor.offset = anchorAbsoluteY - scrollTop;
+      const folder = this._folders[anchor.folderIndex];
+      anchor.folderName = folder.folder.filename;
+      anchor.fileName = folder.folder.files[anchor.fileIndex].info.filename;
     }
     this.props.saveScrollTop(scrollTop, anchor);
   }

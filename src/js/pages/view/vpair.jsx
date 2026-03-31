@@ -287,6 +287,9 @@ export default class VPair extends React.Component {
         gotoFolderNdx: -1,
       });
     }
+    if (this.props.saveLayout) {
+      this.props.saveLayout();
+    }
   }
   render() {
     const classes = new CSSArray('vpair');

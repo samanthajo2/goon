@@ -71,6 +71,9 @@ class Two {
     let active;
     this.splitType = data.splitType;
     this.sliderPercent = data.sliderPercent;
+    if (data.initialState !== undefined) {
+      this.initialState = data.initialState;
+    }
     this.children = data.children.map((child) => {
       const two = new Two();
       twos[two.id] = two;
@@ -94,11 +97,15 @@ class Two {
     return twos;
   }
   dump() {
-    return {
+    const result = {
       splitType: this.splitType,
       sliderPercent: this.sliderPercent,
       children: this.children.map((child) => child.dump()),
     };
+    if (this.initialState !== undefined) {
+      result.initialState = this.initialState;
+    }
+    return result;
   }
   _makeNode(config, twos) {
     const node = Yoga.Node.create(config);
@@ -431,6 +438,12 @@ export default class ViewSplit extends React.Component {
     return this._viewers.some(vs => vs.videoState.playing);
   }
   _saveLayout() {
+    for (const [twoId, vpair] of Object.entries(this._vpairs)) {
+      const two = this._twos[twoId];
+      if (two) {
+        two.initialState = vpair.getState();
+      }
+    }
     ipcRenderer.send('saveSplitLayout', this._root.dump());
   }
   _handleResize(contentRect) {
@@ -648,6 +661,7 @@ export default class ViewSplit extends React.Component {
               actionListener={this._actionListener}
               registerVPair={this._registerVPair}
               unregisterVPair={this._unregisterVPair}
+              saveLayout={this._saveLayout}
             />
           </div>
         );
