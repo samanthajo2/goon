@@ -33,6 +33,7 @@ import Modal from '../../lib/ui/modal';
 // const isDevMode = process.env.NODE_ENV === 'development';
 interface PasswordState {
   error: boolean;
+  success: boolean;
 }
 
 interface PasswordProps {
@@ -42,6 +43,7 @@ interface PasswordProps {
 class Password extends React.Component<PasswordProps, PasswordState> {
   state: PasswordState = {
     error: false,
+    success: false,
   };
   private input: React.RefObject<HTMLInputElement>;
 
@@ -58,24 +60,37 @@ class Password extends React.Component<PasswordProps, PasswordState> {
     return (
       <Modal>
         <div className={(cssArray('msg').addIf(this.state.error, 'error')).toString()}>
-          <div>Password</div>
-          <input
-            type="password"
-            ref={this.input}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                checkPassword(crypto, this.props.password, this.input.current?.value.trim(), (isMatch: boolean) => {
-                  if (isMatch) {
-                    ipcRenderer.send('unlock');
-                  } else {
-                    this.setState({
-                      error: true,
-                    });
-                  }
-                });
-              }
-            }}
-          />
+          {
+            this.state.success ? (
+              <div>
+                <img src="images/logo.svg" alt="goon" style={{width: '300px'}}/>
+              </div>
+            ) : (
+              <>
+                <div>Password</div>
+                <input
+                  type="password"
+                  ref={this.input}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      checkPassword(crypto, this.props.password, this.input.current?.value.trim(), (isMatch: boolean) => {
+                        if (isMatch) {
+                          ipcRenderer.send('unlock');
+                          this.setState({
+                            success: true,
+                          });
+                        } else {
+                          this.setState({
+                            error: true,
+                          });
+                        }
+                      });
+                    }
+                  }}
+                />
+              </>
+            )
+          }
         </div>
       </Modal>
     );
