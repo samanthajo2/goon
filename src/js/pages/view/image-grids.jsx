@@ -294,7 +294,7 @@ export default class ImageGrids extends React.Component {
     const newScrollTop = computeThumbScrollTop(
       this._folders,
       this.props.winState.gridMode,
-      this.state.width,
+      this._getWidth(),
       newZoom,
       newOptions,
       anchor.folderIndex,
@@ -394,6 +394,10 @@ export default class ImageGrids extends React.Component {
     return g_folderHeaderHeight + info.height;
   }
   _getWidth() {
+    // props.width comes from ViewSplit's Yoga layout and reflects the new
+    // container width in the same render cycle. this._imagegrids.clientWidth
+    // is stale during render (DOM not yet committed), so prefer props.width.
+    if (this.props.width > 0) return this.props.width;
     return (this._imagegrids) ? this._imagegrids.clientWidth : this.state.width;
   }
   _handleScroll(e) {
@@ -404,9 +408,12 @@ export default class ImageGrids extends React.Component {
     g_renderCount = 0;
     // Is this a hack or is it ok?
     const zoom = this.props.winState.thumbnailZoom;
+    // Use the width passed from ViewSplit when available — it reflects the new
+    // container size in the same render cycle, before ResizeObserver fires.
+    const effectiveWidth = this._getWidth();
     if (this.props.winState.gridMode !== this._gridMode ||
         this.props.root !== this._root ||
-        this.state.width !== this._width ||
+        effectiveWidth !== this._width ||
         zoom !== this._lastZoom) {
       this._logger('getFoldersFromState-InRender');
 
@@ -439,7 +446,7 @@ export default class ImageGrids extends React.Component {
       this._getFoldersFromState(this.props);
       this._gridMode = this.props.winState.gridMode;
       this._root = this.props.root;
-      this._width = this.state.width;
+      this._width = effectiveWidth;
       this._lastZoom = zoom;
     }
     const result = (

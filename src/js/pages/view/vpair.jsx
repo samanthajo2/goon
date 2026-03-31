@@ -304,6 +304,7 @@ export default class VPair extends React.Component {
             scrollTop={this._imagegridsScrollTop}
             saveScrollTop={this._saveScrollTop}
             root={this.props.root}
+            width={this.props.width}
             options={this.props.options}
             prefs={this.props.prefs}
             settings={this.props.settings}

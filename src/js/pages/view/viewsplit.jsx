@@ -637,6 +637,7 @@ export default class ViewSplit extends React.Component {
               root={this.props.root}
               twoId={two.id}
               initialState={two.initialState}
+              width={bounds.width}
               isCurrentView={this._currentTwo === two}
               options={this.props.options}
               prefs={this.props.prefs}
