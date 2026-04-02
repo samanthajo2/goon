@@ -48,11 +48,11 @@ High Priority
       It's not clear what problems will come up. We don't want visible tabs for
       example.
 
-  * [ ] Fix the stalling issues
+  * [X] Fix the stalling issues
 
       Sometimes when scanning it gets stuck 
 
-  * [ ] Fix the folder inaccessible issue
+  * [X] Fix the folder inaccessible issue
 
       If you add 2 folders to scan and the first one fails the 2nd is never looked at
 
@@ -60,7 +60,7 @@ High Priority
 
       If you rotate an image it doesn't correctly obey the zoom rules.
 
-* [ ] Fix the scroll position issue
+* [X] Fix the scroll position issue
 
    I am not sure how to fix this. It's listed below. The issue is, if you have 1000 thumbnails
    and they fit in 5 columns. Then you resize the window or change the thumbnail size and now
@@ -113,18 +113,18 @@ High Priority
     current rar lib has to unrar entire rar before we get any data.
     This makes viewing slow
 
-* [ ] split at same location.
+* [X] split at same location.
 
     In other words when you split a view both splits should look the same,
     same scroll location.
     
-* [ ] Fix delete on network
+* [X] Fix delete on network
 
 * [ ] Allow saving current collection of panes, zoom, speed, loops,
 * [ ] When sizing window keep left column same size (unless it won't fit)
 * [ ] Be able to move picture larger than screen
 * [ ] Save loops per video
-* [ ] Save currently viewed images (entire state of app)
+* [X] Save currently viewed images (entire state of app)
 
     This should really save entire state. For each pane
     what image, slideshow on or off, video playing or not
@@ -260,7 +260,7 @@ High Priority
     instead of passing down the mobx object. That *seems* to have fixed
     it but I'm not sure.
 
-* [ ] Fix scroll position issues
+* [X] Fix scroll position issues
 
     Scroll several folders of images down, view image, close viewer.
     Notice you're no longer scrolled to the same spot.
@@ -374,7 +374,7 @@ High Priority
 * [ ] add at least one integration test (test that resizing works)
     just so there is a framework to start adding tests
 
-* [ ] fix the scroll skip
+* [X] fix the scroll skip
 
     I'm pretty sure this just means the size of items passed
     to react-list are slightly off.
@@ -437,7 +437,7 @@ High Priority
 
 * [ ] add zoom reset
 
-* [ ] try to keep same images on screen as size or rotation changes.
+* [X] try to keep same images on screen as size or rotation changes.
 
     I'm not sure how to do this. Like one idea would be to try to find
     the top image that's visible and before changing size and after
@@ -481,10 +481,10 @@ High Priority
 * [ ] Option to not continuously scan (default is continuous)
 
 * [ ] move menu accelerators to actions
-* [ ] add context menu to viewer images
+* [X] add context menu to viewer images
 
 * [ ] restore imagegrid to current image
-* [ ] Save Scroll positions?
+* [X] Save Scroll positions?
 
     Can't really because it takes time to load? Or maybe like browser
     scroll when you can? In other words, we restore, then load thumbs,
@@ -588,7 +588,7 @@ High Priority
     * [ ] drag from imagegrid pane to playlist pane
     * [ ] drag from viewer pane to playlist pane
     * [ ] drag from imagegrid to viewer pane
-* [ ] show video speed on toolbar
+* [X] show video speed on toolbar
 * [ ] right click folder to start slideshow on just that folder tree
 * [ ] figure out how to flicker less when editing filter
 
@@ -601,7 +601,6 @@ High Priority
 
     either as a flash over image OR under zoom/behind zoom slider in toolbar
 
-* [ ] Fix focus issues
 * [ ] show slideshow state on toolbar
 * [ ] show loop markers on que
 * [ ] consolidate que code (the que above the video vs the que in the toolbar)
@@ -690,7 +689,7 @@ High Priority
     them? Have to figure out how to keep paths working if they
     cross paths. Also if user moves a folder
 
-* [ ] figure out jank
+* [X] figure out jank
 
     Even without `ReactList` it's really janky to scroll. Why?
     In that case there's just a large page of thumbnails. They're all
