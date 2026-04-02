@@ -1,4 +1,4 @@
-import React, {useState, useRef, useLayoutEffect} from 'react';
+import React, {useState, useRef, useLayoutEffect, useEffect} from 'react';
 import { px } from '../utils';
 
 const settings = {
@@ -16,51 +16,50 @@ export function hideMenu() {
 
 // Note: this only re-renders because id
 export function ContextMenu({id, children}) {
-  const [show, setShow] = useState(false);
+  const [, forceUpdate] = useState(false);
   const [adjustedPos, setAdjustedPos] = useState(null);
   const menuRef = useRef(null);
 
   const position = settings.position;
+  const visible = id === settings.id;
 
   useLayoutEffect(() => {
-    if (id !== settings.id || !menuRef.current) return;
+    if (!visible || !menuRef.current) return;
     setAdjustedPos(null);
     const {width, height} = menuRef.current.getBoundingClientRect();
     setAdjustedPos({
       x: Math.min(position.x, window.innerWidth - width),
       y: Math.min(position.y, window.innerHeight - height),
     });
-  }, [id, settings.id, position.x, position.y]);
+  }, [visible, position.x, position.y]);
+
+  useEffect(() => {
+    if (!visible) return;
+    const onMouseDown = (e) => {
+      if (!menuRef.current?.contains(e.target)) {
+        hideMenu();
+        forceUpdate(s => !s);
+      }
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, [visible]);
 
   const pos = adjustedPos ?? position;
 
-  return (id === settings.id && (
+  return (visible && (
     <div
+      ref={menuRef}
+      className="react-contextmenu"
       style={{
         position: 'fixed',
-        left: 0,
-        top: 0,
-        width: '100%',
-        height: '100%',
+        left: px(pos.x),
+        top: px(pos.y),
         zIndex: 999,
-      }}
-      onClick={() => {
-        hideMenu();
-        setShow(!show);
+        visibility: adjustedPos ? 'visible' : 'hidden',
       }}
     >
-      <div
-        ref={menuRef}
-        className="react-contextmenu"
-        style={{
-          position: 'absolute',
-          left: px(pos.x),
-          top: px(pos.y),
-          visibility: adjustedPos ? 'visible' : 'hidden',
-        }}
-      >
-        {children}
-      </div>
+      {children}
     </div>
   ));
 }
