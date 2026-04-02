@@ -31,12 +31,7 @@ import ActionEvent from '../../lib/action-event';
 import ActionListener from '../../lib/action-listener';
 import bind from '../../lib/bind';
 import { getGenerationData } from '../../lib/metadata';
-import {
-  ReflexContainer,
-  ReflexSplitter,
-  ReflexElement,
-} from '../../../3rdparty/react-reflex/index';
-// import '../src/js/3rdparty/react-reflex/reflex-styles.scss';
+import SplitPane from '../../lib/ui/split-pane';
 import FileContextMenu from './file-context-menu';
 import FolderContextMenu from './folder-context-menu';
 import FileInfo from './file-info';
@@ -651,8 +646,7 @@ export default class App extends React.Component {
         <div className="toolbar-error"><div>{this.state.filterError}</div></div>
       ) : undefined;
   }
-  _handleSplitResize(event) {
-    const {flex} = event.component.props;
+  _handleSplitResize(flex) {
     this.setState((prevState) => ({
         winState: {...prevState.winState, splitPosition: flex},
       }), () => {
@@ -701,18 +695,15 @@ export default class App extends React.Component {
         </ToolbarHolder>
         {this._getToolbarError()}
         <div style={{position: 'relative', flex: '1 1 0%', overflow: 'hidden'}}>
-          <ReflexContainer
-            orientation="vertical"
-            minSize={0}
-            defaultSize={100}
+          <SplitPane
             rotateMode={rotateMode}
-          >
-            <ReflexElement
-              flex={this.state.winState.splitStartPosition}
-              rotateMode={rotateMode}
-              className={hideClass}
-              onResize={this._handleSplitResize}
-            >
+            initialSplit={this.state.winState.splitStartPosition}
+            minSize={0}
+            firstClassName={hideClass}
+            splitterClassName={hideClass}
+            secondClassName={fullClass}
+            onSplitChange={this._handleSplitResize}
+            first={
               <Folders
                 root={this.state.root}
                 eventBus={this._eventBus}
@@ -720,20 +711,8 @@ export default class App extends React.Component {
                 show={this.state.winState.showUI}
                 rotateMode={rotateMode}
               />
-            </ReflexElement>
-
-            <ReflexSplitter className={hideClass} style={{cursor: rotateMode % 2 ? 'row-resize' : 'col-resize'}} />
-
-            <ReflexElement
-              propagateDimensions={true}
-              renderOnResizeRate={5}
-              // if we turn this on ReflexElement set the width and height direct
-              // and does not take into account rotation. Maybe we should fix that
-              renderOnResize={true}
-              rotateMode={rotateMode}
-              className={fullClass}
-            >
-
+            }
+            second={
               <ViewSplitHolder
                 root={this.state.root}
                 eventBus={this._eventBus}
@@ -745,9 +724,8 @@ export default class App extends React.Component {
                 winState={this.state.winState}
                 toolbarEventBus={this._toolbarEventBus}
               />
-
-            </ReflexElement>
-          </ReflexContainer>
+            }
+          />
 
           <FolderContextMenu
             rotateMode={rotateMode}
