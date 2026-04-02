@@ -2,7 +2,7 @@
 Copyright 2024 SamanthaJo
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the “Software”), to deal in
+this software and associated documentation files (the "Software"), to deal in
 the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
 the Software, and to permit persons to whom the Software is furnished to do so,
@@ -11,7 +11,7 @@ subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
 FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
@@ -23,62 +23,69 @@ import path from 'node:path';
 import otherWindowIPC from 'other-window-ipc';
 import debug from '../../lib/debug';
 import * as archive from './archive';
+import type { ArchiveFiles } from './archive';
 import bind from '../../lib/bind';
+import type { MediaServerStream, MediaManagerChannel } from '../../lib/media-manager-types';
+
+type PendingRequest = {
+  requestId: number;
+  archiveName: string;
+  filename: string;
+};
 
 class MediaClientProxy {
-  constructor(id, stream) {
-    this._id = id; // mostly for debugging
+  private readonly _id: number;
+  private readonly _stream: MediaServerStream;
+  private readonly _logger: ReturnType<typeof debug>;
+  private _archiveName: string | null = null;
+  private _requests: PendingRequest[] = [];
+  private _currentRequest: PendingRequest | null = null;
+  private _archiveFiles: ArchiveFiles = {};
+  private _archiveBlobUrlsByFilename: Record<string, string> = {};
+
+  constructor(id: number, stream: MediaServerStream) {
+    this._id = id;
     this._stream = stream;
     this._logger = debug('MediaClientProxy', id);
-    this._archiveName = null;
-    this._requests = [];
-    this._currentRequest = null;
-    this._archiveFiles = {};
-    this._archiveBlobUrlsByFilename = {};
-    bind(
-      this,
-      '_sendMediaStatus',
-      '_getMediaStatus',
-      '_disconnect',
-    );
+    bind(this, '_sendMediaStatus', '_getMediaStatus', '_disconnect');
 
     stream.on('getMediaStatus', this._getMediaStatus);
     stream.on('disconnect', this._disconnect);
   }
 
-  close() {
+  close(): void {
     this._closeArchive();
   }
 
-  _closeArchive() {
-    if (this._archiveFiles) {
-      Object.values(this._archiveBlobUrlsByFilename)
-        .filter(e => e.url)
-        .forEach(e => URL.revokeObjectURL(e.url));
-    }
+  private _closeArchive(): void {
+    Object.values(this._archiveBlobUrlsByFilename).forEach((url) => {
+      URL.revokeObjectURL(url);
+    });
     this._archiveFiles = {};
+    this._archiveBlobUrlsByFilename = {};
     this._archiveName = null;
   }
 
-  _disconnect() {
+  private _disconnect(): void {
     this._logger('disconnect');
     this.close();
   }
 
-  _getMediaStatus(requestId, filename) {
+  private _getMediaStatus(requestId: number, filename: string): void {
     this._logger('requestMedia: reqId:', requestId, 'filename:', filename);
     this._requests.push({
-      requestId: requestId,
+      requestId,
       archiveName: path.dirname(filename),
       filename: path.basename(filename),
     });
     this._processNextRequest();
   }
 
-  async _sendMediaStatus() {
-    const {requestId, archiveName, filename} = this._currentRequest;
+  private async _sendMediaStatus(): Promise<void> {
+    const { requestId, archiveName, filename } = this._currentRequest!;
     const blobInfo = this._archiveFiles[filename];
-    let exception;
+    let exception: unknown;
+
     if (blobInfo && !this._archiveBlobUrlsByFilename[filename]) {
       try {
         const blob = await blobInfo.blob();
@@ -87,73 +94,89 @@ class MediaClientProxy {
         exception = e;
       }
     }
+
     const error = exception
       ? `${exception} for: ${filename}`
       : blobInfo
-        ? null :
-        `no blobInfo for: ${filename}`;
-    this._logger('sendMediaStatus: reqId:', requestId, 'archive:', archiveName, 'filename:', filename, 'error:', error);
-    this._stream.send('mediaStatus', requestId, error, blobInfo ? {
-      size: blobInfo.size,
-      type: blobInfo.type,
-      mtime: blobInfo.mtime,
-      url: this._archiveBlobUrlsByFilename[filename],
-    } : undefined);
+        ? null
+        : `no blobInfo for: ${filename}`;
+
+    this._logger(
+      'sendMediaStatus: reqId:', requestId,
+      'archive:', archiveName,
+      'filename:', filename,
+      'error:', error,
+    );
+
+    this._stream.send(
+      'mediaStatus',
+      requestId,
+      error,
+      blobInfo && !exception
+        ? {
+          size: blobInfo.size,
+          type: blobInfo.type,
+          mtime: blobInfo.mtime,
+          url: this._archiveBlobUrlsByFilename[filename],
+        }
+        : undefined,
+    );
+
     this._currentRequest = null;
     this._processNextRequest();
   }
 
-  async _processNextRequest() {
+  private async _processNextRequest(): Promise<void> {
     this._logger('processNextRequest');
     if (this._currentRequest || this._requests.length === 0) {
       return;
     }
 
-    this._currentRequest = this._requests.shift();
+    this._currentRequest = this._requests.shift()!;
     const request = this._currentRequest;
+
     if (this._archiveName === request.archiveName) {
       this._sendMediaStatus();
       return;
     }
-    // Sigh! Since it's all async I have no idea
-    // if this is being used current. The hope
-    // Since there's only 1 viewer this corresponds
-    // to maybe it's okay? But if multiple things
-    // are queued up then I'd need some kind of buffer
+
     this._logger('createDecompressor:', request.archiveName);
     this._closeArchive();
     this._archiveName = request.archiveName;
 
     try {
-      this._archiveBlobUrlsByFilename = {};
       this._archiveFiles = await archive.createDecompressor(request.archiveName);
     } catch {
       this._archiveFiles = {};
     }
+
     process.nextTick(this._sendMediaStatus);
   }
 }
 
-// Keeps track of MediaManagerClient
-// Each client is allowed to have one archive opened at a time
+// Accepts connections from MediaManagerClient instances in renderer windows
+// and serves archive file blobs on demand.
 export default class MediaManagerServer {
-  constructor() {
-    this._nextClientId = 1;
-    this._logger = debug('MediaManagerServer');
-    this._clients = [];
-    this._logger('ctor');
-    bind(
-      this,
-      '_handleRegisterMediaManager',
-    );
+  private _nextClientId = 1;
+  private readonly _logger: ReturnType<typeof debug>;
+  private _clients: MediaClientProxy[] = [];
+  private readonly _channelListener: MediaManagerChannel;
 
-    this._channelListener = otherWindowIPC.createChannel('mediaManager');
+  constructor() {
+    this._logger = debug('MediaManagerServer');
+    this._logger('ctor');
+    bind(this, '_handleRegisterMediaManager');
+
+    this._channelListener = otherWindowIPC.createChannel(
+      'mediaManager',
+    ) as unknown as MediaManagerChannel;
     this._channelListener.on('connect', this._handleRegisterMediaManager);
   }
-  _handleRegisterMediaManager(stream) {
+
+  private _handleRegisterMediaManager(stream: MediaServerStream): void {
     const id = this._nextClientId++;
     this._logger('registerMediaManager: id =', id);
-    const client = new MediaClientProxy(id, stream, this);
+    const client = new MediaClientProxy(id, stream);
     this._clients.push(client);
     stream.on('disconnect', () => {
       const ndx = this._clients.indexOf(client);
@@ -162,7 +185,8 @@ export default class MediaManagerServer {
       }
     });
   }
-  close() {
+
+  close(): void {
     this._clients.slice().forEach((client) => {
       client.close();
     });

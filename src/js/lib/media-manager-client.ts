@@ -2,7 +2,7 @@
 Copyright 2024 SamanthaJo
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the “Software”), to deal in
+this software and associated documentation files (the "Software"), to deal in
 the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
 the Software, and to permit persons to whom the Software is furnished to do so,
@@ -11,7 +11,7 @@ subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
 FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
@@ -22,58 +22,53 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import otherWindowIPC from 'other-window-ipc';
 import debug from './debug';
 import bind from './bind';
-import {urlFromFilename} from './utils';
+import { urlFromFilename } from './utils';
+import type {
+  MediaRequest,
+  MediaBlobInfo,
+  MediaCallback,
+  MediaClientStream,
+} from './media-manager-types';
 
-// Keeps track of which images/videos can be displayed
-// For files that are local it just always returns they exist
-// For archives though they only exist if the corresponding blob exists
-//
-// One question is should we maintain a cache on this side?
-//
-// Two ideas
-//
-// 1.  State on server
-//
-//     Always ask server for file (if blob)
-//
-//     Server keeps list
-//
-// 2.  State on client
-//
-//     Server just loads blobs and then tells client
-//     about all blobs added/removed
-//
-//     Client then asks itself
+// Keeps track of which images/videos can be displayed.
+// For local files it always returns immediately with a file:// URL.
+// For archive files it asks the thumber window (server) to decompress the
+// entry and return a blob URL.
 let g_clientCount = 0;
 
 export default class MediaManagerClient {
+  private _msgId = 0;
+  private _requests: Record<number, MediaCallback> = {};
+  private _stream: MediaClientStream | null = null;
+  private _streamP: Promise<MediaClientStream>;
+  private readonly _logger: ReturnType<typeof debug>;
+
   constructor() {
-    this._msgId = 0;
-    this._requests = {};
     this._logger = debug('MediaManagerClient', ++g_clientCount);
-    bind(
-      this,
-      '_handleMediaStatus',
-    );
+    bind(this, '_handleMediaStatus');
 
     this._logger('registerMediaManager');
-    this._streamP = otherWindowIPC.createChannelStream('mediaManager');
-    this._streamP.then((stream) => {
-      this._logger('got stream');
-      this._stream = stream;
-      stream.on('mediaStatus', this._handleMediaStatus);
-    }).catch((err) => {
+    this._streamP = otherWindowIPC
+      .createChannelStream('mediaManager')
+      .then((stream) => {
+        this._logger('got stream');
+        const typed = stream as unknown as MediaClientStream;
+        this._stream = typed;
+        typed.on('mediaStatus', this._handleMediaStatus);
+        return typed;
+      });
+    this._streamP.catch((err: unknown) => {
       console.error(err);
     });
   }
 
-  requestMedia(info, callback) {
+  requestMedia(info: MediaRequest, callback: MediaCallback): void {
     this._logger('requestMedia:', JSON.stringify(info));
     this._streamP.then(() => {
       if (info.archiveName) {
         const requestId = ++this._msgId;
         this._requests[requestId] = callback;
-        this._stream.send('getMediaStatus', requestId, info.filename);
+        this._stream!.send('getMediaStatus', requestId, info.filename);
       } else {
         process.nextTick(() => {
           callback(undefined, {
@@ -85,7 +80,11 @@ export default class MediaManagerClient {
     });
   }
 
-  _handleMediaStatus(requestId, error, blobInfo) {
+  private _handleMediaStatus(
+    requestId: number,
+    error: string | null,
+    blobInfo: MediaBlobInfo | undefined,
+  ): void {
     this._logger('mediaStatus:', requestId, error, JSON.stringify(blobInfo));
     const callback = this._requests[requestId];
     if (!callback) {
@@ -95,7 +94,7 @@ export default class MediaManagerClient {
     callback(error, blobInfo);
   }
 
-  close() {
+  close(): void {
     this._logger('close');
     if (this._stream) {
       this._stream.close();
@@ -103,4 +102,3 @@ export default class MediaManagerClient {
     }
   }
 }
-

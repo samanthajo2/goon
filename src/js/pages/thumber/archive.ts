@@ -40,13 +40,13 @@ unzipit.setOptions({
   numWorkers: 2,
 });
 
-type ArchiveFile = {
+export type ArchiveFile = {
   type: string,
   blob: () => Promise<Blob>,
   size: number,
   mtime: number,
 };
-type ArchiveFiles = Record<string, ArchiveFile>;
+export type ArchiveFiles = Record<string, ArchiveFile>;
 
 class StatelessFileReader {
   filename: string;
