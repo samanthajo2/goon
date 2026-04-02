@@ -245,6 +245,7 @@ export default class Viewer extends React.Component {
       '_changeStretchMode',
       '_cyclePlaybackSpeed',
       '_handleResize',
+      '_handleContextMenu',
       '_setVideoTime',
       '_hideInfo',
       '_hidePlayer',
@@ -434,6 +435,11 @@ export default class Viewer extends React.Component {
       }
     }
   }
+
+  _handleContextMenu(event) {
+    this._eventBus.dispatch(new ForwardableEvent('fileContextMenu', event), this._currentFileInfo);
+  }
+
   _bumpId() {
     this.setState(prevState => ({ id: prevState.id + 1 }));
   }
@@ -734,7 +740,7 @@ export default class Viewer extends React.Component {
           >
             <div className="back" onClick={() => { this.props.setCurrentView(); }}></div>
             <div className="view-holder">
-              <div className="viewer-content">
+              <div className="viewer-content" onContextMenu={this._handleContextMenu}>
                 <img style={imageStyle} className="viewer-img" draggable="false" alt="" />
                 <video style={videoStyle} className="viewer-video" autoPlay loop draggable="false"></video>
               </div>
