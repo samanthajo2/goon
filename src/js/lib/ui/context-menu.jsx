@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useRef, useLayoutEffect} from 'react';
 import { px } from '../utils';
 
 const settings = {
@@ -17,8 +17,22 @@ export function hideMenu() {
 // Note: this only re-renders because id
 export function ContextMenu({id, children}) {
   const [show, setShow] = useState(false);
+  const [adjustedPos, setAdjustedPos] = useState(null);
+  const menuRef = useRef(null);
 
   const position = settings.position;
+
+  useLayoutEffect(() => {
+    if (id !== settings.id || !menuRef.current) return;
+    setAdjustedPos(null);
+    const {width, height} = menuRef.current.getBoundingClientRect();
+    setAdjustedPos({
+      x: Math.min(position.x, window.innerWidth - width),
+      y: Math.min(position.y, window.innerHeight - height),
+    });
+  }, [id, settings.id, position.x, position.y]);
+
+  const pos = adjustedPos ?? position;
 
   return (id === settings.id && (
     <div
@@ -36,11 +50,13 @@ export function ContextMenu({id, children}) {
       }}
     >
       <div
+        ref={menuRef}
         className="react-contextmenu"
         style={{
           position: 'absolute',
-          left: px(position.x),
-          top: px(position.y),
+          left: px(pos.x),
+          top: px(pos.y),
+          visibility: adjustedPos ? 'visible' : 'hidden',
         }}
       >
         {children}
