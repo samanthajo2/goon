@@ -24,7 +24,7 @@ import _ from 'lodash';
 import {autorun, action} from 'mobx';
 import {ipcRenderer} from 'electron';
 import {observer} from 'mobx-react';
-import Measure from 'react-measure';
+import ResizeSensor from '../../lib/ui/resize-sensor';
 import bind from '../../lib/bind';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
 import ForwardableEvent from '../../lib/forwardable-event';
@@ -745,7 +745,7 @@ export default class Viewer extends React.Component {
     videoClasses.addIf(!isVideoOrAudio, 'hide');
     videoClasses.addIf(this.state.playerFlash, 'flash');
     return (
-      <Measure client onResize={this._handleResize}>
+      <ResizeSensor onResize={this._handleResize}>
         {({ measureRef }) => (
           <div
             style={viewElemStyle}
@@ -787,7 +787,7 @@ export default class Viewer extends React.Component {
             </div>
           </div>
         )}
-      </Measure>
+      </ResizeSensor>
     );
   }
 }

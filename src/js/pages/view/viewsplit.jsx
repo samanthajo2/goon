@@ -22,7 +22,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import React from 'react';
 import { observable, action } from 'mobx';
 import {observer} from 'mobx-react';
-import Measure from 'react-measure';
+import ResizeSensor from '../../lib/ui/resize-sensor';
 import _ from 'lodash';
 import {ipcRenderer} from 'electron';  // eslint-disable-line
 import bind from '../../lib/bind';
@@ -699,7 +699,7 @@ export default class ViewSplit extends React.Component {
       }
     });
     return (
-      <Measure client onResize={this._handleResize}>
+      <ResizeSensor onResize={this._handleResize}>
         {({ measureRef }) => (
           <div
             style={{position: 'relative', width: '100%', height: '100%'}}
@@ -708,7 +708,7 @@ export default class ViewSplit extends React.Component {
             {views}
           </div>
         )}
-      </Measure>
+      </ResizeSensor>
     );
   }
 }

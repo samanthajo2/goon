@@ -21,7 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import React from 'react';
 import ReactList from 'react-list';
-import Measure from 'react-measure';
+import ResizeSensor from '../../lib/ui/resize-sensor';
 import {action} from 'mobx';
 import {observer} from 'mobx-react';
 import bind from '../../lib/bind';
@@ -549,7 +549,7 @@ export default class ImageGrids extends React.Component {
       this._lastZoom = zoom;
     }
     const result = (
-      <Measure client onResize={this._handleResize}>
+      <ResizeSensor onResize={this._handleResize}>
         {({ measureRef }) => (
           <div
             className="imagegrids"
@@ -571,7 +571,7 @@ export default class ImageGrids extends React.Component {
             />
           </div>
         )}
-      </Measure>
+      </ResizeSensor>
     );
     this._logger('render count', g_renderCount);
     return result;
