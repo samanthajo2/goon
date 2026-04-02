@@ -239,6 +239,7 @@ export default class Viewer extends React.Component {
       this,
       'viewImage',
       '_hideImage',
+      '_releaseMedia',
       '_gotoNext',
       '_gotoPrev',
       '_rotate',
@@ -352,6 +353,7 @@ export default class Viewer extends React.Component {
 
     this._logger('register for action on emitter:', this.props.eventBus.debugId);
     on(this._eventBus, 'timeupdate', this._setVideoTime);
+    on(this._eventBus, 'releaseMedia', this._releaseMedia);
 
     this.props.eventBus.setForward(this._eventBus);
   }
@@ -616,6 +618,23 @@ export default class Viewer extends React.Component {
     this._displayElem = undefined;
     //    this._pause();
     this._eventBus.dispatch(new ForwardableEvent('hide'));
+  }
+
+  // Release file handles (video/img src) without closing the viewer.
+  // Call this before trashing a file to ensure the OS file handle is freed,
+  // particularly on Windows where Chromium holds video files open.
+  @action _releaseMedia() {
+    this._logger('releaseMedia');
+    this._pause();
+    if (this._viewVideo) {
+      this._viewVideo.removeAttribute('src');
+      this._viewVideo.load();
+    }
+    if (this._viewImg) {
+      this._viewImg.removeAttribute('src');
+    }
+    this._displayElem = undefined;
+    this._currentFileInfo = undefined;
   }
 
   _hidePlayer() {

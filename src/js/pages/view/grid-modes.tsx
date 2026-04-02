@@ -26,6 +26,22 @@ import {cssArray} from '../../lib/css-utils';
 import KeyHelper from '../../lib/key-helper';
 import { Rect } from '../../lib/rect';
 import { DBFileInfo } from './folder-db';
+import {trashingFiles, subscribeTrashingFiles} from './trashing-state';
+
+// Small self-contained component that subscribes to trashing state changes.
+// Keeping this separate avoids making every Thumbnail an MobX observer.
+class TrashingOverlay extends React.Component<{filename: string}> {
+  _unsubscribe?: () => void;
+  componentDidMount() {
+    this._unsubscribe = subscribeTrashingFiles(() => this.forceUpdate());
+  }
+  componentWillUnmount() {
+    this._unsubscribe?.();
+  }
+  render() {
+    return trashingFiles.has(this.props.filename) ? <div className="trashing-overlay" /> : null;
+  }
+}
 
 const g_backslashRE = /\\/g;
 function prepForCSSUrl(url: string) {
@@ -327,6 +343,7 @@ function renderNoFrame(props: ThumbnailProps, onClick: () => void, onContextMenu
       <div className="thumbinfo">
         <div className="name">{renderName(props, info)}</div>
       </div>
+      <TrashingOverlay filename={info.filename} />
     </div>
   );
 }
@@ -351,6 +368,7 @@ function renderWithFrame(props: ThumbnailProps, onClick: () => void, onContextMe
         <div className="thumbinfo">
           <div className="name">{renderName(props, info)}</div>
         </div>
+        <TrashingOverlay filename={info.filename} />
       </div>
     </div>
   );

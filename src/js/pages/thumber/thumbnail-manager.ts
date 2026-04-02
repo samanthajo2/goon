@@ -439,4 +439,25 @@ export default class ThumbnailManager extends EventEmitter {
       this._addArchive(archiveName, needUpdate);
     });
   }
+
+  // Proactively remove a single file and update listeners without waiting for
+  // a filesystem watcher event. Used by the trash flow so the thumbnail
+  // disappears immediately (important on network drives where chokidar may
+  // not fire). Returns true if the file was found and removed.
+  removeFile(filePath: string): boolean {
+    this.#logger('removeFile:', filePath);
+    // Check if this file is an archive entry tracked at the top level
+    if (this._archives[filePath]) {
+      this._removeArchive(filePath, false);
+      return true;
+    }
+    // Otherwise it lives inside a watched native folder
+    const folderPath = path.dirname(filePath);
+    const folderInfo = this._folders[folderPath];
+    if (folderInfo) {
+      (folderInfo.folder as NativeFolderInst).removeFileAndNotify(filePath);
+      return true;
+    }
+    return false;
+  }
 }

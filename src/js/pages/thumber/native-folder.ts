@@ -174,6 +174,14 @@ export default class NativeFolder extends EventEmitter {
     this.#folderData.removeFiles(filenames);
   }
 
+  // Proactively remove a single file and notify listeners without waiting
+  // for a filesystem watcher event. Used when trashing a file so the thumbnail
+  // disappears immediately even if chokidar doesn't fire (e.g. network drives).
+  removeFileAndNotify(filePath: string) {
+    this._removeFiles([filePath]);
+    this._sendImagesAndVideos();
+  }
+
   // This is called by the watcher to give us ALL
   // the files and folders for this folder
   // @param {Object.<string, stat>} files

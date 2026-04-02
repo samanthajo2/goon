@@ -44,6 +44,8 @@ import OkayCancel from '../../lib/ui/okay-cancel';
 import Folders from './folders';
 import {sortModes, FolderStateHelper} from './folder-state-helper';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
+import ForwardableEvent from '../../lib/forwardable-event';
+import {trashingFiles, addTrashingFile, removeTrashingFile} from './trashing-state';
 import KeyRouter from '../../lib/keyrouter';
 import debug from '../../lib/debug';
 import {rotateModes} from '../../lib/rotatehelper';
@@ -150,6 +152,8 @@ export default class App extends React.Component {
       '_handleDeleteFile',
       '_deleteFolder',
       '_deleteFile',
+      '_handleTrashFailed',
+      '_closeViewerIfShowingFile',
       '_forceDelete',
       '_handleSplitResize',
       '_handleCycleSortMode',
@@ -183,6 +187,7 @@ export default class App extends React.Component {
       .then((stream) => {
         this._thumberStream = stream;
         this._thumberStream.on('updateFiles', this._addFilesToFolderDB);
+        this._thumberStream.on('trashFailed', this._handleTrashFailed);
         this._thumberStream.on('disconnect', reload);
       })
       .catch((err) => {
@@ -480,12 +485,13 @@ export default class App extends React.Component {
     }
   }
   _handleDeleteFile(event, fileInfo) {
+    this._pendingDeleteFileInfo = fileInfo;
     this.setState((prevState) => ({
         contextFileInfo: fileInfo,
         showDeleteFilePrompt: prevState.prefs.misc.promptOnDeleteFile,
       }));
     if (!this.state.prefs.misc.promptOnDeleteFile) {
-      this._deleteFile(fileInfo);
+      this._deleteFile();
     }
   }
   async _deleteFolder() {
@@ -503,20 +509,41 @@ export default class App extends React.Component {
         }));
     }
   }
-  async _deleteFile() {
+  _closeViewerIfShowingFile(filename) {
+    if (!this._currentView) return;
+    for (const vpair of this._currentView.getAllVPairs()) {
+      const vs = vpair.getViewerState();
+      if (vs.viewing && vs.filename === filename) {
+        const bus = vpair.getEventBus();
+        bus.dispatch(new ForwardableEvent('releaseMedia'));
+        bus.dispatch(new ForwardableEvent('hide'));
+      }
+    }
+  }
+  _deleteFile() {
     this.setState({
       showDeleteFilePrompt: false,
     });
-    const filename = this.state.contextFileInfo.filename;
-    try {
-      await ipcRenderer.invoke('trashItem', filename);
-    } catch {
-      this.setState({
-        showForceDelete: true,
-        forceDeleteFilename: filename,
-        forceDeleteIsFolder: false,
-      });
+    const fileInfo = this._pendingDeleteFileInfo || this.state.contextFileInfo;
+    const filename = fileInfo && fileInfo.filename;
+    if (!filename) return;
+    if (trashingFiles.has(filename)) return;
+    addTrashingFile(filename);
+    this._closeViewerIfShowingFile(filename);
+    if (!this._thumberStream) {
+      removeTrashingFile(filename);
+      return;
     }
+    this._thumberStream.send('trashFile', filename);
+    // Result comes back via updateFiles (success) or trashFailed (failure)
+  }
+  _handleTrashFailed(filename) {
+    removeTrashingFile(filename);
+    this.setState({
+      showForceDelete: true,
+      forceDeleteFilename: filename,
+      forceDeleteIsFolder: false,
+    });
   }
   _forceDelete() {
     this.setState({

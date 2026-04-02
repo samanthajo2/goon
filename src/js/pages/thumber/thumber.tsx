@@ -236,6 +236,17 @@ function start(args: ProgOptions) {
     stream.on('refreshFolder', (folderName: string) => {
       g.thumbnailManager.refreshFolder(folderName);
     });
+    stream.on('trashFile', async (filePath: string) => {
+      try {
+        await ipcRenderer.invoke('trashItem', filePath);
+        // Proactively remove from data structures so the thumbnail disappears
+        // immediately without waiting for the filesystem watcher to fire.
+        g.thumbnailManager.removeFile(filePath);
+      } catch (err) {
+        log('trashFile failed:', filePath, err);
+        stream.send('trashFailed', filePath, String(err));
+      }
+    });
     g.thumbnailManager.sendAll(stream);
   });
   window.addEventListener('beforeunload', () => {

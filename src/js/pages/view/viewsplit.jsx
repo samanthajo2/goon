@@ -418,6 +418,9 @@ export default class ViewSplit extends React.Component {
   getEventBus() {
     return this._eventBus;
   }
+  getAllVPairs() {
+    return Object.values(this._vpairs);
+  }
   // this is used so when we split a view the view can start in the same place
   // as the split view.
   getActiveViewState() {
