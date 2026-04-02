@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import ReactList from 'react-list';
+import VirtualList from '../../lib/ui/virtual-list';
 import ResizeSensor from '../../lib/ui/resize-sensor';
 import {action} from 'mobx';
 import {observer} from 'mobx-react';
@@ -551,25 +551,21 @@ export default class ImageGrids extends React.Component {
     const result = (
       <ResizeSensor onResize={this._handleResize}>
         {({ measureRef }) => (
-          <div
-            className="imagegrids"
-            onScroll={this._handleScroll}
-            ref={(imagegrids) => {
-              if (imagegrids && imagegrids !== this._imagegrids) {
-                this._imagegrids = imagegrids;
-                measureRef(imagegrids);
+          <VirtualList
+            ref={(handle) => {
+              this._reactList = handle;
+              const el = handle ? handle.domElement : null;
+              if (el && el !== this._imagegrids) {
+                this._imagegrids = el;
+                measureRef(el);
               }
             }}
-          >
-            <ReactList
-              ref={(reactList) => { this._reactList = reactList; }}
-              itemRenderer={this._itemRenderer}
-              itemSizeGetter={this._itemSizeGetter}
-              length={this._getNumItems()}
-              type="variable"
-              zoom={zoom}
-            />
-          </div>
+            className="imagegrids"
+            onScroll={this._handleScroll}
+            length={this._getNumItems()}
+            itemHeight={this._itemSizeGetter}
+            renderItem={this._itemRenderer}
+          />
         )}
       </ResizeSensor>
     );

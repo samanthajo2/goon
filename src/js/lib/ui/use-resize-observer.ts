@@ -45,10 +45,8 @@ export function useResizeObserver<T extends Element>(): [(el: T | null) => void,
     observerRef.current.observe(el);
   }, []);
 
-  useEffect(() => {
-    return () => {
-      observerRef.current?.disconnect();
-    };
+  useEffect(() => () => {
+    observerRef.current?.disconnect();
   }, []);
 
   return [refCallback, size];
