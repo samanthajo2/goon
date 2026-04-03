@@ -34,10 +34,10 @@ export type DBFileInfo = FileInfo & {
 };
 
 type DBFilesByPath = { [key: string]: DBFileInfo };
-type DBFolderInfo = Omit<FolderInfo, 'files'> & {
+export type DBFolderInfo = Omit<FolderInfo, 'files'> & {
   files: DBFilesByPath;
 };
-type DBFoldersByPath = { [key: string]: DBFolderInfo };
+export type DBFoldersByPath = { [key: string]: DBFolderInfo };
 
 function addFileMetaData(files: FilesByPath): DBFilesByPath {
   return Object.fromEntries(Object.entries(files).map(([filename, fileInfo]) => [

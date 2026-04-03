@@ -1,20 +1,20 @@
 // Plain set + lightweight pub/sub so individual overlay components can subscribe
 // without making Thumbnail itself an MobX observer.
-export const trashingFiles = new Set();
+export const trashingFiles = new Set<string>();
 
-const listeners = new Set();
+const listeners = new Set<() => void>();
 
-export function addTrashingFile(filename) {
+export function addTrashingFile(filename: string): void {
   trashingFiles.add(filename);
   listeners.forEach(fn => fn());
 }
 
-export function removeTrashingFile(filename) {
+export function removeTrashingFile(filename: string): void {
   trashingFiles.delete(filename);
   listeners.forEach(fn => fn());
 }
 
-export function subscribeTrashingFiles(fn) {
+export function subscribeTrashingFiles(fn: () => void): () => void {
   listeners.add(fn);
   return () => listeners.delete(fn);
 }
