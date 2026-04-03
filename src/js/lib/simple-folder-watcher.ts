@@ -121,6 +121,9 @@ export default class SimpleFolderWatcher extends EventEmitter {
       return;
     }
     this._watcher = watcherFactory(this._filePath);
+    if (!this._watcher) {
+      return;
+    }
     const on = this._listenerManager.on.bind(this._listenerManager);
     on(this._watcher, 'create', this._handleCreate);
     on(this._watcher, 'change', this._handleChange);
