@@ -1,24 +1,36 @@
-import React, {useState, useRef, useLayoutEffect, useEffect} from 'react';
+import React, { useState, useRef, useLayoutEffect, useEffect } from 'react';
 import { px } from '../utils';
 
-const settings = {
-  position: {x: 0, y: 0},
-  rotateMode: 0,
+type MenuSettings = {
+  position: { x: number; y: number };
+  rotateMode: number;
+  id: string;
 };
 
-export function showMenu(_settings) {
-  Object.assign(settings, _settings);
+const settings: MenuSettings = {
+  position: { x: 0, y: 0 },
+  rotateMode: 0,
+  id: '',
+};
+
+export function showMenu(newSettings: Partial<MenuSettings>): void {
+  Object.assign(settings, newSettings);
 }
 
-export function hideMenu() {
+export function hideMenu(): void {
   settings.id = '';
 }
 
-// Note: this only re-renders because id
-export function ContextMenu({id, children}) {
+interface ContextMenuProps {
+  id: string;
+  children: React.ReactNode;
+}
+
+// Note: only re-renders when `id` changes (parent passes a new id to trigger open/close).
+export function ContextMenu({ id, children }: ContextMenuProps): React.ReactElement | false {
   const [, forceUpdate] = useState(false);
-  const [adjustedPos, setAdjustedPos] = useState(null);
-  const menuRef = useRef(null);
+  const [adjustedPos, setAdjustedPos] = useState<{ x: number; y: number } | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const position = settings.position;
   const visible = id === settings.id;
@@ -26,7 +38,7 @@ export function ContextMenu({id, children}) {
   useLayoutEffect(() => {
     if (!visible || !menuRef.current) return;
     setAdjustedPos(null);
-    const {width, height} = menuRef.current.getBoundingClientRect();
+    const { width, height } = menuRef.current.getBoundingClientRect();
     setAdjustedPos({
       x: Math.min(position.x, window.innerWidth - width),
       y: Math.min(position.y, window.innerHeight - height),
@@ -35,8 +47,8 @@ export function ContextMenu({id, children}) {
 
   useEffect(() => {
     if (!visible) return;
-    const onMouseDown = (e) => {
-      if (!menuRef.current?.contains(e.target)) {
+    const onMouseDown = (e: MouseEvent): void => {
+      if (!menuRef.current?.contains(e.target as Node)) {
         hideMenu();
         forceUpdate(s => !s);
       }
@@ -64,7 +76,12 @@ export function ContextMenu({id, children}) {
   ));
 }
 
-export function MenuItem({children, onClick}) {
+interface MenuItemProps {
+  children: React.ReactNode;
+  onClick?: React.MouseEventHandler<HTMLDivElement>;
+}
+
+export function MenuItem({ children, onClick }: MenuItemProps): React.ReactElement {
   return (
     <div className="react-contextmenu-item" onClick={onClick}>
       {children}
