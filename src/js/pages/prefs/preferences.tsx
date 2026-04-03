@@ -2,7 +2,7 @@
 Copyright 2024 SamanthaJo
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the “Software”), to deal in
+this software and associated documentation files (the "Software"), to deal in
 the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
 the Software, and to permit persons to whom the Software is furnished to do so,
@@ -11,7 +11,7 @@ subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
 FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
@@ -22,22 +22,24 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import React from 'react';
 // eslint-disable-next-line react/no-deprecated
 import { render as reactRender } from 'react-dom';
-import {ipcRenderer} from 'electron';  // eslint-disable-line
+import { ipcRenderer } from 'electron';  // eslint-disable-line
 import Prefs from './prefs';
-import stacktraceLog from '../../lib/stacktrace-log.js';  // eslint-disable-line
+import '../../lib/stacktrace-log.js';  // eslint-disable-line
 import '../../lib/title';
 
-// const isDevMode = process.env.NODE_ENV === 'development';
+type StartArgs = {
+  userDataDir: string;
+  _?: string[];
+};
 
-function start(args) {
+function start(args: StartArgs): void {
   reactRender(
     <Prefs options={args} />,
     document.querySelector('.browser')
   );
 }
 
-ipcRenderer.on('start', (event, args) => {
+ipcRenderer.on('start', (_event, args: StartArgs) => {
   start(args);
 });
 ipcRenderer.send('start');
-

@@ -2,7 +2,7 @@
 Copyright 2024 SamanthaJo
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the “Software”), to deal in
+this software and associated documentation files (the "Software"), to deal in
 the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
 the Software, and to permit persons to whom the Software is furnished to do so,
@@ -11,7 +11,7 @@ subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
 FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
@@ -19,69 +19,102 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import {ipcRenderer} from 'electron';  // eslint-disable-line
-import {dialog} from '@electron/remote';
+import { ipcRenderer } from 'electron';  // eslint-disable-line
+import { dialog } from '@electron/remote';
 import React from 'react';
 import fs from 'fs';
 import path from 'path';
 import _ from 'lodash';
 import keycode from 'keycode';
 import otherWindowIPC from 'other-window-ipc';
-import stacktraceLog from '../../lib/stacktrace-log'; // eslint-disable-line
+import '../../lib/stacktrace-log.js'; // eslint-disable-line
 import bind from '../../lib/bind';
-import {shell} from 'electron';  // eslint-disable-line
+import { shell } from 'electron';  // eslint-disable-line
 import debug from '../../lib/debug';
 import ListenerManager from '../../lib/listener-manager';
-import {eventToKeyInfo, keyInfoToId, keyInfoToString} from '../../lib/keyrouter';
+import { eventToKeyInfo, keyInfoToId, keyInfoToString } from '../../lib/keyrouter';
 import Modal from '../../lib/ui/modal';
-import {actions} from '../../lib/actions';
-import {loadPrefs} from './default-prefs';
-import {CSSArray} from '../../lib/css-utils';
+import { actions, ActionId } from '../../lib/actions';
+import { loadPrefs, Preferences, KeyConfig, ToolbarPosition } from './default-prefs';
+import { CSSArray } from '../../lib/css-utils';
 import Checkbox from '../../lib/ui/checkbox';
 import Range from '../../lib/ui/range';
 import LivePasswordEditor from '../../lib/ui/live-password-editor';
 import { readUTF8FileSync } from '../../lib/utils';
 
-async function getFolders() {
-  const {canceled, filePaths} = await dialog.showOpenDialog({
+type PrefsOptions = {
+  userDataDir: string;
+  _?: string[];
+};
+
+type PrefsProps = {
+  options: PrefsOptions;
+};
+
+type PrefsState = {
+  prefs: Preferences;
+  saveError: boolean;
+};
+
+type KeyInfo = {
+  keyCode: number;
+  modifiers?: string;
+  action?: ActionId;
+};
+
+async function getFolders(): Promise<string[] | undefined> {
+  const { canceled, filePaths } = await dialog.showOpenDialog({
     title: 'Select Folder',
-    // defaultPath: '',
     properties: ['openDirectory'],
   });
   return canceled ? undefined : filePaths;
 }
 
-class BaseFolder extends React.Component {
-  constructor(props) {
+// ---------- BaseFolder ----------
+
+type BaseFolderProps = {
+  foldername: string;
+  ndx: number;
+  setFolder: (foldername: string, ndx: number) => void;
+  deleteFolder: (ndx: number) => void;
+};
+
+type BaseFolderState = {
+  exists: boolean;
+};
+
+class BaseFolder extends React.Component<BaseFolderProps, BaseFolderState> {
+  private _logger: ReturnType<typeof debug>;
+  private _unmounted = false;
+  private _checking = false;
+  private _listenerManager: ListenerManager;
+
+  constructor(props: BaseFolderProps) {
     super(props);
-    bind(
-      this,
-      '_checkExists',
-      '_checkVisibility',
-    );
-    this.state = {
-      exists: false,
-    };
+    bind(this, '_checkExists', '_checkVisibility');
+    this.state = { exists: false };
     this._logger = debug('BaseFolder', props.foldername);
-    this._unmounted = false;
-    this._checking = false;
     this._listenerManager = new ListenerManager();
   }
-  componentDidMount() {
+
+  componentDidMount(): void {
     const on = this._listenerManager.on.bind(this._listenerManager);
     on(document, 'visibilitychange', this._checkVisibility);
     this._checkExists();
   }
-  componentWillUnmount() {
+
+  componentWillUnmount(): void {
     this._unmounted = true;
     this._listenerManager.removeAll();
   }
-  _checkVisibility() {
+
+  _checkVisibility(): void {
     if (!document.hidden) {
       this._checkExists();
     }
   }
-  _checkExists() {
+
+  _checkExists(): void {
     if (this._unmounted || document.hidden || this._checking) {
       return;
     }
@@ -90,130 +123,136 @@ class BaseFolder extends React.Component {
       if (this._unmounted) {
         return;
       }
-      const exists = stat && stat.isDirectory();
-      this.setState({
-        exists,
-      });
+      const exists = !!(stat && stat.isDirectory());
+      this.setState({ exists });
       this._logger(this.props.foldername, exists);
       this._checking = false;
       setTimeout(this._checkExists, 2000);
     });
   }
-  render() {
-    const props = this.props;
-    const { foldername, ndx } = props;
+
+  render(): React.ReactNode {
+    const { foldername, ndx } = this.props;
     const classes = new CSSArray('basefolder');
     classes.addIf(!this.state.exists, 'missing');
     return (
-      <div className={classes}>
-        <div  // eslint-disable-line
-          onClick={() => { props.setFolder(foldername, ndx); }}
-        >
-          <pre>
-            {foldername}
-          </pre>
+      <div className={classes.toString()}>
+        <div onClick={() => { this.props.setFolder(foldername, ndx); }}>  {/* eslint-disable-line */}
+          <pre>{foldername}</pre>
         </div>
-        <button
-          type="button"
-          onClick={() => { props.setFolder(foldername, ndx); }}
-        >
-          ...
-        </button>
-        <button
-          type="button"
-          onClick={() => { props.deleteFolder(ndx); }}
-        >
-          Del
-        </button>
+        <button type="button" onClick={() => { this.props.setFolder(foldername, ndx); }}>...</button>
+        <button type="button" onClick={() => { this.props.deleteFolder(ndx); }}>Del</button>
       </div>
     );
   }
 }
 
-const ActionSelector = (props) => {
-  const {items, item, onChange} = props;
-  return (
-    <select value={item} onChange={onChange}>
-      {Object.keys(items).map((actionId) => {
-        const action = actions[actionId];
-        return (
-          <option key={`${actionId}`} value={actionId}>{`${actionId}: ${action.desc}`}</option>
-        );
-      })}
+// ---------- ActionSelector ----------
+
+type ActionSelectorProps = {
+  items: typeof actions;
+  item: ActionId;
+  onChange: React.ChangeEventHandler<HTMLSelectElement>;
+};
+
+const ActionSelector = ({ items, item, onChange }: ActionSelectorProps): React.ReactElement => (
+  <select value={item} onChange={onChange}>
+    {(Object.keys(items) as ActionId[]).map((actionId) => {
+      const action = actions[actionId];
+      return (
+        <option key={actionId} value={actionId}>{`${actionId}: ${action.desc}`}</option>
+      );
+    })}
+  </select>
+);
+
+// ---------- EnumSelector ----------
+
+type EnumItem = { desc: string };
+
+type EnumSelectorProps = {
+  desc: string;
+  items: Record<string, EnumItem>;
+  item: string;
+  onChange: (value: string) => void;
+};
+
+const EnumSelector = ({ desc, items, item, onChange }: EnumSelectorProps): React.ReactElement => (
+  <div className="enum-select">
+    <div>{desc}</div>
+    <select value={item} onChange={(e) => { onChange(e.target.value); }}>
+      {Object.keys(items).map((key) => (
+        <option key={key} value={key}>{items[key].desc}</option>
+      ))}
     </select>
-  );
+  </div>
+);
+
+// ---------- Key ----------
+
+type KeyProps = {
+  keyInfo: KeyInfo;
+  dup: boolean;
+  deleteKey: () => void;
+  setKeyCode: (keyInfo: KeyInfo) => void;
+  setKeyAction: (action: ActionId) => void;
 };
 
-const EnumSelector = (props) => {
-  const {desc, items, item, onChange} = props;
-  return (
-    <div className="enum-select">
-      <div>{desc}</div>
-      <select value={item} onChange={(e) => { onChange(e.target.value); }}>
-        {Object.keys(items).map((key) => {
-          const item = items[key];
-          return (
-            <option key={`${key}`} value={key}>{item.desc}</option>
-          );
-        })}
-      </select>
-    </div>
-  );
+type KeyState = {
+  setKey: boolean;
 };
 
-class Key extends React.Component {
-  constructor(props) {
+class Key extends React.Component<KeyProps, KeyState> {
+  private _oldKeyInfo?: KeyInfo;
+
+  constructor(props: KeyProps) {
     super(props);
-    bind(
-      this,
-      '_captureKey',
-      '_startKeyCapture',
-      '_setAction',
-      '_setKeyCapture',
-      '_abortKeyCapture',
-    );
-    this.state = {
-      setKey: false,
-    };
+    bind(this, '_captureKey', '_startKeyCapture', '_setAction', '_setKeyCapture', '_abortKeyCapture');
+    this.state = { setKey: false };
   }
-  _startKeyCapture() {
+
+  _startKeyCapture(): void {
     this._oldKeyInfo = _.cloneDeep(this.props.keyInfo);
-    this.setState({
-      setKey: true,
-    });
+    this.setState({ setKey: true });
     window.addEventListener('keydown', this._captureKey);
   }
-  _captureKey(event) {
+
+  _captureKey(event: KeyboardEvent): void {
     event.preventDefault();
     event.stopPropagation();
-    this.props.setKeyCode(eventToKeyInfo(event));
+    this.props.setKeyCode(eventToKeyInfo(event) as KeyInfo);
   }
-  _setKeyCapture() {
+
+  _setKeyCapture(): void {
     this._stopKeyCapture();
   }
-  _abortKeyCapture() {
-    this.props.setKeyCode(this._oldKeyInfo);
+
+  _abortKeyCapture(): void {
+    if (this._oldKeyInfo) {
+      this.props.setKeyCode(this._oldKeyInfo);
+    }
     this._stopKeyCapture();
   }
-  _stopKeyCapture() {
+
+  _stopKeyCapture(): void {
     window.removeEventListener('keydown', this._captureKey);
-    this.setState({
-      setKey: false,
-    });
+    this.setState({ setKey: false });
   }
-  _setAction(event) {
-    this.props.setKeyAction(event.target.value);
+
+  _setAction(event: React.ChangeEvent<HTMLSelectElement>): void {
+    this.props.setKeyAction(event.target.value as ActionId);
   }
-  render() {
-    const {keyInfo, dup, deleteKey} = this.props;
+
+  render(): React.ReactNode {
+    const { keyInfo, dup, deleteKey } = this.props;
     const classes = new CSSArray('key');
     classes.addIf(dup, 'dup');
 
-    const setKeyDialog = (this.state.setKey) ? (
+    const setKeyDialog = this.state.setKey ? (
       <Modal>
         <div className="keypress">
           <div>Press A Key</div>
-          <div>Key: {keyInfoToString(keyInfo)}</div>
+          <div>Key: {keyInfoToString(keyInfo as Parameters<typeof keyInfoToString>[0])}</div>
           <button type="button" onClick={this._setKeyCapture}>Set</button>
           <button type="button" onClick={this._abortKeyCapture}>Cancel</button>
         </div>
@@ -221,11 +260,11 @@ class Key extends React.Component {
     ) : undefined;
 
     return (
-      <div className={classes}>
+      <div className={classes.toString()}>
         {setKeyDialog}
         <div>
-          <div className="keycode" onClick={this._startKeyCapture}>{keyInfoToString(keyInfo)}</div>
-          <ActionSelector items={actions} item={keyInfo.action} onChange={this._setAction} />
+          <div className="keycode" onClick={this._startKeyCapture}>{keyInfoToString(keyInfo as Parameters<typeof keyInfoToString>[0])}</div>
+          <ActionSelector items={actions} item={keyInfo.action ?? 'noop'} onChange={this._setAction} />
         </div>
         <button type="button" onClick={this._startKeyCapture}>Set</button>
         <button type="button" onClick={() => { deleteKey(); }}>Del</button>
@@ -234,52 +273,53 @@ class Key extends React.Component {
   }
 }
 
-function modifiersToString(keyInfo) {
+// ---------- helpers ----------
+
+function modifiersToString(keyInfo: KeyInfo): string[] {
   const mods = keyInfo.modifiers;
-  const parts = [];
+  const parts: string[] = [];
   if (mods) {
-    if (mods.indexOf('c') >= 0) {
-      parts.push('ctrl');
-    }
-    if (mods.indexOf('a') >= 0) {
-      parts.push('alt');
-    }
-    if (mods.indexOf('s') >= 0) {
-      parts.push('shift');
-    }
-    if (mods.indexOf('m') >= 0) {
-      parts.push('meta');
-    }
+    if (mods.indexOf('c') >= 0) parts.push('ctrl');
+    if (mods.indexOf('a') >= 0) parts.push('alt');
+    if (mods.indexOf('s') >= 0) parts.push('shift');
+    if (mods.indexOf('m') >= 0) parts.push('meta');
   }
   return parts;
 }
-const s_keySubs = {
+
+const s_keySubs: Record<string, string> = {
   'left command': 'meta',
   'right command': 'meta',
 };
-function getKeyname(keyInfo) {
-  const name = keycode(keyInfo.keyCode);
+
+function getKeyname(keyInfo: KeyInfo): string {
+  const name = keycode(keyInfo.keyCode) as string;
   return s_keySubs[name] || name;
 }
-const s_mods = {
-  shift: true,
-  ctrl: true,
-  alt: true,
-  meta: true,
-};
-function isMod(keyInfo) {
-  return s_mods[getKeyname(keyInfo)];
+
+const s_mods: Record<string, boolean> = { shift: true, ctrl: true, alt: true, meta: true };
+
+function isMod(keyInfo: KeyInfo): boolean {
+  return !!s_mods[getKeyname(keyInfo)];
 }
 
-const s_toolbarPositionModes = {
-  top:        { desc: 'top', },
-  bottom:     { desc: 'bottom', },
-  swapTop:    { desc: 'opposite from menu or top', },
-  swapBottom: { desc: 'opposite from menu or bottom', },
+const s_toolbarPositionModes: Record<ToolbarPosition, EnumItem> = {
+  top:        { desc: 'top' },
+  bottom:     { desc: 'bottom' },
+  swapTop:    { desc: 'opposite from menu or top' },
+  swapBottom: { desc: 'opposite from menu or bottom' },
 };
 
-export default class Prefs extends React.Component {
-  constructor(props) {
+// ---------- Prefs ----------
+
+export default class Prefs extends React.Component<PrefsProps, PrefsState> {
+  private _streams: ReturnType<typeof otherWindowIPC.createChannel> extends Promise<infer S> ? S[] : never[] = [] as never[];
+  private _ipc: ReturnType<typeof otherWindowIPC.createChannel> | null;
+  private _prefsPath: string;
+  private _logger: ReturnType<typeof debug>;
+  private _savePrefs: _.DebouncedFunc<() => void>;
+
+  constructor(props: PrefsProps) {
     super(props);
     this._streams = [];
     bind(
@@ -296,7 +336,6 @@ export default class Prefs extends React.Component {
       '_setKeyCode',
       '_setKeyAction',
       '_deleteKey',
-      '_savePrefs',
       '_setPassword',
       '_changeToolbarPosition',
     );
@@ -304,124 +343,126 @@ export default class Prefs extends React.Component {
     this._ipc = otherWindowIPC.createChannel('prefs');
     this._ipc.on('connect', this._addStream);
     this._prefsPath = path.join(props.options.userDataDir, 'prefs.json');
-    this._savePrefs = _.debounce(this._savePrefs, 200);  // is there a point to this?
-    // error means the prefs file could not be loaded so we got default prefs
-    const {error, prefs} = loadPrefs(this._prefsPath, {
+    this._savePrefs = _.debounce(this._savePrefsImpl.bind(this), 200);
+    const { error, prefs } = loadPrefs(this._prefsPath, {
       existsSync: fs.existsSync,
-      readUTF8FileSync: readUTF8FileSync,
+      readUTF8FileSync,
     });
-    this.state = {
-      prefs,
-      saveError: false,
-    };
+    this.state = { prefs, saveError: false };
     if (error) {
       this._savePrefs();
     }
     window.addEventListener('beforeunload', this._cleanup);
   }
-  componentWillUnmount() {
+
+  componentWillUnmount(): void {
     this._cleanup();
   }
-  _updateState(newState) {
-    this.setState(newState, this._saveAndSendPrefs);
+
+  _updateState(newState: Partial<PrefsState>): void {
+    this.setState(newState as PrefsState, this._saveAndSendPrefs);
   }
-  _saveAndSendPrefs() {
+
+  _saveAndSendPrefs(): void {
     this._sendStateToAllStreams();
     this._savePrefs();
   }
-  _savePrefs() {
+
+  _savePrefsImpl(): void {
     try {
       fs.writeFile(this._prefsPath, JSON.stringify(this.state.prefs, null, 2), (err) => {
-        this.setState({
-          saveError: !!err,
-        });
+        this.setState({ saveError: !!err });
       });
     } catch {
-      this.setState({
-        saveError: true,
-      });
+      this.setState({ saveError: true });
     }
   }
 
-  _cleanup() {
+  _cleanup(): void {
     if (this._ipc) {
-      this._streams.slice().forEach((stream) => {
-        stream.close();
-      });
+      (this._streams as { close(): void }[]).slice().forEach((stream) => { stream.close(); });
       this._ipc.close();
       this._ipc = null;
     }
   }
-  _addStream(stream) {
-    stream.on('disconnect', () => {
-      this._removeStream(stream);
-    });
-    this._streams.push(stream);
+
+  _addStream(stream: { on: (e: string, fn: () => void) => void; send: (e: string, ...a: unknown[]) => void; close: () => void }): void {
+    stream.on('disconnect', () => { this._removeStream(stream); });
+    (this._streams as typeof stream[]).push(stream);
     this._sendPrefs(stream, this._getPrefsToSend());
   }
-  _removeStream(stream) {
-    const ndx = this._streams.indexOf(stream);
-    this._streams.splice(ndx, 1);
+
+  _removeStream(stream: unknown): void {
+    const ndx = (this._streams as unknown[]).indexOf(stream);
+    (this._streams as unknown[]).splice(ndx, 1);
   }
-  _getPrefsToSend() {
+
+  _getPrefsToSend(): Preferences {
     let prefs = this.state.prefs;
     const dirs = this.props.options._;
     if (dirs && dirs.length) {
-      prefs = Object.assign(JSON.parse(JSON.stringify(prefs)), {
-        folders: dirs,
-      });
+      prefs = Object.assign(JSON.parse(JSON.stringify(prefs)), { folders: dirs });
     }
     return prefs;
   }
-  _sendPrefs(stream, prefs) {
+
+  _sendPrefs(stream: { send: (e: string, ...a: unknown[]) => void }, prefs: Preferences): void {
     stream.send('prefs', prefs);
   }
-  _sendStateToAllStreams() {
+
+  _sendStateToAllStreams(): void {
     const prefs = this._getPrefsToSend();
     ipcRenderer.send('prefs', prefs);
-    this._streams.forEach((stream) => {
+    (this._streams as { send: (e: string, ...a: unknown[]) => void }[]).forEach((stream) => {
       this._sendPrefs(stream, prefs);
     });
   }
-  _updateBoolState(path, key, event) {
+
+  _updateBoolState(p: keyof Preferences, key: string, event: React.ChangeEvent<HTMLInputElement>): void {
     const prefs = this.state.prefs;
-    const mod = {prefs: _.cloneDeep(prefs), };
-    const submod = mod.prefs[path];
-    submod[key] = event.target.checked;
+    const mod = { prefs: _.cloneDeep(prefs) };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (mod.prefs[p] as any)[key] = event.target.checked;
     this._updateState(mod);
   }
-  _updateNumberState(path, key, event) {
+
+  _updateNumberState(p: keyof Preferences, key: string, event: React.ChangeEvent<HTMLInputElement>): void {
     const prefs = this.state.prefs;
-    const mod = {prefs: _.cloneDeep(prefs), };
-    const submod = mod.prefs[path];
-    submod[key] = event.target.value | 0;
+    const mod = { prefs: _.cloneDeep(prefs) };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (mod.prefs[p] as any)[key] = event.target.value as unknown as number | 0;
     this._updateState(mod);
   }
-  _makeCheckbox(path, fieldname, desc) {
+
+  _makeCheckbox(p: keyof Preferences, fieldname: string, desc: string): React.ReactNode {
     const prefs = this.state.prefs;
     return (
       <Checkbox
         key={`checkbox-${fieldname}`}
-        checked={prefs[path][fieldname]}
-        onUpdate={(event) => { this._updateBoolState(path, fieldname, event); }}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        checked={(prefs[p] as any)[fieldname]}
+        onUpdate={(event) => { this._updateBoolState(p, fieldname, event); }}
         label={desc}
       />
     );
   }
-  _makeRange(path, fieldname, desc, options) {
+
+  _makeRange(p: keyof Preferences, fieldname: string, desc: string, options: { min: number; max: number }): React.ReactNode {
     const prefs = this.state.prefs;
     return (
       <Range
         key={`range-${fieldname}`}
-        onUpdate={(event) => { this._updateNumberState(path, fieldname, event); }}
+        onUpdate={(event) => { this._updateNumberState(p, fieldname, event); }}
         label={desc}
-        value={prefs[path][fieldname]}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        value={(prefs[p] as any)[fieldname]}
         min={options.min}
         max={options.max}
       />
     );
   }
-  _makeFolder(foldername, ndx) {
+
+  _makeFolder(foldername: string, ndx: number): React.ReactNode {
     return (
       <BaseFolder
         key={`folder-${ndx}`}
@@ -432,21 +473,22 @@ export default class Prefs extends React.Component {
       />
     );
   }
-  async _addFolder() {
+
+  async _addFolder(): Promise<void> {
     const folders = await getFolders();
     if (folders) {
       const prefs = this.state.prefs;
-      this._updateState({
-        prefs: { ...prefs, folders: [...prefs.folders, ...folders] },
-      });
+      this._updateState({ prefs: { ...prefs, folders: [...prefs.folders, ...folders] } });
     }
   }
-  async _setFolder(foldername, ndx) {
+
+  async _setFolder(_foldername: string, ndx: number): Promise<void> {
     const folders = await getFolders();
     if (folders) {
       const prefs = this.state.prefs;
       this._updateState({
-        prefs: { ...prefs,
+        prefs: {
+          ...prefs,
           folders: [
             ...prefs.folders.slice(0, ndx),
             folders[0],
@@ -456,65 +498,48 @@ export default class Prefs extends React.Component {
       });
     }
   }
-  _deleteFolder(ndx) {
+
+  _deleteFolder(ndx: number): void {
     const prefs = this.state.prefs;
-    const newFolders = [
-      ...prefs.folders.slice(0, ndx),
-      ...prefs.folders.slice(ndx + 1),
-    ];
-    this._updateState({
-      prefs: { ...prefs, folders: newFolders },
-    });
+    const newFolders = [...prefs.folders.slice(0, ndx), ...prefs.folders.slice(ndx + 1)];
+    this._updateState({ prefs: { ...prefs, folders: newFolders } });
   }
-  _addKey() {
+
+  _addKey(): void {
     const prefs = this.state.prefs;
     this._updateState({
-      prefs: {
-        ...prefs,
-        keyConfig: [
-          ...prefs.keyConfig,
-          { keyCode: 0, action: 'noop' },
-        ],
-      },
+      prefs: { ...prefs, keyConfig: [...prefs.keyConfig, { keyCode: 0, action: 'noop' as ActionId }] },
     });
   }
-  _setKeyAction(ndx, action) {
+
+  _setKeyAction(ndx: number, action: ActionId): void {
     const prefs = this.state.prefs;
     const keys = [...prefs.keyConfig];
-    const key = { ...keys[ndx]};
-    key.action = action;
-    keys[ndx] = key;
-    this._updateState({
-      prefs: { ...prefs, keyConfig: keys },
-    });
+    keys[ndx] = { ...keys[ndx], action };
+    this._updateState({ prefs: { ...prefs, keyConfig: keys } });
   }
-  _setKeyCode(ndx, keyInfo) {
+
+  _setKeyCode(ndx: number, keyInfo: KeyInfo): void {
     const prefs = this.state.prefs;
     const keys = [...prefs.keyConfig];
-    const key = { ...keys[ndx]};
-    Object.assign(key, keyInfo);
-    keys[ndx] = key;
-    this._updateState({
-      prefs: { ...prefs, keyConfig: keys },
-    });
+    keys[ndx] = { ...keys[ndx], ...keyInfo } as KeyConfig;
+    this._updateState({ prefs: { ...prefs, keyConfig: keys } });
   }
-  _deleteKey(ndx) {
+
+  _deleteKey(ndx: number): void {
     const prefs = this.state.prefs;
-    const newKeys = [
-      ...prefs.keyConfig.slice(0, ndx),
-      ...prefs.keyConfig.slice(ndx + 1),
-    ];
-    this._updateState({
-      prefs: { ...prefs, keyConfig: newKeys },
-    });
+    const newKeys = [...prefs.keyConfig.slice(0, ndx), ...prefs.keyConfig.slice(ndx + 1)];
+    this._updateState({ prefs: { ...prefs, keyConfig: newKeys } });
   }
-  _makeKeys() {
+
+  _makeKeys(): React.ReactNode[] {
     const prefs = this.state.prefs;
-    const counts = {};
-    const keynames = {};
-    const usedMods = {};
+    const counts: Record<string, number> = {};
+    const keynames: Record<string, number> = {};
+    const usedMods: Record<string, number> = {};
+
     prefs.keyConfig.forEach((keyInfo) => {
-      const id = keyInfoToId(keyInfo);
+      const id = keyInfoToId({ ...keyInfo, modifiers: keyInfo.modifiers ?? '' });
       const keyname = getKeyname(keyInfo);
       const mods = modifiersToString(keyInfo);
       counts[id] = 1 + (counts[id] || 0);
@@ -526,27 +551,23 @@ export default class Prefs extends React.Component {
       }
     });
 
-    function isOneOfOurModsAssignedAsKey(keyInfo) {
-      const mods = modifiersToString(keyInfo);
-      for (const mod of mods) {
-        if (keynames[mod]) {
-          return true;
-        }
+    const isOneOfOurModsAssignedAsKey = (keyInfo: KeyInfo): boolean => {
+      for (const mod of modifiersToString(keyInfo)) {
+        if (keynames[mod]) return true;
       }
       return false;
-    }
+    };
 
     return prefs.keyConfig.map((keyInfo, ndx) => {
-      const id = keyInfoToId(keyInfo);
-      // Do we have 2+ of the same key?
+      const id = keyInfoToId({ ...keyInfo, modifiers: keyInfo.modifiers ?? '' });
       const dup = counts[id] > 1;
       const modDup = isMod(keyInfo)
-        ? usedMods[getKeyname(keyInfo)]  // Is another key using this mod
-        : isOneOfOurModsAssignedAsKey(keyInfo);  // Is one of our mods assigned as a key
+        ? usedMods[getKeyname(keyInfo)]
+        : isOneOfOurModsAssignedAsKey(keyInfo);
       return (
         <Key
           key={`key-${ndx}`}  // eslint-disable-line
-          dup={dup || modDup}
+          dup={!!(dup || modDup)}
           keyInfo={keyInfo}
           setKeyCode={(...args) => { this._setKeyCode(ndx, ...args); }}
           setKeyAction={(...args) => { this._setKeyAction(ndx, ...args); }}
@@ -555,30 +576,31 @@ export default class Prefs extends React.Component {
       );
     });
   }
-  _addErrors() {
-    return this.state.saveError ?
-      (
-        <fieldset className="error">
-          <legend>Errors</legend>
-          <div>
-            Could not save preferences to {this._prefsPath}
-          </div>
-        </fieldset>
-      ) : undefined;
+
+  _addErrors(): React.ReactNode {
+    return this.state.saveError ? (
+      <fieldset className="error">
+        <legend>Errors</legend>
+        <div>Could not save preferences to {this._prefsPath}</div>
+      </fieldset>
+    ) : undefined;
   }
-  _setPassword(password) {
+
+  _setPassword(password: string): void {
     const prefs = this.state.prefs;
-    const mod = {prefs: _.cloneDeep(prefs), };
+    const mod = { prefs: _.cloneDeep(prefs) };
     mod.prefs.misc.password = password;
     this._updateState(mod);
   }
-  _changeToolbarPosition(newPosition) {
+
+  _changeToolbarPosition(newPosition: string): void {
     const prefs = this.state.prefs;
-    const mod = {prefs: _.cloneDeep(prefs), };
-    mod.prefs.misc.toolbarPosition = newPosition;
+    const mod = { prefs: _.cloneDeep(prefs) };
+    mod.prefs.misc.toolbarPosition = newPosition as ToolbarPosition;
     this._updateState(mod);
   }
-  render() {
+
+  render(): React.ReactNode {
     const prefs = this.state.prefs;
     return (
       <div className="prefs">
@@ -589,12 +611,7 @@ export default class Prefs extends React.Component {
             <legend>Folders</legend>
             <div>
               {prefs.folders.map(this._makeFolder)}
-              <button
-                type="button"
-                onClick={this._addFolder}
-              >
-                Add Folder
-              </button>
+              <button type="button" onClick={this._addFolder}>Add Folder</button>
             </div>
           </fieldset>
           <fieldset>
@@ -610,12 +627,7 @@ export default class Prefs extends React.Component {
             <legend>Keys</legend>
             <div>
               {this._makeKeys()}
-              <button
-                type="button"
-                onClick={this._addKey}
-              >
-                Add Key
-              </button>
+              <button type="button" onClick={this._addKey}>Add Key</button>
             </div>
           </fieldset>
           <fieldset>
@@ -679,4 +691,3 @@ export default class Prefs extends React.Component {
     );
   }
 }
-
