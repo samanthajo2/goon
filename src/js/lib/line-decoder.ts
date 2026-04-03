@@ -25,10 +25,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
 
 /* eslint-disable */
 
@@ -40,13 +36,16 @@ const CharCode = {
 };
 
 export default class LineDecoder {
-  constructor(encoding = 'utf8') {
+  private stringDecoder: sd.StringDecoder;
+  private remaining: string | null;
+
+  constructor(encoding: BufferEncoding = 'utf8') {
     this.stringDecoder = new sd.StringDecoder(encoding);
     this.remaining = null;
   }
 
-  write(buffer) {
-    let result = [];
+  write(buffer: Buffer): string[] {
+    let result: string[] = [];
     let value = this.remaining
       ? this.remaining + this.stringDecoder.write(buffer)
       : this.stringDecoder.write(buffer);
@@ -55,7 +54,7 @@ export default class LineDecoder {
       return result;
     }
     let start = 0;
-    let ch;
+    let ch: number;
     while (start < value.length && ((ch = value.charCodeAt(start)) === CharCode.CarriageReturn || ch === CharCode.LineFeed)) {
       start++;
     }
@@ -77,7 +76,7 @@ export default class LineDecoder {
     return result;
   }
 
-  end() {
+  end(): string | null {
     return this.remaining;
   }
 }

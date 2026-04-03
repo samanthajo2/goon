@@ -27,15 +27,15 @@ SOFTWARE.
 
 import chokidar from 'chokidar';
 import debug from '../debug';
-import FileChangeType from './file-change-types';
+import FileChangeType, { FileChangeTypeValue, RawFileChange } from './file-change-types';
 import ListenerManager from '../listener-manager';
 
-function alwaysTrue() {
+function alwaysTrue(): boolean {
   return true;
 }
 
-function getEventName(eventType) {
-  for (const key in FileChangeType) {
+function getEventName(eventType: FileChangeTypeValue): string {
+  for (const key of Object.keys(FileChangeType) as (keyof typeof FileChangeType)[]) {
     if (FileChangeType[key] === eventType) {
       return key;
     }
@@ -44,13 +44,23 @@ function getEventName(eventType) {
 }
 
 export default class ChokidarTreeWatcher {
+  private _watchedFolder: string;
+  private _filter: (path: string) => boolean;
+  private _logger: ReturnType<typeof debug>;
+  private _verboseLogging: boolean;
+  private _startCallback: () => void;
+  private _eventCallback: (events: RawFileChange[]) => void;
+  private _errorCallback: (error: string) => void;
+  private _listenerManager: ListenerManager;
+  private _chokidar: import('chokidar').FSWatcher | null = null;
+
   constructor(
-    watchedFolder, // : string,
-    filter, // : function(string):bool,
-    startCallback, //
-    eventCallback, // : (events: IRawFileChange[]) => void,
-    errorCallback, // : (error: string) => void,
-    verboseLogging, // : boolean
+    watchedFolder: string,
+    filter: ((path: string) => boolean) | null,
+    startCallback: () => void,
+    eventCallback: (events: RawFileChange[]) => void,
+    errorCallback: (error: string) => void,
+    verboseLogging: boolean,
   ) {
     this._watchedFolder = watchedFolder;
     this._filter = filter || alwaysTrue;
@@ -63,43 +73,39 @@ export default class ChokidarTreeWatcher {
     };
     this._eventCallback = eventCallback;
     this._errorCallback = errorCallback;
-    this._ready = false;
     this._listenerManager = new ListenerManager();
     this._start();
   }
 
-  _start() {
+  private _start(): void {
     this._logger('start');
     const on = this._listenerManager.on.bind(this._listenerManager);
     this._chokidar = chokidar.watch(this._watchedFolder);
-    on(this._chokidar, 'error', this._onError);
+    on(this._chokidar, 'error', this._onError.bind(this));
     on(this._chokidar, 'ready', () => {
       this._logger('ready');
-      on(this._chokidar, 'add', this._makeEventHandler(FileChangeType.ADDED));
-      on(this._chokidar, 'change', this._makeEventHandler(FileChangeType.UPDATED));
-      on(this._chokidar, 'unlink', this._makeEventHandler(FileChangeType.DELETED));
-      on(this._chokidar, 'addDir', this._makeEventHandler(FileChangeType.ADDED));
-      on(this._chokidar, 'unlinkDir', this._makeEventHandler(FileChangeType.DELETED));
+      on(this._chokidar!, 'add', this._makeEventHandler(FileChangeType.ADDED));
+      on(this._chokidar!, 'change', this._makeEventHandler(FileChangeType.UPDATED));
+      on(this._chokidar!, 'unlink', this._makeEventHandler(FileChangeType.DELETED));
+      on(this._chokidar!, 'addDir', this._makeEventHandler(FileChangeType.ADDED));
+      on(this._chokidar!, 'unlinkDir', this._makeEventHandler(FileChangeType.DELETED));
       this._startCallback();
     });
   }
 
-  _makeEventHandler(eventType) {
+  private _makeEventHandler(eventType: FileChangeTypeValue): (filename: string) => void {
     const eventName = getEventName(eventType);
-    return (filename) => {
+    return (filename: string) => {
       this._logger(eventName, filename);
-      this._eventCallback([{
-        type: eventType,
-        path: filename,
-      }]);
+      this._eventCallback([{ type: eventType, path: filename }]);
     };
   }
 
-  _onError(error /* : Error | NodeBuffer */) {
+  private _onError(error: unknown): void {
     this._errorCallback(`${this._logger.getPrefix()} process error: ${error}`);
   }
 
-  async close() {
+  async close(): Promise<void> {
     this._logger('close');
     if (this._chokidar) {
       this._listenerManager.removeAll();

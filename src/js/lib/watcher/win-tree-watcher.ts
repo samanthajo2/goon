@@ -31,27 +31,34 @@ import cp from 'child_process';
 import path from 'node:path';
 import debug from '../debug';
 import LineDecoder from '../line-decoder';
-import FileChangeType from './file-change-types';
-import {getResourcePath} from '../resources';
-// import {IRawFileChange} from 'vs/workbench/services/files/node/watcher/common';
+import FileChangeType, { FileChangeTypeValue, RawFileChange } from './file-change-types';
+import { getResourcePath } from '../resources';
 
-function alwaysTrue() {
+function alwaysTrue(): boolean {
   return true;
 }
 
 // NOTE: In my experience NEVER USE 0 as an ENUM because too many things
 // default / coerce to 0 which hides errors
-const changeTypeMap /* : FileChangeType[] */ = [FileChangeType.UPDATED, FileChangeType.ADDED, FileChangeType.DELETED];
+const changeTypeMap: FileChangeTypeValue[] = [FileChangeType.UPDATED, FileChangeType.ADDED, FileChangeType.DELETED];
 
 export default class WinTreeWatcher {
+  private _watchedFolder: string;
+  private _filter: (path: string) => boolean;
+  private _logger: ReturnType<typeof debug>;
+  private _verboseLogging: boolean;
+  private _startCallback: () => void;
+  private _eventCallback: (events: RawFileChange[]) => void;
+  private _errorCallback: (error: string) => void;
+  private _handle: cp.ChildProcess | null = null;
 
   constructor(
-    watchedFolder, // : string,
-    filter, //: function(string):bool,
-    startCallback, //
-    eventCallback, //: (events: IRawFileChange[]) => void,
-    errorCallback, //: (error: string) => void,
-    verboseLogging, //: boolean
+    watchedFolder: string,
+    filter: ((path: string) => boolean) | null,
+    startCallback: () => void,
+    eventCallback: (events: RawFileChange[]) => void,
+    errorCallback: (error: string) => void,
+    verboseLogging: boolean,
   ) {
     this._watchedFolder = watchedFolder;
     this._filter = filter || alwaysTrue;
@@ -67,7 +74,7 @@ export default class WinTreeWatcher {
     this._start();
   }
 
-  _start() {
+  private _start(): void {
     const args = [path.resolve(this._watchedFolder)];
     if (this._verboseLogging) {
       args.push('-verbose');
@@ -79,11 +86,9 @@ export default class WinTreeWatcher {
 
     const stdoutLineDecoder = new LineDecoder();
 
-    // Events over stdout
-    this._handle.stdout.on('data', (data /* : NodeBuffer */) => {
+    this._handle.stdout!.on('data', (data: Buffer) => {
       this._startCallback();
-      // Collect raw events from output
-      const rawEvents /* : IRawFileChange[] */ = [];
+      const rawEvents: RawFileChange[] = [];
       stdoutLineDecoder.write(data).forEach((line) => {
         const eventParts = line.split('|');
         if (eventParts.length === 2) {
@@ -92,19 +97,15 @@ export default class WinTreeWatcher {
 
           // File Change Event (0 Changed, 1 Created, 2 Deleted)
           if (changeType >= 0 && changeType < 3) {
-
             if (!this._filter(absolutePath)) {
               return;
             }
-            // Otherwise record as event
             rawEvents.push({
               type: changeTypeMap[changeType],
-              path: absolutePath
+              path: absolutePath,
             });
-          }
-
-          // 3 Logging
-          else {
+          } else {
+            // 3 Logging
             this._logger(eventParts[1]);
           }
         } else {
@@ -112,32 +113,28 @@ export default class WinTreeWatcher {
         }
       });
 
-      // Trigger processing of events through the delayer to batch them up properly
       if (rawEvents.length > 0) {
         this._eventCallback(rawEvents);
       }
     });
 
-    // Errors
-    this._handle.on('error', (error /* : Error */) => this._onError(error));
-    this._handle.stderr.on('data', (data /* : NodeBuffer */) => this._onError(data));
-
-    // Exit
-    this._handle.on('exit', (code /* : any */, signal /* : any */) => this._onExit(code, signal));
+    this._handle.on('error', (error: Error) => this._onError(error));
+    this._handle.stderr!.on('data', (data: Buffer) => this._onError(data));
+    this._handle.on('exit', (code: number | null, signal: NodeJS.Signals | null) => this._onExit(code, signal));
   }
 
-  _onError(error /* : Error | NodeBuffer */) {
+  private _onError(error: unknown): void {
     this._errorCallback(`${this._logger.getPrefix()} process error: ${error}`);
   }
 
-  _onExit(code /* : any */, signal /* : any */) {
-    if (this._handle) { // exit while not yet being disposed is unexpected!
+  private _onExit(code: number | null, signal: NodeJS.Signals | null): void {
+    if (this._handle) {
       this._errorCallback(`${this._logger.getPrefix()} terminated unexpectedly (code: ${code}, signal: ${signal})`);
-      this._start(); // restart
+      this._start();
     }
   }
 
-  close() {
+  close(): void {
     if (this._handle) {
       this._handle.kill();
       this._handle = null;

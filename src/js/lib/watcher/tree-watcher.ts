@@ -24,44 +24,45 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
+
 import EventEmitter from 'node:events';
 import path from 'node:path';
 import _ from 'lodash';
-import bind from '../bind';
 import debug from '../debug';
 import WinTreeWatcher from './win-tree-watcher';
 import ChokidarTreeWatcher from './chokidar-tree-watcher';
-import FileChangeType from './file-change-types';
+import FileChangeType, { RawFileChange } from './file-change-types';
+
+type RawWatcher = WinTreeWatcher | ChokidarTreeWatcher;
 
 /* eslint-disable */
 
 export default class TreeWatcher extends EventEmitter {
-  constructor(folderpath) {
+  private _logger: ReturnType<typeof debug>;
+  private _folderpath: string;
+  private _bufferedEvents: RawFileChange[];
+  private _rawWatcher: RawWatcher;
+  private _throttledSendEvents!: _.DebouncedFunc<() => void>;
+
+  constructor(folderpath: string) {
     super();
     this._logger = debug('TreeWatcher', folderpath);
-    bind(
-      this,
-      '_onRawEvent',
-      '_onError',
-      '_onStart',
-      '_sendEvents',
-    );
     this._folderpath = folderpath;
-    this._sendEvents = _.throttle(this._sendEvents, 250);
+    this._throttledSendEvents = _.throttle(this._doSendEvents.bind(this), 250);
     this._bufferedEvents = [];
-    const filter = () => true;
+    const filter = (): boolean => true;
     const verbose = false;
     this._rawWatcher = process.platform.startsWith('win')
-      ? new WinTreeWatcher(folderpath, filter, this._onStart, this._onRawEvent, this._onError, verbose)
-      : new ChokidarTreeWatcher(folderpath, filter, this._onStart, this._onRawEvent, this._onError, verbose);
+      ? new WinTreeWatcher(folderpath, filter, this._onStart.bind(this), this._onRawEvent.bind(this), this._onError.bind(this), verbose)
+      : new ChokidarTreeWatcher(folderpath, filter, this._onStart.bind(this), this._onRawEvent.bind(this), this._onError.bind(this), verbose);
   }
 
-  get folderPath() {
+  get folderPath(): string {
     return this._folderpath;
   }
 
-  _sendEvents() {
-    if (this._bufferedEvents.length == 0) {
+  private _doSendEvents(): void {
+    if (this._bufferedEvents.length === 0) {
       return;
     }
 
@@ -84,20 +85,20 @@ export default class TreeWatcher extends EventEmitter {
     });
   }
 
-  _onRawEvent(rawEvents) {
+  private _onRawEvent(rawEvents: RawFileChange[]): void {
     this._bufferedEvents.splice(this._bufferedEvents.length, 0, ...rawEvents);
-    this._sendEvents();
+    this._throttledSendEvents();
   }
 
-  _onStart(e) {
+  private _onStart(_e?: unknown): void {
     this.emit('start');
   }
 
-  _onError(e) {
+  private _onError(e: unknown): void {
     this._logger.error(e);
   }
 
-  close() {
+  close(): Promise<void> | void {
     this._logger('close');
     if (this._rawWatcher) {
       return this._rawWatcher.close();
@@ -106,105 +107,71 @@ export default class TreeWatcher extends EventEmitter {
 }
 
 
-function isParent(p /* :string */, candidate /* :string */) /* : boolean */ {
+function isParent(p: string, candidate: string): boolean {
   return p.indexOf(candidate + path.sep) === 0;
 }
 
-/**
- * Given events that occurred, applies some rules to normalize the events
- */
-function normalize(changes /* : IRawFileChange[] */) /* : IRawFileChange[] */ {
-
-  // Build deltas
-  let normalizer = new EventNormalizer();
-  for (let i = 0; i < changes.length; i++) {
-    let event = changes[i];
+function normalize(changes: RawFileChange[]): RawFileChange[] {
+  const normalizer = new EventNormalizer();
+  for (const event of changes) {
     normalizer.processEvent(event);
   }
-
   return normalizer.normalize();
 }
 
 class EventNormalizer {
-  // private normalized /* : IRawFileChange[] */;
-  // private mapPathToChange /* : { [path: string]: IRawFileChange } */;
+  private normalized: RawFileChange[];
+  private mapPathToChange: Record<string, RawFileChange>;
 
   constructor() {
     this.normalized = [];
     this.mapPathToChange = {};
   }
 
-  processEvent(event /* : IRawFileChange*/) {
-
-    // Event path already exists
-    let existingEvent = this.mapPathToChange[event.path];
+  processEvent(event: RawFileChange): void {
+    const existingEvent = this.mapPathToChange[event.path];
     if (existingEvent) {
-      let currentChangeType = existingEvent.type;
-      let newChangeType = event.type;
+      const currentChangeType = existingEvent.type;
+      const newChangeType = event.type;
 
-      // ignore CREATE followed by DELETE in one go
       if (currentChangeType === FileChangeType.ADDED && newChangeType === FileChangeType.DELETED) {
         delete this.mapPathToChange[event.path];
         this.normalized.splice(this.normalized.indexOf(existingEvent), 1);
-      }
-
-      // flatten DELETE followed by CREATE into CHANGE
-      else if (currentChangeType === FileChangeType.DELETED && newChangeType === FileChangeType.ADDED) {
+      } else if (currentChangeType === FileChangeType.DELETED && newChangeType === FileChangeType.ADDED) {
         existingEvent.type = FileChangeType.UPDATED;
-      }
-
-      // Do nothing. Keep the created event
-      else if (currentChangeType === FileChangeType.ADDED && newChangeType === FileChangeType.UPDATED) {
-      }
-
-      // Otherwise apply change type
-      else {
+      } else if (currentChangeType === FileChangeType.ADDED && newChangeType === FileChangeType.UPDATED) {
+        // Do nothing. Keep the created event
+      } else {
         existingEvent.type = newChangeType;
       }
-    }
-
-    // Otherwise Store
-    else {
+    } else {
       this.normalized.push(event);
       this.mapPathToChange[event.path] = event;
     }
   }
 
-  normalize() /* : IRawFileChange[] */ {
-    let addedChangeEvents /* :IRawFileChange[] */ = [];
-    let deletedPaths /* :string[] */ = [];
-
-    // This algorithm will remove all DELETE events up to the root folder
-    // that got deleted if any. This ensures that we are not producing
-    // DELETE events for each file inside a folder that gets deleted.
-    //
-    // 1.) split ADD/CHANGE and DELETED events
-    // 2.) sort short deleted paths to the top
-    // 3.) for each DELETE, check if there is a deleted parent and ignore the event in that case
+  normalize(): RawFileChange[] {
+    const addedChangeEvents: RawFileChange[] = [];
+    const deletedPaths: string[] = [];
 
     const deleted = this.normalized.filter(e => {
       if (e.type !== FileChangeType.DELETED) {
         addedChangeEvents.push(e);
-        return false; // remove ADD / CHANGE
+        return false;
       }
+      return true;
+    });
 
-      return true; // keep DELETE
-    });
-    const shortestFirst = deleted.sort((e1, e2) => {
-      return e1.path.length - e2.path.length; // shortest path first
-    });
+    const shortestFirst = deleted.sort((e1, e2) => e1.path.length - e2.path.length);
+
     const parentsWithoutChildren = shortestFirst.filter(e => {
       if (deletedPaths.some(d => isParent(e.path, d))) {
-        return false; // DELETE is ignored if parent is deleted already
+        return false;
       }
-
-      // otherwise mark as deleted
       deletedPaths.push(e.path);
-
       return true;
     });
 
     return [...parentsWithoutChildren, ...addedChangeEvents];
   }
-
 }

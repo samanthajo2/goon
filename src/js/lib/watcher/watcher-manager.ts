@@ -2,7 +2,7 @@
 Copyright 2024 SamanthaJo
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the “Software”), to deal in
+this software and associated documentation files (the "Software"), to deal in
 the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
 the Software, and to permit persons to whom the Software is furnished to do so,
@@ -11,7 +11,7 @@ subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
 FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
@@ -25,7 +25,7 @@ import _ from 'lodash';
 import bind from '../bind';
 import debug from '../debug';
 import ListenerManager from '../listener-manager';
-import {removeChildFolders} from '../utils';
+import { removeChildFolders } from '../utils';
 import TreeWatcher from './tree-watcher';
 
 // Manages multiple Tree Watchers
@@ -38,28 +38,35 @@ import TreeWatcher from './tree-watcher';
 // folder
 
 export class FolderWatcher extends EventEmitter {
-  constructor(folderName, unwatchFn) {
+  private _folderName: string;
+  private _unwatchFn: (() => void) | undefined;
+  private _logger: ReturnType<typeof debug>;
+  private _started: boolean;
+
+  constructor(folderName: string, unwatchFn: () => void) {
     super();
     this._logger = debug('FolderWatcher', folderName);
     this._folderName = folderName;
     this._unwatchFn = unwatchFn;
     this._started = false;
   }
-  get folderName() {
+
+  get folderName(): string {
     return this._folderName;
   }
-  emit(eventName, ...args) {
-    // only emit start once
+
+  emit(eventName: string | symbol, ...args: unknown[]): boolean {
     if (eventName === 'start') {
       if (this._started) {
         return false;
       }
       this._started = true;
     }
-    this._logger(eventName, ...args);
+    this._logger(String(eventName), ...args);
     return super.emit(eventName, ...args);
   }
-  close() {
+
+  close(): void {
     if (this._unwatchFn) {
       const fn = this._unwatchFn;
       this._unwatchFn = undefined;
@@ -69,17 +76,20 @@ export class FolderWatcher extends EventEmitter {
 }
 
 class TreeWatcherDispatcher {
-  constructor(treeWatcher) {
-    bind(
-      this,
-      '_startEventForwarder',
-      '_emitStartEvent',
-    );
-    this._emitStartEvent = _.throttle(this._emitStartEvent);
+  private _logger: ReturnType<typeof debug>;
+  private _listenerManager: ListenerManager;
+  private _started: boolean;
+  private _treeWatcher: TreeWatcher | null;
+  private _folderWatchers: FolderWatcher[];
+  private _emitStartEvent: _.DebouncedFunc<() => void>;
+
+  constructor(treeWatcher: TreeWatcher) {
+    bind(this, '_startEventForwarder');
+    this._emitStartEvent = _.throttle(this._doEmitStartEvent.bind(this));
     this._logger = debug('TreeWatcherDispatcher', treeWatcher.folderPath);
     this._listenerManager = new ListenerManager();
     const on = this._listenerManager.on.bind(this._listenerManager);
-    on(treeWatcher, 'start', this._startEventForwarder);
+    on(treeWatcher, 'start', this._startEventForwarder.bind(this));
     on(treeWatcher, 'create', this._makeEventForwarder('create'));
     on(treeWatcher, 'change', this._makeEventForwarder('change'));
     on(treeWatcher, 'remove', this._makeEventForwarder('remove'));
@@ -87,37 +97,42 @@ class TreeWatcherDispatcher {
     this._treeWatcher = treeWatcher;
     this._folderWatchers = [];
   }
-  get treeWatcher() {
+
+  get treeWatcher(): TreeWatcher | null {
     return this._treeWatcher;
   }
-  close() {
+
+  close(): void {
     this._listenerManager.removeAll();
     this._treeWatcher = null;
   }
-  addFolderWatchers(watchers) {
+
+  addFolderWatchers(watchers: FolderWatcher[]): void {
     this._folderWatchers = this._folderWatchers.concat(watchers);
     if (this._started) {
-      process.nextTick(this._emitStartEvent);
+      process.nextTick(() => this._emitStartEvent());
     }
   }
-  removeAllWatchers() {
+
+  removeAllWatchers(): void {
     this._folderWatchers = [];
   }
-  _startEventForwarder() {
+
+  private _startEventForwarder(): void {
     this._started = true;
     this._emitStartEvent();
   }
-  _emitStartEvent() {
+
+  private _doEmitStartEvent(): void {
     for (const folderWatcher of this._folderWatchers) {
-      //      this._logger('emit', 'start');
       folderWatcher.emit('start');
     }
   }
-  _makeEventForwarder(eventName) {
-    return (filepath, ...args) => {
+
+  private _makeEventForwarder(eventName: string): (filepath: string, ...args: unknown[]) => void {
+    return (filepath: string, ...args: unknown[]) => {
       this._logger(eventName, filepath);
       const folderName = path.dirname(filepath);
-      // TODO: optimize this lookup
       for (const folderWatcher of this._folderWatchers) {
         if (folderWatcher.folderName === folderName) {
           this._logger('emit', eventName, filepath);
@@ -128,21 +143,23 @@ class TreeWatcherDispatcher {
   }
 }
 
-// holds each FolderWatcher by
-// path for this TreeWatcher
 export default class WatcherManager {
+  private _folderWatchersByPath: Record<string, FolderWatcher[]>;
+  private _treeWatchersDispatcherByPath: Record<string, TreeWatcherDispatcher>;
+  private _closed: boolean;
+
   constructor() {
-    // each entry is array of watchers so
-    // you can have more than one per folder
     this._folderWatchersByPath = {};
     this._treeWatchersDispatcherByPath = {};
+    this._closed = false;
   }
-  async close() {
-    if (!this.closed) {
+
+  async close(): Promise<void> {
+    if (!this._closed) {
       this._closed = true;
-      const promises = [];
+      const promises: (Promise<void> | void)[] = [];
       for (const treeWatcherDispatcher of Object.values(this._treeWatchersDispatcherByPath)) {
-        const treeWatcher = treeWatcherDispatcher.treeWatcher;
+        const treeWatcher = treeWatcherDispatcher.treeWatcher!;
         treeWatcherDispatcher.removeAllWatchers();
         treeWatcherDispatcher.close();
         promises.push(treeWatcher.close());
@@ -152,7 +169,8 @@ export default class WatcherManager {
       this._folderWatchersByPath = {};
     }
   }
-  watch(folderName) {
+
+  watch(folderName: string): FolderWatcher | null {
     if (this._closed) {
       return null;
     }
@@ -168,7 +186,8 @@ export default class WatcherManager {
     this._shuffleFolderWatchers();
     return folderWatcher;
   }
-  _unwatch(folderWatcher) {
+
+  private _unwatch(folderWatcher: FolderWatcher): void {
     if (this._closed) {
       return;
     }
@@ -187,39 +206,33 @@ export default class WatcherManager {
     }
     this._shuffleFolderWatchers();
   }
-  _shuffleFolderWatchers() {
-    // figure out which watchers we need
+
+  private _shuffleFolderWatchers(): void {
     const treeWatcherPathsWeNeed = removeChildFolders(Object.keys(this._folderWatchersByPath));
-    // figure out of those we have which we need to remove and which we need to add
     const treeWatcherPathsWeHave = Object.keys(this._treeWatchersDispatcherByPath);
     const treeWatcherPathsToRemove = _.difference(treeWatcherPathsWeHave, treeWatcherPathsWeNeed);
     const treeWatcherPathsToAdd = _.difference(treeWatcherPathsWeNeed, treeWatcherPathsWeHave);
 
-    // remove all folder watchers
     for (const treeWatcherDispatcher of Object.values(this._treeWatchersDispatcherByPath)) {
       treeWatcherDispatcher.removeAllWatchers();
     }
 
-    // remove unneeded tree watchers
     for (const treeWatcherPath of treeWatcherPathsToRemove) {
       const treeWatcherDispatcher = this._treeWatchersDispatcherByPath[treeWatcherPath];
-      const treeWatcher = treeWatcherDispatcher.treeWatcher;
+      const treeWatcher = treeWatcherDispatcher.treeWatcher!;
       treeWatcherDispatcher.close();
       treeWatcher.close();
       delete this._treeWatchersDispatcherByPath[treeWatcherPath];
     }
 
-    // create needed tree watchers
     for (const treeWatcherPath of treeWatcherPathsToAdd) {
       const treeWatcher = new TreeWatcher(treeWatcherPath);
       const treeWatcherDispatcher = new TreeWatcherDispatcher(treeWatcher);
       this._treeWatchersDispatcherByPath[treeWatcherPath] = treeWatcherDispatcher;
     }
 
-    // add folders to dispatchers
     for (const [folderPath, folderWatchersForPath] of Object.entries(this._folderWatchersByPath)) {
-      for (let i = 0; i < treeWatcherPathsWeNeed.length; ++i) {
-        const treeWatcherPath = treeWatcherPathsWeNeed[i];
+      for (const treeWatcherPath of treeWatcherPathsWeNeed) {
         if (folderPath.startsWith(treeWatcherPath)) {
           this._treeWatchersDispatcherByPath[treeWatcherPath].addFolderWatchers(folderWatchersForPath);
           break;
