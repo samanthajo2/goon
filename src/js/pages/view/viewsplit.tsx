@@ -2,7 +2,7 @@
 Copyright 2024 SamanthaJo
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the “Software”), to deal in
+this software and associated documentation files (the "Software"), to deal in
 the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
 the Software, and to permit persons to whom the Software is furnished to do so,
@@ -11,7 +11,7 @@ subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
 FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
@@ -20,23 +20,26 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import { observable, action } from 'mobx';
-import {observer} from 'mobx-react';
+import { observable, action, IObservableArray } from 'mobx';
+import { observer } from 'mobx-react';
 import ResizeSensor from '../../lib/ui/resize-sensor';
 import _ from 'lodash';
-import {ipcRenderer} from 'electron';  // eslint-disable-line
-import bind from '../../lib/bind';
+import { ipcRenderer } from 'electron';  // eslint-disable-line
 import debug from '../../lib/debug';
 import VPair from './vpair';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
 import ActionEvent from '../../lib/action-event';
 import ActionListener from '../../lib/action-listener';
-import {getRotatedXY} from '../../lib/rotatehelper';
-import {px} from '../../lib/utils';
+import { getRotatedXY } from '../../lib/rotatehelper';
+import { px } from '../../lib/utils';
+import { FolderStateRoot } from './folder-state-helper';
+import { Preferences } from '../prefs/default-prefs';
+import { GridMode } from './grid-modes';
 
 /* global Yoga */
 
-const assert = console.assert.bind(console);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const assert = (condition: unknown, ...msg: any[]): void => console.assert(Boolean(condition), ...msg);
 const sliderSize = 5;
 const splitMinSize = 10;
 
@@ -45,30 +48,59 @@ const dummyEvent = {
   stopPropagation: () => {},
 };
 
-function clamp(v, min, max) {
+function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));
 }
 
-function fudge(v) {
+function fudge(v: number): number {
   return Math.round(v);
 }
 
+type TwoBounds = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
+
+type TwoDump = {
+  splitType: number;
+  sliderPercent: number;
+  children: TwoDump[];
+  initialState?: unknown;
+};
+
+let g_twoCount = 0;
+
 class Two {
-  constructor(id) {
+  static NONE = 0;
+  static HORIZONTAL = 1;
+  static VERTICAL = 2;
+
+  static createId(): string {
+    return `two-${++g_twoCount}`;
+  }
+
+  splitType: number;
+  id: string;
+  children: Two[];
+  parent?: Two;
+  sliderPos: number;
+  sliderPercent: number;
+  bounds: TwoBounds;
+  initialState?: unknown;
+
+  constructor(id?: string) {
     this.splitType = Two.NONE;
     this.id = id || Two.createId();
     this.children = [];
-    this.sliderPos = 0;       // position of slider in pixels. Read only
-    this.sliderPercent = 0;   // position of slider in percent. This is the source position
-    this.bounds = {
-      left: 0,
-      top: 0,
-      width: 1,
-      height: 1,
-    };
+    this.sliderPos = 0;
+    this.sliderPercent = 0;
+    this.bounds = { left: 0, top: 0, width: 1, height: 1 };
   }
-  restore(data, twos) {
-    let active;
+
+  restore(data: TwoDump, twos: Record<string, Two>): Two | null {
+    let active: Two | null = null;
     this.splitType = data.splitType;
     this.sliderPercent = data.sliderPercent;
     if (data.initialState !== undefined) {
@@ -84,9 +116,10 @@ class Two {
     });
     return this.children.length ? null : this;
   }
-  layout(width, height) {
+
+  layout(width: number, height: number): Two[] {
     const config = Yoga.Config.create();
-    const twos = [];
+    const twos: Two[] = [];
     const root = this._makeNode(config, twos);
     root.setWidth(width);
     root.setHeight(height);
@@ -96,8 +129,9 @@ class Two {
     config.free();
     return twos;
   }
-  dump() {
-    const result = {
+
+  dump(): TwoDump {
+    const result: TwoDump = {
       splitType: this.splitType,
       sliderPercent: this.sliderPercent,
       children: this.children.map((child) => child.dump()),
@@ -107,7 +141,9 @@ class Two {
     }
     return result;
   }
-  _makeNode(config, twos) {
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _makeNode(config: any, twos: Two[]): any {
     const node = Yoga.Node.create(config);
     node.setFlexGrow(1);
     node.setFlexBasis(1);
@@ -135,7 +171,9 @@ class Two {
     }
     return node;
   }
-  _applyLayout(node, xOff, yOff) {
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _applyLayout(node: any, xOff: number, yOff: number): void {
     const x = xOff + node.getComputedLeft();
     const y = yOff + node.getComputedTop();
     this.bounds.left = x;
@@ -159,71 +197,73 @@ class Two {
       child1._applyLayout(node.getChild(needSlider ? 2 : 1), x, y);
     }
   }
-  _removeChild(child) {
+
+  private _removeChild(child: Two): void {
     const ndx = this.children.indexOf(child);
     assert(ndx >= 0, 'it is our child');
     this.children.splice(ndx, 1);
   }
-  _addChild(child) {
+
+  private _addChild(child: Two): void {
     assert(this.children.length < 2, 'less than 2 children');
     this.children.push(child);
   }
-  _setParent(parent) {
+
+  private _setParent(parent: Two | null): void {
     if (this.parent) {
       this.parent._removeChild(this);
     }
-    this.parent = parent;
+    this.parent = parent ?? undefined;
     if (parent) {
       parent._addChild(this);
     }
   }
-  getRightMost() {
+
+  getRightMost(): Two {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
-    let current = this;
+    let current: Two = this;
     while (current.children.length) {
       current = current.children[current.children.length - 1];
     }
     return current;
   }
-  getLeftMost() {
+
+  getLeftMost(): Two {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
-    let current = this;
+    let current: Two = this;
     while (current.children.length) {
       current = current.children[0];
     }
     return current;
   }
-  getPrev() {
+
+  getPrev(): Two {
     const parent = this.parent;
     if (!parent) {
       return this.getRightMost();
     }
-    // are we the right child?
     if (parent.children.length === 2 && parent.children[1] === this) {
       return parent.children[0].getRightMost();
     }
-    // we're the left child
     return parent.getPrev();
   }
-  getNext() {
+
+  getNext(): Two {
     const parent = this.parent;
     if (!parent) {
       return this.getLeftMost();
     }
-    // are we the left child?
     if (parent.children.length === 2 && parent.children[0] === this) {
       return parent.children[1].getLeftMost();
     }
-    // we're the right child
     return parent.getNext();
   }
-  split(splitType, newSecond) {
+
+  split(splitType: number, newSecond: boolean): Two {
     assert(this.splitType === Two.NONE, 'not already split');
     assert(this.children.length === 0, 'we have no children');
-    // when we split we make a new copy of ourself,
-    // add that copy as our child and make a new child
     const clone = new Two(this.id);
-    this.id = Two.createId();  // we need a new id since our clone has our id
+    this.id = Two.createId();
     this.splitType = splitType;
     this.sliderPercent = .5;
     if (!newSecond) {
@@ -236,11 +276,11 @@ class Two {
     }
     return newSibling;
   }
-  delete() {
+
+  delete(): Two {
     assert(this.parent, 'we have a parent');
     assert(this.children.length === 0, 'we have no children');
-    // When we delete ourself our parent will copy all the siblings info.
-    const parent = this.parent;
+    const parent = this.parent!;
     this._setParent(null);
     assert(parent.children.length === 1, 'there is one sibling');
     const sibling = parent.children[0];
@@ -252,135 +292,137 @@ class Two {
     sibling.children.slice().forEach((child) => {
       child._setParent(parent);
     });
-    // Find a child with a view
     let node = parent;
     while (node.children.length) {
       node = node.children[0];
     }
     return node;
   }
-  slide(dx, dy) {
+
+  slide(dx: number, dy: number): boolean {
     assert(this.children.length === 2, 'we have 2 children');
     assert(this.splitType !== Two.NONE, 'split type set');
     const horizontal = this.splitType === Two.HORIZONTAL;
     const delta = horizontal ? dy : dx;
     const size = this._getBoundsSize();
     const oldSliderPos = fudge(size * this.sliderPercent);
-    const newSliderPos = clamp(oldSliderPos + delta | 0, splitMinSize, size - splitMinSize);
+    const newSliderPos = clamp(oldSliderPos + (delta | 0), splitMinSize, size - splitMinSize);
     const changed = oldSliderPos !== newSliderPos;
     if (changed) {
-      // There's an issue here which is if you make sliders as small as they can go
-      // but then size the window smaller they'll all get even smaller
       this.sliderPercent = clamp(newSliderPos / size, 0, 1);
-      // window.depth = 1;
-      // console.log('---start---: delta:', delta, this.id, 'oldPos:', oldSliderPos, 'newPos:', newSliderPos);
       this._slideFirstChildSlider(size, delta, true);
       this._slideSecondChildSlider(size, delta, true);
     }
     return changed;
   }
-  _slideFirstChildSlider(newSize, delta, keepFirstSize) {
-    // ++window.depth;
+
+  private _slideFirstChildSlider(newSize: number, delta: number, keepFirstSize: boolean): void {
     if (this.children.length === 2) {
       const newFirstSize = fudge(newSize * this.sliderPercent);
-      // console.log(''.padStart(window.depth * 2), 'slide1stChildSlider:', 'new1stSize:', newFirstSize);
       this.children[0]._slideSliderForNewSize(newFirstSize, delta, this.splitType, keepFirstSize);
     }
-    // --window.depth;
   }
-  _slideSecondChildSlider(newSize, delta, keepFirstSize) {
-    // ++window.depth;
+
+  private _slideSecondChildSlider(newSize: number, delta: number, keepFirstSize: boolean): void {
     if (this.children.length === 2) {
       const newFirstSize = fudge(newSize * this.sliderPercent);
       const newSecondSize = newSize - newFirstSize - sliderSize;
-      // console.log(''.padStart(window.depth * 2), 'slide2ndChildSlider:', 'new2ndSize:', newSecondSize)
       this.children[1]._slideSliderForNewSize(newSecondSize, delta, this.splitType, !keepFirstSize);
-      // --window.depth;
     }
   }
-  _slideSliderForNewSize(newSize, delta, parentSplitType, keepFirstSize) {
+
+  private _slideSliderForNewSize(newSize: number, delta: number, parentSplitType: number, keepFirstSize: boolean): void {
     if (this.children.length !== 2 || this.splitType !== parentSplitType) {
       return;
     }
-    // ++window.depth;
     if (keepFirstSize) {
       const oldSliderPos = fudge(this._getBoundsSize() * this.sliderPercent);
       const newSliderPos = oldSliderPos;
       this.sliderPercent = newSliderPos / newSize;
-      // console.log(''.padStart(window.depth * 2), 'keep1st', this.id, 'oldPos:', t(oldSliderPos), 'newPos:', t(newSliderPos), 'newSize:', t(newSizeOfFirst));
       this._slideSecondChildSlider(newSize, delta, false);
     } else {
       const oldSliderPos = fudge(this._getBoundsSize() * this.sliderPercent);
       const newSliderPos = oldSliderPos - delta;
       this.sliderPercent = newSliderPos / newSize;
-      // console.log(''.padStart(window.depth * 2), 'keep2nd', this.id, 'oldPos:', t(oldSliderPos), 'newPos:', t(newSliderPos), 'newSize:', t(newSizeOfSecond));
       this._slideFirstChildSlider(newSize, delta, false);
     }
-    // --window.depth;
   }
-  _getBoundsSize() {
+
+  private _getBoundsSize(): number {
     return this.splitType === Two.HORIZONTAL ? this.bounds.height : this.bounds.width;
-  }
-  _setBoundsSize(size, horizontal) {
-    if (horizontal) {
-      this.bounds.height = size;
-    } else {
-      this.bounds.width = size;
-    }
   }
 }
 
-let g_twoCount = 0;
-Two.createId = () => `two-${++g_twoCount}`;
+type Options = {
+  columnWidth: number;
+  padding: number;
+  maxSeekTime: number;
+};
 
-Two.NONE = 0;
-Two.HORIZONTAL = 1;
-Two.VERTICAL = 2;
+type WinState = {
+  gridMode: GridMode;
+  thumbnailZoom: number;
+  showUI: number;
+  rotateMode: number;
+  sortMode: string;
+};
 
-// This is the class that manages all the "views". There's only one.
-// Then there are a collection of Two (a thing that is split or not)
-// And a collection of VPair (this shows either an ImageGrid or Viewer).
+type ViewerStateShape = {
+  videoState: { playing: boolean };
+};
+
+type Props = {
+  root: FolderStateRoot;
+  options: Options;
+  prefs: Preferences;
+  winState: WinState;
+  rotateMode: number;
+  startingLayout?: TwoDump;
+  setCurrentView: (vs: ViewSplit) => void;
+  toolbarEventBus: ForwardableEventDispatcher;
+};
+
+type State = {
+  treeVersion: number;
+  currentId: number;
+  dimensions: {
+    width: number;
+    height: number;
+  };
+};
+
 @observer
-export default class ViewSplit extends React.Component {
-  constructor(props) {
+export default class ViewSplit extends React.Component<Props, State> {
+  private _logger: ReturnType<typeof debug>;
+  private _root: Two;
+  private _currentTwo: Two;
+  private _currentView!: VPair;
+  private _vpairs: Record<string, VPair>;
+  private _twos: Record<string, Two>;
+  private _viewers: IObservableArray<ViewerStateShape>;
+  private _eventBus: ForwardableEventDispatcher;
+  private _actionListener: ActionListener;
+  private _saveLayout: _.DebouncedFunc<() => void>;
+  private _currentSlider: Two | null = null;
+  private _sliderMouseHandlersInstalled = false;
+  private _lastX = 0;
+  private _lastY = 0;
+
+  constructor(props: Props) {
     super(props);
     this._logger = debug('ViewSplit');
     this._logger('ctor');
-    bind(
-      this,
-      '_handleResize',
-      '_setCurrentView',
-      '_splitHorizontal',
-      '_splitVertical',
-      '_splitHorizontalAlt',
-      '_splitVerticalAlt',
-      '_deletePane',
-      '_handleActions',
-      '_registerVPair',
-      '_unregisterVPair',
-      '_handleSliderMouseDown',
-      '_handleSliderMouseMove',
-      '_handleSliderMouseUp',
-      '_saveLayout',
-      '_activateNextView',
-      '_activatePrevView',
-      '_playAll',
-      // '_forwardAction',
-    );
 
-    this._saveLayout = _.debounce(this._saveLayout, 500);
+    this._saveLayout = _.debounce(this._doSaveLayout.bind(this), 500);
 
-    // a Two is a view. It contains 2 views, one of which may be
-    // hidden.
     const two = new Two();
     this._root = two;
     this._currentTwo = two;
-    // Maps a two id to a VPair
     this._vpairs = {};
     this._twos = {};
 
     if (props.startingLayout) {
-      this._currentTwo = this._root.restore(props.startingLayout, this._twos);
+      this._currentTwo = this._root.restore(props.startingLayout, this._twos) ?? two;
     }
 
     this.state = {
@@ -408,39 +450,41 @@ export default class ViewSplit extends React.Component {
     this._actionListener.on('prevView', this._activatePrevView);
     this._actionListener.on('playAll', this._playAll);
   }
-  componentDidMount() {
+
+  componentDidMount(): void {
     this.props.setCurrentView(this);
   }
-  componentWillUnmount() {
+
+  componentWillUnmount(): void {
     this._uninstallSliderMouseHandlers();
     this._actionListener.close();
   }
-  getEventBus() {
+
+  getEventBus(): ForwardableEventDispatcher {
     return this._eventBus;
   }
-  getAllVPairs() {
+
+  getAllVPairs(): VPair[] {
     return Object.values(this._vpairs);
   }
-  // this is used so when we split a view the view can start in the same place
-  // as the split view.
-  getActiveViewState() {
+
+  getActiveViewState(): ReturnType<VPair['getState']> {
     return this._currentView.getState();
   }
-  // this is used by the toolbar. I need a mobx reactive object to tweak so changes
-  // to the toolbar affect this view.
-  getViewerState() {
+
+  getViewerState(): ReturnType<VPair['getViewerState']> {
     return this._currentView.getViewerState();
   }
-  // this is used by the toolbar. I need a mobx reactive object to tweak so changes
-  // to the toolbar affect this view.
-  getImagegridState() {
+
+  getImagegridState(): ReturnType<VPair['getImagegridState']> {
     return this._currentView.getImagegridState();
   }
-  // Used by toolbar for playAll button
-  anyPlaying() {
+
+  anyPlaying(): boolean {
     return this._viewers.some(vs => vs.videoState.playing);
   }
-  _saveLayout() {
+
+  private _doSaveLayout(): void {
     for (const [twoId, vpair] of Object.entries(this._vpairs)) {
       const two = this._twos[twoId];
       if (two) {
@@ -449,93 +493,114 @@ export default class ViewSplit extends React.Component {
     }
     ipcRenderer.send('saveSplitLayout', this._root.dump());
   }
-  _handleResize(contentRect) {
+
+  private _handleResize = (contentRect: { client: { width: number; height: number } }): void => {
     const width = contentRect.client.width;
     const height = contentRect.client.height;
     this._logger('old dim:', `${this.state.dimensions.width}x${this.state.dimensions.height}`, 'new dim:', `${width}x${height}`);
     if (this.state.dimensions.width !== width || this.state.dimensions.height !== height) {
       this.setState({
-        dimensions: {
-          width,
-          height,
-        },
+        dimensions: { width, height },
       });
     }
-  }
-  _handleActions(...args) {
-    this._actionListener.routeAction(...args);
-  }
-  _bumpTreeVersion() {
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _handleActions = (event: any, ...args: unknown[]): void => {
+    this._actionListener.routeAction(event, ...args);
+  };
+
+  private _bumpTreeVersion(): void {
     this._saveLayout();
     this.setState((prevState) => ({
       treeVersion: prevState.treeVersion + 1,
     }));
   }
-  @action _addViewer(viewerState) {
+
+  @action private _addViewer(viewerState: ViewerStateShape): void {
     this._viewers.push(viewerState);
   }
-  @action _removeViewer(viewerState) {
-    this._viewers = this._viewers.filter(s => s !== viewerState);
+
+  @action private _removeViewer(viewerState: ViewerStateShape): void {
+    this._viewers.replace(this._viewers.filter(s => s !== viewerState));
   }
-  _registerVPair(vpair) {
+
+  private _registerVPair = (vpair: VPair): void => {
     this._vpairs[vpair.props.twoId] = vpair;
     this._addViewer(vpair.getViewerState());
-  }
-  _unregisterVPair(vpair) {
+  };
+
+  private _unregisterVPair = (vpair: VPair): void => {
     this._removeViewer(vpair.getViewerState());
     delete this._vpairs[vpair.props.twoId];
-  }
-  _splitHorizontalImpl(forwardableEvent, newOnRight) {
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _splitHorizontalImpl(forwardableEvent: any, newOnRight: boolean): void {
     forwardableEvent.stopPropagation();
     const stateOfViewBeingSplit = this.getActiveViewState();
     const two = this._currentTwo.split(Two.HORIZONTAL, newOnRight);
     two.initialState = stateOfViewBeingSplit;
     this._bumpTreeVersion();
   }
-  _splitHorizontal(forwardableEvent) {
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _splitHorizontal = (forwardableEvent: any): void => {
     this._splitHorizontalImpl(forwardableEvent, false);
-  }
-  _splitHorizontalAlt(forwardableEvent) {
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _splitHorizontalAlt = (forwardableEvent: any): void => {
     this._splitHorizontalImpl(forwardableEvent, true);
-  }
-  _splitVerticalImpl(forwardableEvent, newOnBottom) {
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _splitVerticalImpl(forwardableEvent: any, newOnBottom: boolean): void {
     forwardableEvent.stopPropagation();
     const stateOfViewBeingSplit = this.getActiveViewState();
     const two = this._currentTwo.split(Two.VERTICAL, newOnBottom);
     two.initialState = stateOfViewBeingSplit;
     this._bumpTreeVersion();
   }
-  _splitVertical(forwardableEvent) {
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _splitVertical = (forwardableEvent: any): void => {
     this._splitVerticalImpl(forwardableEvent, false);
-  }
-  _splitVerticalAlt(forwardableEvent) {
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _splitVerticalAlt = (forwardableEvent: any): void => {
     this._splitVerticalImpl(forwardableEvent, true);
-  }
-  _deletePane(forwardableEvent) {
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _deletePane = (forwardableEvent: any): void => {
     forwardableEvent.stopPropagation();
     this._deleteCurrentPane();
-  }
-  _deleteCurrentPane() {
+  };
+
+  private _deleteCurrentPane(): void {
     if (this._currentTwo !== this._root) {
       this._setCurrentViewFromTwo(this._currentTwo.delete());
       this._bumpTreeVersion();
     }
   }
-  _activateNextView(forwardableEvent) {
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _activateNextView = (forwardableEvent: any): void => {
     forwardableEvent.stopPropagation();
     const next = this._currentTwo.getNext();
     this._setCurrentViewFromTwo(next);
-  }
-  _activatePrevView(forwardableEvent) {
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _activatePrevView = (forwardableEvent: any): void => {
     forwardableEvent.stopPropagation();
     const next = this._currentTwo.getPrev();
     this._setCurrentViewFromTwo(next);
-  }
-  _getCursorStyle() {
-    const extra = this.state.splitType === 'horizontal' ? 1 : 0;
-    return (this.props.rotateMode + extra) % 2 ? 'row-resize' : 'col-resize';
-  }
-  _setCurrentVPairAndTwo(vpair, two) {
+  };
+
+  private _setCurrentVPairAndTwo(vpair: VPair, two: Two): void {
     if (this._currentView) {
       this._currentView.getDownstreamEventBus().setForward(null);
     }
@@ -546,34 +611,40 @@ export default class ViewSplit extends React.Component {
     vpair.getDownstreamEventBus().setForward(this.props.toolbarEventBus);
     this._bumpCurrentId();
   }
-  _setCurrentViewFromTwo(two) {
+
+  private _setCurrentViewFromTwo(two: Two): void {
     const vpair = this._vpairs[two.id];
     assert(vpair);
     this._setCurrentVPairAndTwo(vpair, two);
   }
-  _setCurrentView(vpair) {
+
+  private _setCurrentView = (vpair: VPair): void => {
     assert(vpair);
     assert(vpair.props.twoId);
     const two = this._twos[vpair.props.twoId];
     assert(two);
     this._setCurrentVPairAndTwo(vpair, two);
-  }
-  _playAll(forwardableEvent) {
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _playAll = (forwardableEvent: any): void => {
     forwardableEvent.stopPropagation();
     const anyPlaying = this.anyPlaying();
-    for (const vpair of Object.entries(this._vpairs)) {
-      const action = {action: 'togglePlay', force: !anyPlaying};
-      const event = new ActionEvent(action, dummyEvent);
-      vpair[1].getEventBus().dispatch(event);
+    for (const vpair of Object.values(this._vpairs)) {
+      const act = { action: 'togglePlay' as const, force: !anyPlaying };
+      const event = new ActionEvent(act, dummyEvent as Event);
+      vpair.getEventBus().dispatch(event);
     }
-  }
-  _bumpCurrentId() {
+  };
+
+  private _bumpCurrentId(): void {
     this._saveLayout();
     this.setState((prevState) => ({
       currentId: prevState.currentId + 1,
     }));
   }
-  _handleSliderMouseDown(e, id) {
+
+  private _handleSliderMouseDown = (e: MouseEvent, id: string): void => {
     e.stopPropagation();
     e.preventDefault();
     const two = this._twos[id];
@@ -584,8 +655,9 @@ export default class ViewSplit extends React.Component {
     const mousePos = getRotatedXY(e, 'client', this.props.rotateMode);
     this._lastX = mousePos.x;
     this._lastY = mousePos.y;
-  }
-  _handleSliderMouseMove(e) {
+  };
+
+  private _handleSliderMouseMove = (e: MouseEvent): void => {
     e.stopPropagation();
     e.preventDefault();
     assert(this._currentSlider, 'have current slider');
@@ -595,28 +667,32 @@ export default class ViewSplit extends React.Component {
     this._lastX = mousePos.x;
     this._lastY = mousePos.y;
     this._logger('dx:', dx, 'dy:', dy);
-    if (this._currentSlider.slide(dx, dy)) {
+    if (this._currentSlider!.slide(dx, dy)) {
       this._bumpTreeVersion();
     }
-  }
-  _handleSliderMouseUp(e) {
+  };
+
+  private _handleSliderMouseUp = (e: MouseEvent): void => {
     e.stopPropagation();
     e.preventDefault();
     this._uninstallSliderMouseHandlers();
-  }
-  _makeSliderMouseDownHandler(id) {
-    return (e) => {
-      this._handleSliderMouseDown(e, id);
+  };
+
+  private _makeSliderMouseDownHandler(id: string): (e: React.MouseEvent) => void {
+    return (e: React.MouseEvent) => {
+      this._handleSliderMouseDown(e.nativeEvent, id);
     };
   }
-  _installSliderMouseHandlers() {
+
+  private _installSliderMouseHandlers(): void {
     if (!this._sliderMouseHandlersInstalled) {
       this._sliderMouseHandlersInstalled = true;
       window.addEventListener('mousemove', this._handleSliderMouseMove);
       window.addEventListener('mouseup', this._handleSliderMouseUp);
     }
   }
-  _uninstallSliderMouseHandlers() {
+
+  private _uninstallSliderMouseHandlers(): void {
     this._currentSlider = null;
     if (this._sliderMouseHandlersInstalled) {
       this._sliderMouseHandlersInstalled = false;
@@ -624,7 +700,8 @@ export default class ViewSplit extends React.Component {
       window.removeEventListener('mouseup', this._handleSliderMouseUp);
     }
   }
-  render() {
+
+  render(): React.ReactNode {
     this._logger('render');
     const width = this.state.dimensions.width;
     const height = this.state.dimensions.height;
@@ -636,7 +713,7 @@ export default class ViewSplit extends React.Component {
       const bounds = two.bounds;
       this._logger('splitType:', two.splitType, bounds);
       if (two.splitType === Two.NONE) {
-        const style = {
+        const style: React.CSSProperties = {
           position: 'absolute',
           left: px(bounds.left),
           top: px(bounds.top),
@@ -652,7 +729,7 @@ export default class ViewSplit extends React.Component {
             <VPair
               root={this.props.root}
               twoId={two.id}
-              initialState={two.initialState}
+              initialState={two.initialState as never}
               width={bounds.width}
               isCurrentView={this._currentTwo === two}
               options={this.props.options}
@@ -670,10 +747,8 @@ export default class ViewSplit extends React.Component {
         );
       } else {
         const rot90 = (this.props.rotateMode % 2) !== 0;
-        // const h = two.splitType === Two.HORIZONTAL;
-        // const horizontal = h ? !rot90 : rot90;
         const horizontal = two.splitType === Two.HORIZONTAL;
-        const style = horizontal ? {
+        const style: React.CSSProperties = horizontal ? {
           position: 'absolute',
           width: px(bounds.width),
           height: px(sliderSize),
@@ -702,7 +777,7 @@ export default class ViewSplit extends React.Component {
       <ResizeSensor onResize={this._handleResize}>
         {({ measureRef }) => (
           <div
-            style={{position: 'relative', width: '100%', height: '100%'}}
+            style={{ position: 'relative', width: '100%', height: '100%' }}
             ref={measureRef}
           >
             {views}

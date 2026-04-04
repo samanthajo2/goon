@@ -2,7 +2,7 @@
 Copyright 2024 SamanthaJo
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the “Software”), to deal in
+this software and associated documentation files (the "Software"), to deal in
 the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
 the Software, and to permit persons to whom the Software is furnished to do so,
@@ -11,7 +11,7 @@ subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
 FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
@@ -20,10 +20,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import {observable, action} from 'mobx';
-import {observer} from 'mobx-react';
+import { observable, action } from 'mobx';
+import { observer } from 'mobx-react';
 import ActionEvent from '../../lib/action-event';
-import bind from '../../lib/bind';
 import debug from '../../lib/debug';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
 import ListenerManager from '../../lib/listener-manager';
@@ -31,14 +30,102 @@ import MediaManagerClient from '../../lib/media-manager-client';
 import ForwardableEvent from '../../lib/forwardable-event';
 import ImageGrids from './image-grids';
 import Viewer from './viewer';
-import {CSSArray} from '../../lib/css-utils';
-import {euclideanModulo} from '../../lib/utils';
+import { CSSArray } from '../../lib/css-utils';
+import { euclideanModulo } from '../../lib/utils';
+import ActionListener from '../../lib/action-listener';
+import { FolderStateRoot } from './folder-state-helper';
+import { Preferences } from '../prefs/default-prefs';
+import { ScrollAnchor } from './image-grids';
+import { VideoState } from './viewer-events';
+import { GridMode } from './grid-modes';
 
 let g_vpairCount = 0;
 
+type Options = {
+  columnWidth: number;
+  padding: number;
+  maxSeekTime: number;
+};
+
+type WinState = {
+  gridMode: GridMode;
+  thumbnailZoom: number;
+  showUI: number;
+  rotateMode: number;
+  sortMode: string;
+};
+
+// MobX observable shape for the viewer/video state
+type ObservableVideoState = VideoState;
+
+type ObservableViewerState = {
+  viewing: boolean;
+  mimeType: string;
+  filename: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fileInfo: any;
+  duration: number;
+  rotation: number;
+  stretchMode: string;
+  zoom: number;
+  slideshow: boolean;
+  videoState: ObservableVideoState;
+};
+
+type ObservableImagegridState = {
+  currentCollection: unknown;
+};
+
+type InitialViewerState = Partial<ObservableViewerState> & {
+  videoState?: Partial<ObservableVideoState>;
+};
+
+type InitialState = {
+  viewerState?: InitialViewerState;
+  imagegridState?: Partial<ObservableImagegridState>;
+  state?: Partial<ComponentState>;
+  scrollTop?: number;
+  scrollAnchor?: ScrollAnchor | null;
+};
+
+type Props = {
+  twoId: string;
+  initialState?: InitialState;
+  width: number;
+  isCurrentView: boolean;
+  options: Options;
+  prefs: Preferences;
+  winState: WinState;
+  rotateMode: number;
+  eventBus: ForwardableEventDispatcher;
+  setCurrentView: (vpair: VPair) => void;
+  actionListener: ActionListener;
+  registerVPair: (vpair: VPair) => void;
+  unregisterVPair: (vpair: VPair) => void;
+  saveLayout?: () => void;
+  root: FolderStateRoot;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  settings?: any;
+};
+
+type ComponentState = {
+  currentImageIndex: number;
+  gotoFolderNdx: number;
+};
+
 @observer
-export default class VPair extends React.Component {
-  constructor(props) {
+export default class VPair extends React.Component<Props, ComponentState> {
+  private _logger: ReturnType<typeof debug>;
+  private _downstreamEventBus: ForwardableEventDispatcher;
+  private _eventBus: ForwardableEventDispatcher;
+  private _mediaManager: MediaManagerClient;
+  private _viewerState: ObservableViewerState;
+  private _imagegridState: ObservableImagegridState;
+  private _imagegridsScrollTop: number;
+  private _imagegridsAnchor: ScrollAnchor | null;
+  private _listenerManager: ListenerManager;
+
+  constructor(props: Props) {
     super(props);
     this._logger = debug('VPair', ++g_vpairCount);
     this._logger('ctor');
@@ -47,90 +134,58 @@ export default class VPair extends React.Component {
     this._eventBus = new ForwardableEventDispatcher();
     this._eventBus.debugId = this._logger.getPrefix();
     this._mediaManager = new MediaManagerClient();
-    bind(
-      this,
-      '_close',
-      '_gotoNext',
-      '_gotoPrev',
-      '_gotoImage',
-      '_setCurrentNdx',
-      '_handleClick',
-      '_setCurrentView',
-      '_handleActions',
-      '_viewCurrentIndex',
-      '_saveScrollTop',
-      '_splitUp',
-      '_splitDown',
-      '_splitLeft',
-      '_splitRight',
-      '_startViewingImage',
-      '_stopViewingImage',
-    );
 
-    const {initialState: initialStates = {}} = props;
+    const { initialState: initialStates = {} } = props;
     const {
       viewerState: initialViewerState = {},
       imagegridState: initialImagegridState = {},
-      state: initialState = {},
+      state: initialStateValues = {},
       scrollTop: initialScrollTop = 0,
       scrollAnchor: initialScrollAnchor = null,
     } = initialStates;
-    const {videoState: initialVideoState = {}} = initialViewerState;
+    const { videoState: initialVideoState = {} } = initialViewerState;
 
-    const videoState = observable({
-      ...{
-        playing: false,
-        time: 0,
-        duration: 1,
-        playbackRate: 1,
-        volume: 1,
-        loop: 0,   // 0 no loop, 1 = start set, 2 = start and end set (looping)
-        loopStart: 0,
-        loopEnd: 1,
-        currentUrl: '',
-      },
+    const videoState: ObservableVideoState = observable({
+      playing: false,
+      time: 0,
+      duration: 1,
+      playbackRate: 1,
+      volume: 1,
+      loop: 0,
+      loopStart: 0,
+      loopEnd: 1,
+      currentUrl: '',
       ...initialVideoState,
     });
 
     this._viewerState = observable.object({
-      ...{
-        viewing: false,
-        mimeType: 'image',  // mimeType image, video
-        filename: '',
-        fileInfo: {},
-        duration: 1,
-        rotation: 0,
-        stretchMode: 'constrain',
-        zoom: 1,
-        slideshow: false,
-      },
+      viewing: false,
+      mimeType: 'image',
+      filename: '',
+      fileInfo: {},
+      duration: 1,
+      rotation: 0,
+      stretchMode: 'constrain',
+      zoom: 1,
+      slideshow: false,
       ...initialViewerState,
-      ...{
-        videoState,
-      }
-    }, {}, {deep: false});
+      videoState,
+    } as ObservableViewerState, {}, { deep: false });
 
-    const imageGridState = {
-      ...{
-        currentCollection: undefined,
-      },
+    this._imagegridState = observable.object({
+      currentCollection: undefined,
       ...initialImagegridState,
-    };
-
-    this._imagegridState = observable.object(imageGridState, {}, {deep: false});
+    } as ObservableImagegridState, {}, { deep: false });
 
     this.state = {
-      ...{
-        currentImageIndex: -1,
-        gotoFolderNdx: -1,
-      },
-      ...initialState,
+      currentImageIndex: -1,
+      gotoFolderNdx: -1,
+      ...initialStateValues,
     };
-    // should this be state? I don't want it to re-render!
+
     this._imagegridsScrollTop = initialScrollTop;
     this._imagegridsAnchor = initialScrollAnchor;
 
-    this._viewing = false;
     this.props.setCurrentView(this);
     this._listenerManager = new ListenerManager();
     const on = this._listenerManager.on.bind(this._listenerManager);
@@ -143,21 +198,22 @@ export default class VPair extends React.Component {
     on(eventBus, 'hide', this._stopViewingImage);
     on(eventBus, 'goToImage', this._gotoImage);
   }
-  componentDidMount() {
+
+  componentDidMount(): void {
     this.props.registerVPair(this);
   }
-  componentWillUnmount() {
+
+  componentWillUnmount(): void {
     this.props.unregisterVPair(this);
     this._mediaManager.close();
     this._listenerManager.removeAll();
   }
-  // this is used so when we split a view the view can start in the same place
-  // as the split view.
-  getState() {
+
+  getState(): InitialState {
     return {
       viewerState: {
         ...this._viewerState,
-        videoState: {...this._viewerState.videoState},
+        videoState: { ...this._viewerState.videoState },
       },
       imagegridState: {
         ...this._imagegridState,
@@ -169,77 +225,75 @@ export default class VPair extends React.Component {
       scrollAnchor: this._imagegridsAnchor,
     };
   }
-  // this is used by the toolbar. I need a mobx reactive object to tweak so changes
-  // to the toolbar affect this view.
-  getViewerState() {
+
+  getViewerState(): ObservableViewerState {
     return this._viewerState;
   }
-  // this is used by the toolbar. I need a mobx reactive object to tweak so changes
-  // to the toolbar affect this view.
-  getImagegridState() {
+
+  getImagegridState(): ObservableImagegridState {
     return this._imagegridState;
   }
-  getDownstreamEventBus() {
+
+  getDownstreamEventBus(): ForwardableEventDispatcher {
     return this._downstreamEventBus;
   }
-  getEventBus() {
+
+  getEventBus(): ForwardableEventDispatcher {
     return this._eventBus;
   }
-  @action _startViewingImage(event, fileInfo) {
+
+  @action private _startViewingImage = (_event: ForwardableEvent, fileInfo: { type: string; filename?: string }): void => {
     this._viewerState.viewing = true;
     this._viewerState.fileInfo = fileInfo;
     this._viewerState.mimeType = fileInfo.type;
-  }
-  @action _stopViewingImage() {
+  };
+
+  @action private _stopViewingImage = (): void => {
     this._viewerState.viewing = false;
-  }
-  _setCurrentNdx(forwardableEvent, ndx) {
+  };
+
+  private _setCurrentNdx = (_forwardableEvent: ForwardableEvent, ndx: number): void => {
     this._logger('setCurrentImage:', ndx);
     this.setState({
       currentImageIndex: ndx,
     });
-  }
-  _close(e) {
+  };
+
+  private _close = (e: React.MouseEvent): void => {
     e.stopPropagation();
     this.props.setCurrentView(this);
-    this._eventBus.dispatch(new ActionEvent({action: 'deletePane'}));
-  }
-  _splitLeft() {
+    this._eventBus.dispatch(new ActionEvent({ action: 'deletePane' }));
+  };
+
+  private _splitLeft = (): void => {
     this.props.setCurrentView(this);
-    this._eventBus.dispatch(new ActionEvent({action: 'splitVerticalAlt'}));
-  }
-  _splitRight() {
+    this._eventBus.dispatch(new ActionEvent({ action: 'splitVerticalAlt' }));
+  };
+
+  private _splitRight = (): void => {
     this.props.setCurrentView(this);
-    this._eventBus.dispatch(new ActionEvent({action: 'splitVertical'}));
-  }
-  _splitUp() {
+    this._eventBus.dispatch(new ActionEvent({ action: 'splitVertical' }));
+  };
+
+  private _splitUp = (): void => {
     this.props.setCurrentView(this);
-    this._eventBus.dispatch(new ActionEvent({action: 'splitHorizontalAlt'}));
-  }
-  _splitDown() {
+    this._eventBus.dispatch(new ActionEvent({ action: 'splitHorizontalAlt' }));
+  };
+
+  private _splitDown = (): void => {
     this.props.setCurrentView(this);
-    this._eventBus.dispatch(new ActionEvent({action: 'splitHorizontal'}));
-  }
-  _gotoImage(event, ndx, folderNdx) {
+    this._eventBus.dispatch(new ActionEvent({ action: 'splitHorizontal' }));
+  };
+
+  private _gotoImage = (_event: ForwardableEvent, ndx: number, folderNdx: number): void => {
     this._eventBus.dispatch(new ForwardableEvent('hide'));
-    // This is a CRAP!
-    // The issue is the user is using the VIEWER
-    // this message means (close the viewer, open the imagegrids, set it to a certain folder)
-    // Since if the user is using the viewer the ImageGrids does not exist yet
-    // the message we're dispatching will be lost. Hacky solution is
-    // to pass the folder we want so when the ImageGrids is instanciated
-    // it can start at the folder. On the other hand, once it's started
-    // we don't want to base it off state since the user should be able
-    // to freely scroll. Maybe a different solution would be able compute
-    // the scroll position but we don't know the scroll position since it's
-    // the imagegrids that computes that info.
-    // See _saveScrollTop below for rest of hack
     this.setState({
       gotoFolderNdx: folderNdx,
     });
     this._eventBus.dispatch(new ForwardableEvent('scrollToImage'), ndx, folderNdx);
-  }
-  _viewImage(imgNdx) {
+  };
+
+  private _viewImage(imgNdx: number): void {
     let ndx = imgNdx;
     this._logger('viewImage: ', ndx);
     const folders = this.props.root.folders;
@@ -253,36 +307,42 @@ export default class VPair extends React.Component {
     }
     throw new Error('image index out of range');
   }
-  _viewCurrentIndex() {
+
+  private _viewCurrentIndex = (): void => {
     this._viewImage(this.state.currentImageIndex);
-  }
-  _gotoNext() {
+  };
+
+  private _gotoNext = (): void => {
     const root = this.props.root;
     this.setState((prevState) => ({
       currentImageIndex: (prevState.currentImageIndex + 1) % root.totalFiles,
     }), this._viewCurrentIndex);
-  }
-  _gotoPrev() {
+  };
+
+  private _gotoPrev = (): void => {
     const root = this.props.root;
     this.setState((prevState) => ({
       currentImageIndex: euclideanModulo(prevState.currentImageIndex - 1, root.totalFiles),
     }), this._viewCurrentIndex);
-  }
-  _setCurrentView() {
+  };
+
+  private _setCurrentView = (): void => {
     this._logger('setCurrentView');
     this.props.setCurrentView(this);
-  }
-  _handleClick() {
+  };
+
+  private _handleClick = (): void => {
     this._setCurrentView();
-  }
-  _handleActions(...args) {
-    this.props.actionListener.routeAction(...args);
-  }
-  _saveScrollTop(scrollTop, anchor) {
+  };
+
+  private _handleActions = (event: import('../../lib/action-event').default, ...args: unknown[]): void => {
+    this.props.actionListener.routeAction(event, ...args);
+  };
+
+  private _saveScrollTop = (scrollTop: number, anchor: ScrollAnchor | null): void => {
     this._imagegridsScrollTop = scrollTop;
     this._imagegridsAnchor = anchor || null;
-    // This is a hack! See _gotoImage above
-    if (this.state.gotoFolderNdx >=  0) {
+    if (this.state.gotoFolderNdx >= 0) {
       this.setState({
         gotoFolderNdx: -1,
       });
@@ -290,12 +350,13 @@ export default class VPair extends React.Component {
     if (this.props.saveLayout) {
       this.props.saveLayout();
     }
-  }
-  render() {
+  };
+
+  render(): React.ReactNode {
     const classes = new CSSArray('vpair');
     classes.addIf(this.props.isCurrentView, 'active');
     return (
-      <div className={classes} onClick={this._handleClick}>
+      <div className={classes.toString()} onClick={this._handleClick}>
         { this._viewerState.viewing ? (
           <Viewer
             options={this.props.options}
@@ -317,12 +378,10 @@ export default class VPair extends React.Component {
             width={this.props.width}
             options={this.props.options}
             prefs={this.props.prefs}
-            settings={this.props.settings}
             winState={this.props.winState}
             imagegridState={this._imagegridState}
             eventBus={this._eventBus}
             rotateMode={this.props.rotateMode}
-            gridMode={this.props.gridMode}
             setCurrentView={this._setCurrentView}
             currentImageIndex={this.state.currentImageIndex}
           />

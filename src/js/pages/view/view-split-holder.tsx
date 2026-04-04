@@ -25,7 +25,9 @@ import ViewSplit from './viewsplit';
 
 const logger = debug('ViewSplitHolder');
 
-export default class ViewSplitHolder extends React.PureComponent {
+type Props = React.ComponentProps<typeof ViewSplit>;
+
+export default class ViewSplitHolder extends React.PureComponent<Props> {
   render(): React.ReactNode {
     logger('render');
     return (
