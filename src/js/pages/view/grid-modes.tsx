@@ -199,7 +199,7 @@ function shortDuration(duration?: number) {
 
 export type GridMode = keyof typeof gridModeDefs;
 
-type ThumbnailProps = {
+export type ThumbnailProps = {
   position: Rect;
   zoom: (v: number) => number;
   showDates: boolean;
@@ -331,7 +331,7 @@ function renderName(props: ThumbnailProps, info: DBFileInfo) {
   return `${date}${name}${dims}`;
 }
 
-function renderNoFrame(props: ThumbnailProps, onClick: () => void, onContextMenu: () => void, onDragStart: () => void) {
+function renderNoFrame(props: ThumbnailProps, onClick: () => void, onContextMenu: (e: React.MouseEvent) => void, onDragStart: (e: React.DragEvent) => void) {
   const info = props.info;
   const style = gridModes.value(props.gridMode).getStyle(props);
   const baseType = `mime-${info.type.split('/')[0]}`;
@@ -347,7 +347,7 @@ function renderNoFrame(props: ThumbnailProps, onClick: () => void, onContextMenu
     </div>
   );
 }
-function renderWithFrame(props: ThumbnailProps, onClick: () => void, onContextMenu: () => void, onDragStart: () => void) {
+function renderWithFrame(props: ThumbnailProps, onClick: () => void, onContextMenu: (e: React.MouseEvent) => void, onDragStart: (e: React.DragEvent) => void) {
   const info = props.info;
   const pos = props.position;
   const style = gridModes.value(props.gridMode).getStyle(props);

@@ -21,6 +21,25 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import ForwardableEvent from '../../lib/forwardable-event';
 
+// MobX observable shape created in viewer.jsx / viewer.tsx
+export type VideoState = {
+  time: number;
+  duration: number;
+  volume: number;
+  playing: boolean;
+  playbackRate: number;
+  currentUrl: string;
+  loop: number;      // 0 = off, 1 = start set, 2 = range set
+  loopStart: number;
+  loopEnd: number;
+};
+
+// Shape passed to FileContextMenu and FolderContextMenu
+export type FolderContextInfo = {
+  filename: string;
+  archive?: boolean;
+};
+
 export class TimeUpdateEvent extends ForwardableEvent {
   time: number;
   duration: number;

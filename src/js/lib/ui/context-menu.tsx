@@ -24,10 +24,11 @@ export function hideMenu(): void {
 interface ContextMenuProps {
   id: string;
   children: React.ReactNode;
+  rotateMode?: number;  // passed by callers for context; not used by this component directly
 }
 
 // Note: only re-renders when `id` changes (parent passes a new id to trigger open/close).
-export function ContextMenu({ id, children }: ContextMenuProps): React.ReactElement | false {
+export function ContextMenu({ id, children }: ContextMenuProps): React.ReactElement | null {
   const [, forceUpdate] = useState(false);
   const [adjustedPos, setAdjustedPos] = useState<{ x: number; y: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -59,7 +60,7 @@ export function ContextMenu({ id, children }: ContextMenuProps): React.ReactElem
 
   const pos = adjustedPos ?? position;
 
-  return (visible && (
+  return visible ? (
     <div
       ref={menuRef}
       className="react-contextmenu"
@@ -73,7 +74,7 @@ export function ContextMenu({ id, children }: ContextMenuProps): React.ReactElem
     >
       {children}
     </div>
-  ));
+  ) : null;
 }
 
 interface MenuItemProps {
