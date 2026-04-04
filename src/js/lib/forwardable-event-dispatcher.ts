@@ -30,9 +30,10 @@ export default class ForwardableEventDispatcher {
   private _handlers: Record<string, Array<(event: ForwardableEvent, ...args: any[]) => void>> = {};
   private _forwarder?: ForwardableEventDispatcher;
   private _backward?: ForwardableEventDispatcher;
+  debugId?: string;
 
-  setForward(forward: ForwardableEventDispatcher): void {
-    this._forwarder = forward;
+  setForward(forward: ForwardableEventDispatcher | null): void {
+    this._forwarder = forward ?? undefined;
     if (forward) {
       forward._setBackward(this);
     }

@@ -32,7 +32,7 @@ type FolderStateFileInfo = FileInfo & {
   sortName: string;
 };
 
-type SortInfo = {
+export type SortInfo = {
   name: string;
   info: FolderStateFileInfo;
 }

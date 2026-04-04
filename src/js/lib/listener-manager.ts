@@ -21,9 +21,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import EventEmitter from 'node:events';
 
-// An element that can be subscribed to — either a DOM EventTarget or a
-// Node.js EventEmitter.
-export type Listenable = EventTarget | EventEmitter;
+// An element that can be subscribed to — either a DOM EventTarget, a
+// Node.js EventEmitter, or any duck-typed emitter with on/removeListener.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type Listenable = EventTarget | EventEmitter | { on(e: string, h: (...a: any[]) => void): void; removeListener(e: string, h: (...a: any[]) => void): void; };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ListenerArgs = [string, ...any[]];
