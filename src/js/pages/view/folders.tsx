@@ -2,7 +2,7 @@
 Copyright 2024 SamanthaJo
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the “Software”), to deal in
+this software and associated documentation files (the "Software"), to deal in
 the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
 the Software, and to permit persons to whom the Software is furnished to do so,
@@ -11,7 +11,7 @@ subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
 FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
@@ -19,17 +19,19 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import PropTypes from 'prop-types';
 import React from 'react';
 import path from 'path';
-import bind from '../../lib/bind';
 import debug from '../../lib/debug';
-import {getRotatedXY} from '../../lib/rotatehelper';
+import { getRotatedXY } from '../../lib/rotatehelper';
 import ForwardableEvent from '../../lib/forwardable-event';
-import {cssArray} from '../../lib/css-utils';
+import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
+import { cssArray } from '../../lib/css-utils';
+import { Preferences } from '../prefs/default-prefs';
+import { FolderStateRoot, FolderStateFolder } from './folder-state-helper';
 
-const s_depthCache = {};
-function depthPrefix(depth) {
+const s_depthCache: Record<number, string> = {};
+
+function depthPrefix(depth: number): string {
   depth = Math.max(0, depth);
   let prefix = s_depthCache[depth];
   if (!prefix) {
@@ -38,7 +40,8 @@ function depthPrefix(depth) {
   }
   return prefix;
 }
-function depthPrefixedFilename(baseFolders, filename) {
+
+function depthPrefixedFilename(baseFolders: string[], filename: string): string {
   for (const baseFolder of baseFolders) {
     if (filename.startsWith(baseFolder)) {
       filename = filename.substring(path.dirname(baseFolder).length + (baseFolder.startsWith('\\\\') ? 0 : 1));
@@ -49,31 +52,36 @@ function depthPrefixedFilename(baseFolders, filename) {
   return `${depthPrefix(depth - 1)}${path.basename(filename)}`;
 }
 
-class Folder extends React.Component {
-  constructor(props) {
-    super(props);
-    bind(
-      this,
-      '_handleClick',
-      '_handleContextMenu',
-    );
-    this._ref = React.createRef();
-  }
-  _handleClick() {
+type FolderProps = {
+  eventBus: ForwardableEventDispatcher;
+  folder: FolderStateFolder;
+  count: number;
+  folderCount: number;
+  numFiles: number;
+  prefs: Preferences;
+};
+
+class Folder extends React.Component<FolderProps> {
+  private _ref = React.createRef<HTMLDivElement>();
+
+  private _handleClick = (): void => {
     this.props.eventBus.dispatch(new ForwardableEvent('goToImage'), this.props.count, this.props.folderCount);
-  }
-  _handleContextMenu(event) {
-    this.props.eventBus.dispatch(new ForwardableEvent('folderContextMenu', event), this.props.folder);
-  }
-  scrollIntoView() {
-    this._ref.current.scrollIntoView({
+  };
+
+  private _handleContextMenu = (event: React.MouseEvent): void => {
+    this.props.eventBus.dispatch(new ForwardableEvent('folderContextMenu', event.nativeEvent), this.props.folder);
+  };
+
+  scrollIntoView(): void {
+    this._ref.current?.scrollIntoView({
       behavior: 'auto',
       block: 'center',
       inline: 'center',
     });
   }
-  render() {
-    const {folder, prefs} = this.props;
+
+  render(): React.ReactNode {
+    const { folder, prefs } = this.props;
     const name = prefs.misc.indentByFolderDepth
       ? depthPrefixedFilename(prefs.folders, folder.filename)
       : folder.name;
@@ -84,7 +92,7 @@ class Folder extends React.Component {
     );
     return (
       <div
-        className={classes}
+        className={classes.toString()}
         onClick={this._handleClick}
         onContextMenu={this._handleContextMenu}
       >
@@ -94,50 +102,52 @@ class Folder extends React.Component {
   }
 }
 
-Folder.propTypes = {
-  // eventBus: PropTypes.object.isRequired,
-  // folder: PropTypes.object.isRequired,
-  folderCount: PropTypes.number.isRequired,
-  count: PropTypes.number.isRequired,
-  numFiles: PropTypes.number.isRequired,
-  // prefs: PropTypes.object.isRequired,
+type Props = {
+  root: FolderStateRoot;
+  eventBus: ForwardableEventDispatcher;
+  prefs: Preferences;
+  show: boolean;
+  rotateMode: number;
 };
 
-export default class Folders extends React.Component {
-  constructor(props) {
+export default class Folders extends React.Component<Props> {
+  private _logger: ReturnType<typeof debug>;
+  private _filenameToRef = new Map<string, React.RefObject<Folder>>();
+  private main!: HTMLDivElement;
+
+  constructor(props: Props) {
     super(props);
     this._logger = debug('Folders');
-    bind(
-      this,
-      '_handleScrollFolderToViewFile',
-      '_handleWheel',
-    );
-    this._filenameToRef = new Map();
     this.props.eventBus.on('scrollFolderViewToFile', this._handleScrollFolderToViewFile);
   }
-  componentDidMount() {
-    this.main.addEventListener('wheel', this._handleWheel, {passive: false});
+
+  componentDidMount(): void {
+    this.main.addEventListener('wheel', this._handleWheel as EventListener, { passive: false });
   }
-  componentWillUnmount() {
-    this.main.removeEventListener('wheel', this._handleWheel, {passive: false});
+
+  componentWillUnmount(): void {
+    this.main.removeEventListener('wheel', this._handleWheel as EventListener);
   }
-  _handleScrollFolderToViewFile(event, folderName) {
+
+  private _handleScrollFolderToViewFile = (_event: unknown, folderName: string): void => {
     const ref = this._filenameToRef.get(folderName);
     if (ref) {
-      ref.current.scrollIntoView();
+      ref.current?.scrollIntoView();
     }
-  }
-  _handleWheel(e) {
+  };
+
+  private _handleWheel = (e: WheelEvent): void => {
     e.preventDefault();
     const pos = getRotatedXY(e, 'delta', this.props.rotateMode);
     this.main.scrollTop += pos.y;
-  }
-  renderFolder(root, dirName, count, folderCtx) {
+  };
+
+  private renderFolder(root: FolderStateRoot): React.ReactNode[] {
     this._filenameToRef.clear();
-    const folders = root.folders.map((folder, ndx) => {
+    return root.folders.map((folder, ndx) => {
       const id = `folder-${folder.filename}`;
       const numFiles = folder.files.length;
-      const ref = React.createRef();
+      const ref = React.createRef<Folder>();
       this._filenameToRef.set(folder.filename, ref);
       return (
         <Folder
@@ -146,19 +156,21 @@ export default class Folders extends React.Component {
           folder={folder}
           numFiles={numFiles}
           count={ndx}
-          folderCount={folderCtx.folderCount + ndx}
+          folderCount={ndx}
           eventBus={this.props.eventBus}
           prefs={this.props.prefs}
         />
       );
     });
-    return folders;
   }
-  render() {
-    const style = {
-      display: this.props.show ? 'block' : 'none',
-    };
-    const folders = this.renderFolder(this.props.root, '', 0, { folderCount: 0 });
-    return (<div ref={(main) => { this.main = main; }} style={style} className="folders">{folders}</div>);
+
+  render(): React.ReactNode {
+    const style = { display: this.props.show ? 'block' : 'none' };
+    const folders = this.renderFolder(this.props.root);
+    return (
+      <div ref={(main) => { this.main = main!; }} style={style} className="folders">
+        {folders}
+      </div>
+    );
   }
 }

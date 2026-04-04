@@ -40,6 +40,26 @@ export type FolderContextInfo = {
   archive?: boolean;
 };
 
+// MobX observable state passed from viewer to toolbars
+export type ViewerState = {
+  zoom: number;
+  mimeType: string;
+  viewing: boolean;
+  filename?: string;
+  videoState: VideoState;
+};
+
+export type ViewerStateHolder = {
+  state: ViewerState | null;
+};
+
+export type ImagegridStateHolder = {
+  state: {
+    zoom: number;
+    currentCollection: unknown;
+  } | null;
+};
+
 export class TimeUpdateEvent extends ForwardableEvent {
   time: number;
   duration: number;

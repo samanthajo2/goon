@@ -2,7 +2,7 @@
 Copyright 2024 SamanthaJo
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the “Software”), to deal in
+this software and associated documentation files (the "Software"), to deal in
 the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
 the Software, and to permit persons to whom the Software is furnished to do so,
@@ -11,7 +11,7 @@ subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
 FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
@@ -21,27 +21,37 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import React from 'react';
 import _ from 'lodash';
-import bind from '../../lib/bind';
-import {actions} from '../../lib/actions';
+import { actions, ActionId } from '../../lib/actions';
 import debug from '../../lib/debug';
 import ForwardableEvent from '../../lib/forwardable-event';
-import gridModes from './grid-modes';
+import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
+import gridModes, { GridMode } from './grid-modes';
 import ActionEvent from '../../lib/action-event';
-import {sortModes} from './folder-state-helper';
+import { sortModes, SortMode } from './folder-state-helper';
+import { ImagegridStateHolder } from './viewer-events';
 
 class SetCollectionEvent extends ForwardableEvent {
-  constructor(collection) {
+  collection: unknown;
+  constructor(collection: unknown) {
     super('setCollection');
     this.collection = collection;
   }
 }
 
-class Range extends React.Component {
-  constructor(props) {
+type RangeProps = {
+  value: number;
+  min: number;
+  max: number;
+  onUpdate: React.ChangeEventHandler<HTMLInputElement>;
+};
+
+class Range extends React.Component<RangeProps> {
+  private id: string;
+  constructor(props: RangeProps) {
     super(props);
     this.id = _.uniqueId('Range');
   }
-  render() {
+  render(): React.ReactNode {
     return (
       <div className="range">
         <input
@@ -57,54 +67,69 @@ class Range extends React.Component {
   }
 }
 
-export default class ImagegridsToolbar extends React.Component {
-  constructor(props) {
+type Collection = { name: string };
+
+type Props = {
+  actions: { [key in ActionId]: () => void };
+  zoom: number;
+  sortMode: SortMode;
+  gridMode: GridMode;
+  collections: Collection[];
+  setThumbnailZoom: (zoom: number) => void;
+  outEventBus: ForwardableEventDispatcher;
+  imagegridStateHolder: ImagegridStateHolder;
+  filter: string;
+  handleUpdateFilter: (value: string) => void;
+  filterInputBlurred: () => void;
+  filterInputFocused: () => void;
+};
+
+export default class ImagegridsToolbar extends React.Component<Props> {
+  private _logger: ReturnType<typeof debug>;
+
+  constructor(props: Props) {
     super(props);
     this._logger = debug('ImagegridsToolbar');
-    bind(
-      this,
-      '_updateFilter',
-      '_handleKeyPress',
-      '_selectCollection',
-      '_changeGridMode',
-      '_changeSortMode',
-    );
   }
-  _makeButton(actionName) {
+
+  private _makeButton(actionName: ActionId): React.ReactNode {
     const actionFuncs = this.props.actions;
     const action = actions[actionName];
     return (
-      <button type="button" onClick={actionFuncs[actionName]} data-tooltip={action.hint}><img src={action.icon} /></button>
+      <button type="button" onClick={actionFuncs[actionName]} data-tooltip={action.hint}>
+        <img src={action.icon} />
+      </button>
     );
   }
-  _handleKeyPress(event) {
-    if (event.key === 'Enter') {
-      event.target.blur();
-    }
-  }
-  _updateFilter(event) {
-    this.props.handleUpdateFilter(event.target.value);
-  }
-  _changeGridMode() {
-    this.props.outEventBus.dispatch(new ActionEvent({action: 'cycleGridMode'}));
-  }
-  _changeSortMode() {
-    this.props.outEventBus.dispatch(new ActionEvent({action: 'cycleSortMode'}));
-  }
-  _selectCollection(event) {
-    this.props.outEventBus.dispatch(new SetCollectionEvent(this.props.collections[event.target.value | 0]));
-  }
-  _getImagegridState() {
-    return this.props.imagegridStateHolder.state || {  // FIX THIS!
-      zoom: 1,
-      currentCollection: undefined,
-    };
-  }
 
-  render() {
+  private _handleKeyPress = (event: React.KeyboardEvent<HTMLInputElement>): void => {
+    if (event.key === 'Enter') {
+      (event.target as HTMLInputElement).blur();
+    }
+  };
+
+  private _updateFilter = (event: React.ChangeEvent<HTMLInputElement>): void => {
+    this.props.handleUpdateFilter(event.target.value);
+  };
+
+  private _changeGridMode = (): void => {
+    this.props.outEventBus.dispatch(new ActionEvent({ action: 'cycleGridMode' }));
+  };
+
+  private _changeSortMode = (): void => {
+    this.props.outEventBus.dispatch(new ActionEvent({ action: 'cycleSortMode' }));
+  };
+
+  private _selectCollection = (event: React.ChangeEvent<HTMLSelectElement>): void => {
+    this.props.outEventBus.dispatch(
+      new SetCollectionEvent(this.props.collections[Number(event.target.value) | 0]),
+    );
+  };
+
+  render(): React.ReactNode {
     this._logger('render');
-    const gridMode = gridModes.value(this.props.gridMode) || { icon: 'images/bad.png' };
-    const sortMode = sortModes.value(this.props.sortMode) || { icon: 'images/bad.png' };
+    const gridMode = gridModes.value(this.props.gridMode) || { icon: 'images/bad.png', hint: '' };
+    const sortMode = sortModes.value(this.props.sortMode) || { icon: 'images/bad.png', hint: '' };
     return (
       <div className="toolbar imagegridstoolbar">
         {/*
@@ -118,7 +143,7 @@ export default class ImagegridsToolbar extends React.Component {
             <option key="collection--1" value="-1">all/none</option>
             {this.props.collections.map((collection, ndx) => {
               return (
-                <option key={`collection-${ndx}`} value={ndx}>{collection.name}</option>  // eslint-disable-line
+                <option key={`collection-${ndx}`} value={ndx}>{collection.name}</option>
               );
             })}
           </select>
@@ -133,7 +158,7 @@ export default class ImagegridsToolbar extends React.Component {
             value={this.props.zoom * 100}
             min={25}
             max={200}
-            onUpdate={(e) => { this.props.setThumbnailZoom((e.target.value | 0) / 100); }}
+            onUpdate={(e) => { this.props.setThumbnailZoom((Number(e.target.value) | 0) / 100); }}
           />
         </div>
         <div className="filter tooltip-high" data-tooltip="filter">

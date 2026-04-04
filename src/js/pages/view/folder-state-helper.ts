@@ -131,14 +131,14 @@ type FolderStateFolderExtra = FolderStatus & {
   oldest: number;
 };
 
-type FolderStateFolder = {
+export type FolderStateFolder = {
   filename: string;
   sortName: string;
   name: string;
   files: SortInfo[];
   totalFiles: number;
 } & FolderStateFolderExtra;
-type FolderStateRoot = {
+export type FolderStateRoot = {
   folders: Array<FolderStateFolder>;
   totalFiles: number;
   indexFn: (array: Array<FolderStateFolder>, folder: FolderStateFolder) => number;
