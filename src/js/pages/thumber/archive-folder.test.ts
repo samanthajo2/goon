@@ -20,8 +20,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import sinon from 'sinon';
-import {describe, it, afterEach} from '../../lib/test/mocha';
-import {assert} from 'chai';
+import { describe, it, afterEach } from '../../lib/test/mocha';
+import { assert } from 'chai';
 import ArchiveFolder from './archive-folder';
 import wait from './../../lib/wait';
 
@@ -30,14 +30,20 @@ describe('ArchiveFolder', () => {
     sinon.restore();
   });
 
-  function setupArchiveFolder({mtimeMs = 1000, scannedTime = undefined, thumbnailPageMaker = sinon.stub()} = {}) {
+  type SetupOptions = {
+    mtimeMs?: number;
+    scannedTime?: number;
+    thumbnailPageMaker?: sinon.SinonStub;
+  };
+
+  function setupArchiveFolder({ mtimeMs = 1000, scannedTime = undefined, thumbnailPageMaker = sinon.stub() }: SetupOptions = {}) {
     const folderData = {
-      files: {},
+      files: {} as Record<string, unknown>,
       baseFilename: 'archive_base',
       scannedTime,
-      addFiles(files) { Object.assign(folderData.files, files); },
-      removeFiles(keys) { for (const k of keys) delete folderData.files[k]; },
-      setScannedTime: sinon.stub().callsFake((time) => {
+      addFiles(files: Record<string, unknown>) { Object.assign(folderData.files, files); },
+      removeFiles(keys: string[]) { for (const k of keys) delete folderData.files[k]; },
+      setScannedTime: sinon.stub().callsFake((time?: number) => {
         folderData.scannedTime = time !== undefined ? time : Date.now();
       }),
       deleteData: sinon.spy(),
@@ -49,7 +55,8 @@ describe('ArchiveFolder', () => {
     };
 
     const folder = new ArchiveFolder('/path/to/archive.zip', {
-      folderData,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      folderData: folderData as any,
       fs,
       thumbnailPageMakerFn: thumbnailPageMaker,
     });
@@ -87,7 +94,7 @@ describe('ArchiveFolder', () => {
 
   it('rescans after update() is called while a scan is in progress', async () => {
     // Deferred first scan so we control when it completes
-    let resolveFirst;
+    let resolveFirst: (() => void) | undefined;
     const thumbnailPageMaker = sinon.stub();
     thumbnailPageMaker.onFirstCall().returns(new Promise(r => { resolveFirst = () => r({}); }));
     thumbnailPageMaker.onSecondCall().resolves({});
@@ -102,7 +109,7 @@ describe('ArchiveFolder', () => {
     assert.strictEqual(thumbnailPageMaker.callCount, 1, 'no second scan started immediately');
 
     // Complete the first scan
-    resolveFirst();
+    resolveFirst!();
     await wait();
     await wait();
 
@@ -116,7 +123,7 @@ describe('ArchiveFolder', () => {
     // Only fake Date so setTimeout/setImmediate/nextTick keep working normally
     const clock = sinon.useFakeTimers({now: 1000, toFake: ['Date']});
 
-    let resolveFirst;
+    let resolveFirst: (() => void) | undefined;
     const thumbnailPageMaker = sinon.stub().returns(
       new Promise(r => { resolveFirst = () => r({}); }),
     );
@@ -128,7 +135,7 @@ describe('ArchiveFolder', () => {
     clock.tick(500); // Date.now() is now 1500
 
     // Complete the scan — finally block should call setScannedTime(1000), not setScannedTime(1500)
-    resolveFirst();
+    resolveFirst!();
     await wait();
     await wait();
 

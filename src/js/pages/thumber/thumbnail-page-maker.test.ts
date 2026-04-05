@@ -2,7 +2,7 @@
 Copyright 2024 SamanthaJo
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the “Software”), to deal in
+this software and associated documentation files (the "Software"), to deal in
 the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
 the Software, and to permit persons to whom the Software is furnished to do so,
@@ -11,7 +11,7 @@ subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
 FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
@@ -20,10 +20,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import sinon from 'sinon';
-import {assert} from 'chai';
+import { assert } from 'chai';
 import createThumbnailPageMaker from './thumbnail-page-maker';
 import bind from '../../lib/bind';
-import {getDifferentFilenames, getObjectsByKeys} from '../../lib/utils';
+import { getDifferentFilenames, getObjectsByKeys } from '../../lib/utils';
 
 // I'm not actually sure what to test here.
 //
@@ -49,12 +49,32 @@ import {getDifferentFilenames, getObjectsByKeys} from '../../lib/utils';
 // Could check that
 import { describe, it } from '../../lib/test/mocha';
 
+type ThumbnailInfo = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  url?: string;
+};
+
+type FileInfo = {
+  type?: string;
+  orientation?: number;
+  width?: number;
+  height?: number;
+  thumbnail?: ThumbnailInfo;
+  fail?: boolean;
+  bad?: boolean;
+};
+
+type Files = Record<string, FileInfo>;
+
 describe('ThumbnailPageMaker', () => {
   const baseFilename = 'foo/bar/moo';
 
-  function createNewFiles(files, filenames) {
+  function createNewFiles(files: Files, filenames?: string[]): Files {
     filenames = filenames || Object.keys(files);
-    const newFiles = {};
+    const newFiles: Files = {};
     filenames.forEach((filename) => {
       const info = files[filename];
       newFiles[filename] = {
@@ -72,9 +92,9 @@ describe('ThumbnailPageMaker', () => {
   }
 
   // This is for when we reload old pages of thumbnails
-  function makeMockImageLoader(files, filenames) {
+  function makeMockImageLoader(files: Files, filenames?: string[]) {
     filenames = filenames || Object.keys(files);
-    const pages = {};
+    const pages: Record<string, boolean> = {};
     filenames.forEach((filename) => {
       const info = files[filename];
       const thumbnail = info.thumbnail;
@@ -103,16 +123,16 @@ describe('ThumbnailPageMaker', () => {
     };
   }
 
-  function makeMockThubmnailMaker(files, filenames) {
+  function makeMockThubmnailMaker(files: Files, filenames?: string[]) {
     filenames = filenames || Object.keys(files);
 
     const release = sinon.spy();
-    const maker = sinon.stub().callsFake((filename /* , fileInfo */) => {
-      const ndx = filenames.indexOf(filename);
+    const maker = sinon.stub().callsFake((filename: string /* , fileInfo */) => {
+      const ndx = (filenames as string[]).indexOf(filename);
       if (ndx < 0) {
         throw new Error(`request for disallowed file: ${filename}`);
       }
-      filenames.splice(ndx, 1);
+      (filenames as string[]).splice(ndx, 1);
       const info = files[filename];
       if (info.fail) {
         return Promise.reject(new Error('dummyElement'));
@@ -122,8 +142,8 @@ describe('ThumbnailPageMaker', () => {
         info,
         canvas: {
           foo: 'fake canvas',
-          width: info.thumbnail.width,
-          height: info.thumbnail.height,
+          width: info.thumbnail!.width,
+          height: info.thumbnail!.height,
         },
       });
     });
@@ -132,6 +152,7 @@ describe('ThumbnailPageMaker', () => {
   }
 
   class Context2DManager {
+    contexts: ReturnType<typeof makeContext2D>[];
     constructor() {
       this.contexts = [];
       bind(
@@ -146,71 +167,45 @@ describe('ThumbnailPageMaker', () => {
     }
   }
 
-  /**
-   * @typedef {OBject} ThumbnailInfo
-   * @property {number} x position of thumbnail on page
-   * @property {number} y position of thumbnail on page
-   * @property {number} width width thumbnail. Default is thumbnailWidth
-   * @property {number} height height of thumbnail. Default is proportional to width
-   * @property {number} url url of page this is on
-   */
+  type TPMOptions = {
+    thumbnailWidth: number;
+    pageSize: number;
+    files: Files;
+    newFilenames?: string[];
+    oldFilenames?: string[];
+    imageLoader?: { loadImage: sinon.SinonStub };
+    thumbnailFilenames?: string[];
+  };
 
-  /**
-   * @typedef {Object} FileInfo
-   * @property {string} type mimetype. defaults to image/jpeg
-   * @property {number} orientation exif orientation. defaults to 0
-   * @property {number} width width of image, default 512
-   * @property {number} height height of image, default 512
-   * @property {ThumbnailInfo} thumbnail
-   */
-
-  /**
-   * Generate file data for testing
-   * @param {Object.<string, FileInfo>} files filenames to fileinfo map
-   * @param {number} thumbnailWidth width of a thumbnail
-   */
-  function prepFiles(files, thumbnailWidth) {
-    const newFiles = JSON.parse(JSON.stringify(files));
+  function prepFiles(files: Files, thumbnailWidth: number): Files {
+    const newFiles: Files = JSON.parse(JSON.stringify(files));
     Object.keys(newFiles).forEach((filename) => {
       const info = newFiles[filename];
       info.type = info.type || 'image/jpeg';
       info.width = info.width || 512;
       info.height = info.height || 512;
       info.orientation = info.orientation || 0;
-      const thumbnail = info.thumbnail || {};
-      info.thumbnail = thumbnail;
+      const thumbnail: Partial<ThumbnailInfo> = info.thumbnail || {};
+      info.thumbnail = thumbnail as ThumbnailInfo;
       thumbnail.x = thumbnail.x || 0;
       thumbnail.y = thumbnail.y || 0;
       thumbnail.width = thumbnail.width || thumbnailWidth;
-      thumbnail.height = thumbnail.height || info.height * thumbnailWidth / info.width | 0;
+      thumbnail.height = thumbnail.height || (info.height! * thumbnailWidth / info.width! | 0);
     });
     return newFiles;
   }
 
-  /**
-   * @typedef {Object} TPMOptions
-   * @property {number} thumbnailWidth: width of a thumbnail
-   * @property {number} pageSize size to make a page pageSize x pageSize
-   * @property {Object.<string, FileInfo>} files object of files. see prepFiles
-   * @property {string[]} [newFilenames] names of new files from files, default all
-   * @property {string[]} [oldFilenames] names of old files from files, default none
-   * @property {ImageLoader} [imageLoader] an image loader to use, default mockImageLoader
-   * @property {string[]} thumbnailFilenames thumbnails to pretend load. default is added and changed files based on new and old
-   */
-
-  /**
-   * @param {TPMOptions} options
-   * @param {function(Object.<string, FileInfo>, TPMResults)} callback
-   */
-  async function testThumbnailPageMaker(options) {
+  async function testThumbnailPageMaker(options: TPMOptions) {
     const thumbnailWidth = options.thumbnailWidth;
     const pageSize = options.pageSize;
     const files = prepFiles(options.files, thumbnailWidth);
 
-    const oldFiles = getObjectsByKeys(files, options.oldFilenames || []);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const oldFiles = getObjectsByKeys(files as any, options.oldFilenames || []) as Files;
     const newFiles = createNewFiles(files, options.newFilenames);
 
-    const diffNames = getDifferentFilenames(oldFiles, newFiles);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const diffNames = getDifferentFilenames(oldFiles as any, newFiles as any);
 
     const mockImageLoader = makeMockImageLoader(files, diffNames.same);
     const mockThumbnailMaker = makeMockThubmnailMaker(files, options.thumbnailFilenames || [...diffNames.added, ...diffNames.changed]);
@@ -219,16 +214,17 @@ describe('ThumbnailPageMaker', () => {
     const thumbnailObserver = sinon.spy();
 
     const tPMaker = createThumbnailPageMaker({
-      thumbnailMaker: mockThumbnailMaker.maker,
+      thumbnailMaker: mockThumbnailMaker.maker as Parameters<typeof createThumbnailPageMaker>[0]['thumbnailMaker'],
       thumbnailWidth: thumbnailWidth,
       pageSize: pageSize,
-      context2DFactory: ctxManager.createContext,
+      context2DFactory: ctxManager.createContext as unknown as () => CanvasRenderingContext2D,
       fs: mockFS,
       imgLoader: options.imageLoader || mockImageLoader,
       thumbnailObserver: thumbnailObserver,
     });
 
-    const tFiles = await tPMaker(baseFilename, oldFiles, newFiles);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tFiles = await tPMaker(baseFilename, oldFiles as any, newFiles as any);
     return {
       tFiles,
       mockThumbnailMaker,
@@ -239,8 +235,7 @@ describe('ThumbnailPageMaker', () => {
     };
   }
 
-  function dumpInfo(r) {  // eslint-disable-line
-    console.log('thumbMaker.addUrl callCount', r.mockThumbnailMaker.addUrl.callCount);
+  function dumpInfo(r: Awaited<ReturnType<typeof testThumbnailPageMaker>>) {  // eslint-disable-line
     console.log('imgLoaderStub callCount', r.mockImageLoader.loadImage.callCount);
     console.log('unlinkStub callCount', r.mockFS.unlinkSync.callCount);
     console.log('writeFileBase64Sync callCount', r.mockFS.writeFileBase64Sync.callCount);
@@ -285,10 +280,10 @@ describe('ThumbnailPageMaker', () => {
   });
 
   it('remakes a page', async () => {
-    const files = {
-      'abc.jpg': { thumbnail: { url: 'page1', x:   0, y: 0, width: 150, height: 150, }, }, // eslint-disable-line
-      'def.jpg': { thumbnail: { url: 'page1', x: 150, y: 0, width: 150, height: 150, }, }, // eslint-disable-line
-      'ghi.jpg': { thumbnail: { url: 'page1', x: 300, y: 0, width: 150, height: 150, }, }, // eslint-disable-line
+    const files: Files = {
+      'abc.jpg': { thumbnail: { url: 'page1', x:   0, y: 0, width: 150, height: 150 } }, // eslint-disable-line
+      'def.jpg': { thumbnail: { url: 'page1', x: 150, y: 0, width: 150, height: 150 } }, // eslint-disable-line
+      'ghi.jpg': { thumbnail: { url: 'page1', x: 300, y: 0, width: 150, height: 150 } }, // eslint-disable-line
     };
     const r = await testThumbnailPageMaker({
       thumbnailWidth: 150,
@@ -303,10 +298,10 @@ describe('ThumbnailPageMaker', () => {
   });
 
   it('remakes 3 pages', async () => {
-    const files = {
-      'abc.jpg': { thumbnail: { url: 'page1', x:   0, y: 0, width: 150, height: 150, }, }, // eslint-disable-line
-      'def.jpg': { thumbnail: { url: 'page2', x: 150, y: 0, width: 150, height: 150, }, }, // eslint-disable-line
-      'ghi.jpg': { thumbnail: { url: 'page3', x: 300, y: 0, width: 150, height: 150, }, }, // eslint-disable-line
+    const files: Files = {
+      'abc.jpg': { thumbnail: { url: 'page1', x:   0, y: 0, width: 150, height: 150 } }, // eslint-disable-line
+      'def.jpg': { thumbnail: { url: 'page2', x: 150, y: 0, width: 150, height: 150 } }, // eslint-disable-line
+      'ghi.jpg': { thumbnail: { url: 'page3', x: 300, y: 0, width: 150, height: 150 } }, // eslint-disable-line
     };
     const r = await testThumbnailPageMaker({
       thumbnailWidth: 150,
@@ -321,10 +316,10 @@ describe('ThumbnailPageMaker', () => {
   });
 
   it('delete 3 pages makes 1', async () => {
-    const files = {
-      'abc.jpg': { thumbnail: { url: 'page1', x:   0, y: 0, width: 150, height: 150, }, }, // eslint-disable-line
-      'def.jpg': { thumbnail: { url: 'page2', x: 150, y: 0, width: 150, height: 150, }, }, // eslint-disable-line
-      'ghi.jpg': { thumbnail: { url: 'page3', x: 300, y: 0, width: 150, height: 150, }, }, // eslint-disable-line
+    const files: Files = {
+      'abc.jpg': { thumbnail: { url: 'page1', x:   0, y: 0, width: 150, height: 150 } }, // eslint-disable-line
+      'def.jpg': { thumbnail: { url: 'page2', x: 150, y: 0, width: 150, height: 150 } }, // eslint-disable-line
+      'ghi.jpg': { thumbnail: { url: 'page3', x: 300, y: 0, width: 150, height: 150 } }, // eslint-disable-line
     };
     const r = await testThumbnailPageMaker({
       thumbnailWidth: 150,
@@ -337,15 +332,15 @@ describe('ThumbnailPageMaker', () => {
     assert.strictEqual(r.mockFS.unlinkSync.callCount, 3, 'deletes 3 pages');
     assert.strictEqual(r.mockFS.writeFileBase64Sync.callCount, 1, 'writes 1 pages');
     for (const fileInfo of Object.values(r.tFiles)) {
-      assert.isTrue(fileInfo.thumbnail.url.indexOf('_0.png?') > 0);
+      assert.isTrue((fileInfo as FileInfo).thumbnail!.url!.indexOf('_0.png?') > 0);
     }
   });
 
   it('remakes a page with 2 old and 1 new file', async () => {
-    const files = {
-      'abc.jpg': { thumbnail: { url: 'page1', x:   0, y: 0, width: 150, height: 150, }, }, // eslint-disable-line
-      'def.jpg': { thumbnail: { url: 'page1', x: 150, y: 0, width: 150, height: 150, }, }, // eslint-disable-line
-      'ghi.jpg': { thumbnail: { url: 'page1', x: 300, y: 0, width: 150, height: 150, }, }, // eslint-disable-line
+    const files: Files = {
+      'abc.jpg': { thumbnail: { url: 'page1', x:   0, y: 0, width: 150, height: 150 } }, // eslint-disable-line
+      'def.jpg': { thumbnail: { url: 'page1', x: 150, y: 0, width: 150, height: 150 } }, // eslint-disable-line
+      'ghi.jpg': { thumbnail: { url: 'page1', x: 300, y: 0, width: 150, height: 150 } }, // eslint-disable-line
     };
     const r = await testThumbnailPageMaker({
       thumbnailWidth: 150,
@@ -360,7 +355,7 @@ describe('ThumbnailPageMaker', () => {
   });
 
   it('works if can not make a thumbnail', async () => {
-    const files = {
+    const files: Files = {
       'abc.jpg': {},
       'def.jpg': { fail: true },
       'ghi.jpg': {},
@@ -376,18 +371,18 @@ describe('ThumbnailPageMaker', () => {
     for (const [filename, fileInfo] of Object.entries(r.tFiles)) {
       const expected = files[filename];
       if (expected.fail) {
-        assert.isOk(fileInfo.bad);
+        assert.isOk((fileInfo as FileInfo).bad);
       } else {
-        assert.isNotOk(fileInfo.bad);
+        assert.isNotOk((fileInfo as FileInfo).bad);
       }
     }
   });
 
   it('remakes thumbnails if can not load page', async () => {
-    const files = {
-      'abc.jpg': { thumbnail: { url: 'page1', x:   0, y: 0, width: 150, height: 150, }, }, // eslint-disable-line
-      'def.jpg': { thumbnail: { url: 'page1', x: 150, y: 0, width: 150, height: 150, }, }, // eslint-disable-line
-      'ghi.jpg': { thumbnail: { url: 'page1', x: 300, y: 0, width: 150, height: 150, }, }, // eslint-disable-line
+    const files: Files = {
+      'abc.jpg': { thumbnail: { url: 'page1', x:   0, y: 0, width: 150, height: 150 } }, // eslint-disable-line
+      'def.jpg': { thumbnail: { url: 'page1', x: 150, y: 0, width: 150, height: 150 } }, // eslint-disable-line
+      'ghi.jpg': { thumbnail: { url: 'page1', x: 300, y: 0, width: 150, height: 150 } }, // eslint-disable-line
     };
     const r = await testThumbnailPageMaker({
       thumbnailWidth: 150,

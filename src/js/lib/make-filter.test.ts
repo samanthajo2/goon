@@ -2,7 +2,7 @@
 Copyright 2024 SamanthaJo
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the “Software”), to deal in
+this software and associated documentation files (the "Software"), to deal in
 the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
 the Software, and to permit persons to whom the Software is furnished to do so,
@@ -11,7 +11,7 @@ subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
 FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
@@ -21,11 +21,28 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import { describe, it } from './test/mocha';
 import path from 'node:path';
-import {assert} from 'chai';
+import { assert } from 'chai';
 import moment from 'moment';
-import {makeFilter} from './make-filter';
+import { makeFilter } from './make-filter';
 
-function prepFiles(files) {
+type TestFileInfo = {
+  type?: string;
+  size?: number;
+  width?: number;
+  height?: number;
+  mtime?: number;
+  filename?: string;
+  folderName?: string;
+  baseName?: string;
+  displayName?: string;
+  lowercaseName?: string;
+  orientation?: number;
+  bad?: boolean;
+};
+
+type TestFiles = Record<string, TestFileInfo>;
+
+function prepFiles(files: TestFiles): TestFiles {
   Object.keys(files).forEach((filename, ndx) => {
     const fileInfo = files[filename];
     Object.assign(fileInfo, {
@@ -44,20 +61,21 @@ function prepFiles(files) {
 
 describe('makeFilter', () => {
   const defaultFiles = prepFiles({
-    'foo/abc': { type: 'image/jpeg', size: 1, },
-    'foo/def': { type: 'image/gif',  size: 1024, },  // 1k
-    'bar/ghi': { type: 'image/png',  size: 1024 * 1024, },  // 1m
-    'bar/jkl': { type: 'video/mp4',  size: 1024 * 1024 * 1024, },  // 1g
-    'moo/abc': { type: 'video/mkv',  size: 1024 * 1024 * 1024 * 1024, }, // 1t
+    'foo/abc': { type: 'image/jpeg', size: 1 },
+    'foo/def': { type: 'image/gif',  size: 1024 },          // 1k
+    'bar/ghi': { type: 'image/png',  size: 1024 * 1024 },   // 1m
+    'bar/jkl': { type: 'video/mp4',  size: 1024 * 1024 * 1024 },             // 1g
+    'moo/abc': { type: 'video/mkv',  size: 1024 * 1024 * 1024 * 1024 },      // 1t
     'moo/jkl': { type: 'video/ogv',  size: 1024 * 1024 * 1024 * 1024 * 1024 }, // 1e
   });
 
-  function testFilter(filterResults, files = defaultFiles) {
+  function testFilter(filterResults: ReturnType<typeof makeFilter>, files: TestFiles = defaultFiles): TestFiles {
     assert.isNotOk(filterResults.error);
 
-    const results = {};
+    const results: TestFiles = {};
     for (const [filename, fileInfo] of Object.entries(files)) {
-      if (filterResults.filter(filename, fileInfo)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (filterResults.filter(filename, fileInfo as any)) {
         results[filename] = fileInfo;
       }
     }
@@ -101,26 +119,26 @@ describe('makeFilter', () => {
     assert.deepEqual(makeFilter('width:<100').filterTypesUsed, {'width': true});
     assert.deepEqual(makeFilter('height:<100').filterTypesUsed, {'height': true});
 
-    const orientedFiles = {
-      'abc': { width: 100, height: 200, orientation: 5, },
-      'def': { width: 200, height: 100, orientation: 6, },
+    const orientedFiles: TestFiles = {
+      'abc': { width: 100, height: 200, orientation: 5 },
+      'def': { width: 200, height: 100, orientation: 6 },
     };
     assert.hasAllKeys(testFilter(makeFilter('height:>150'), orientedFiles), ['def']);
     assert.hasAllKeys(testFilter(makeFilter('width:>150'), orientedFiles), ['abc']);
   });
 
   it('handles aspect', () => {
-    const files = {
-      'abc': { width: 100, height: 200, },
-      'def': { width: 200, height: 100, },
+    const files: TestFiles = {
+      'abc': { width: 100, height: 200 },
+      'def': { width: 200, height: 100 },
     };
     assert.hasAllKeys(testFilter(makeFilter('aspect:>1'), files), ['def']);
     assert.hasAllKeys(testFilter(makeFilter('aspect:<1'), files), ['abc']);
     assert.hasAllKeys(testFilter(makeFilter('aspect:landscape'), files), ['def']);
     assert.hasAllKeys(testFilter(makeFilter('aspect:portrait'), files), ['abc']);
-    const orientedFiles = {
-      'abc': { width: 100, height: 200, orientation: 5, },
-      'def': { width: 200, height: 100, orientation: 6, },
+    const orientedFiles: TestFiles = {
+      'abc': { width: 100, height: 200, orientation: 5 },
+      'def': { width: 200, height: 100, orientation: 6 },
     };
     assert.hasAllKeys(testFilter(makeFilter('aspect:>1'), orientedFiles), ['abc']);
     assert.hasAllKeys(testFilter(makeFilter('aspect:<1'), orientedFiles), ['def']);
@@ -216,8 +234,8 @@ describe('makeFilter', () => {
 
   it('handles bad', () => {
     const files = prepFiles({
-      'ggg': { },
-      'bbb': { bad: true, },
+      'ggg': {},
+      'bbb': { bad: true },
     });
     assert.hasAllKeys(testFilter(makeFilter('bad:'), files), ['bbb']);
   });

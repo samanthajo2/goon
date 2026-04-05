@@ -2,7 +2,7 @@
 Copyright 2024 SamanthaJo
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the “Software”), to deal in
+this software and associated documentation files (the "Software"), to deal in
 the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
 the Software, and to permit persons to whom the Software is furnished to do so,
@@ -11,7 +11,7 @@ subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
 FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
@@ -22,13 +22,23 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, it } from './mocha';
-import {assert} from 'chai';
+import { assert } from 'chai';
 import TestFS from './test-fs';
-import {makePublicPromise} from './test-utils';
+import { makePublicPromise } from './test-utils';
+
+// TestFS dynamically proxies the underlying fs methods at construction time.
+// TypeScript can't infer them from the JS class, so we cast to a helper type
+// that includes the subset of fs methods used in these tests.
+type TestFSWithMethods = TestFS & {
+  writeFileSync: (path: string, data: string) => void;
+  writeFile: (path: string, data: string, cb: unknown) => void;
+  mkdirSync: (path: string) => void;
+  mkdir: (path: string, dependency: unknown, cb: unknown) => void;
+};
 
 describe('TestFS', () => {
   it('cleans up', () => {
-    const testFS = new TestFS();
+    const testFS = new TestFS() as TestFSWithMethods;
 
     const baseFilename = testFS.baseFilename;
     const filename1 = path.join(baseFilename, 'test1');
@@ -47,7 +57,7 @@ describe('TestFS', () => {
   });
 
   it('cleans up async', async () => {
-    const testFS = new TestFS();
+    const testFS = new TestFS() as TestFSWithMethods;
 
     const baseFilename = testFS.baseFilename;
     const filename1 = path.join(baseFilename, 'test1');

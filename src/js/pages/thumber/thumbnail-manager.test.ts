@@ -26,12 +26,24 @@ import { assert } from 'chai';
 import ThumbnailManager from './thumbnail-manager';
 
 describe('ThumbnailManager', () => {
-  let manager;
-  let mockFolders;
-  let mockArchives;
+  let manager: ThumbnailManager;
+  let mockFolders: Record<string, EventEmitter & {
+    filename: string;
+    close: sinon.SinonSpy;
+    deleteData: sinon.SinonStub;
+    getData: sinon.SinonStub;
+    refresh: sinon.SinonSpy;
+    getSeparateFilenames: sinon.SinonStub;
+  }>;
+  let mockArchives: Record<string, EventEmitter & {
+    filename: string;
+    close: sinon.SinonSpy;
+    deleteData: sinon.SinonStub;
+    update: sinon.SinonSpy;
+  }>;
 
-  function createMockNativeFolder(filename) {
-    const folder = new EventEmitter();
+  function createMockNativeFolder(filename: string) {
+    const folder = new EventEmitter() as EventEmitter & typeof mockFolders[string];
     folder.filename = filename;
     folder.close = sinon.spy();
     folder.deleteData = sinon.stub().returns({ folders: [], archives: [] });
@@ -41,8 +53,8 @@ describe('ThumbnailManager', () => {
     return folder;
   }
 
-  function createMockArchiveFolder(filename) {
-    const folder = new EventEmitter();
+  function createMockArchiveFolder(filename: string) {
+    const folder = new EventEmitter() as EventEmitter & typeof mockArchives[string];
     folder.filename = filename;
     folder.close = sinon.spy();
     folder.deleteData = sinon.stub().returns({ folders: [], archives: [] });
@@ -66,42 +78,45 @@ describe('ThumbnailManager', () => {
     mockFolders = {};
     mockArchives = {};
 
-    const nativeFolderFactory = (filename) => {
+    const nativeFolderFactory = (filename: string) => {
       const mock = createMockNativeFolder(filename);
       mockFolders[filename] = mock;
       return mock;
     };
 
-    const archiveFolderFactory = (filename) => {
+    const archiveFolderFactory = (filename: string) => {
       const mock = createMockArchiveFolder(filename);
       mockArchives[filename] = mock;
       return mock;
     };
 
-    const mockWatcher = new EventEmitter();
+    const mockWatcher = new EventEmitter() as EventEmitter & { close: sinon.SinonSpy };
     mockWatcher.close = sinon.spy();
 
     manager = new ThumbnailManager({
       dataDir: '/data',
       fs: createMockFs(),
       watcherFactory: sinon.stub().returns(mockWatcher),
-      nativeFolderFactory,
-      archiveFolderFactory,
-      thumbnailPageMakerManager: {},
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      nativeFolderFactory: nativeFolderFactory as any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      archiveFolderFactory: archiveFolderFactory as any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      thumbnailPageMakerManager: {} as any,
     });
   });
 
   it('adds a root folder when setFolders is called', () => {
     manager.setFolders(['/a']);
-    assert.ok(manager._folders['/a'], 'folder added to _folders');
-    assert.ok(manager._rootFolder.folders['/a'], 'folder added to _rootFolder.folders');
+    assert.ok((manager as unknown as { _folders: Record<string, unknown> })._folders['/a'], 'folder added to _folders');
+    assert.ok((manager as unknown as { _rootFolder: { folders: Record<string, unknown> } })._rootFolder.folders['/a'], 'folder added to _rootFolder.folders');
   });
 
   it('adds a sub-folder when a native folder emits updateFolders', () => {
     manager.setFolders(['/a']);
     mockFolders['/a'].emit('updateFolders', '/a', { '/a/b': { isDirectory: true } });
-    assert.ok(manager._folders['/a/b'], 'sub-folder added to _folders');
-    assert.ok(manager._folders['/a'].folders['/a/b'], 'sub-folder tracked in parent folders map');
+    assert.ok((manager as unknown as { _folders: Record<string, unknown> })._folders['/a/b'], 'sub-folder added to _folders');
+    assert.ok((manager as unknown as { _folders: Record<string, { folders: Record<string, unknown> }> })._folders['/a'].folders['/a/b'], 'sub-folder tracked in parent folders map');
   });
 
   it('emits updateFiles when a native folder emits updateFiles', () => {
@@ -126,8 +141,10 @@ describe('ThumbnailManager', () => {
 
     manager.setFolders([]);
 
-    assert.isUndefined(manager._folders['/a'], 'folder removed from _folders');
-    assert.isUndefined(manager._rootFolder.folders['/a'], 'folder removed from _rootFolder.folders');
+    const folders = (manager as unknown as { _folders: Record<string, unknown> })._folders;
+    const rootFolder = (manager as unknown as { _rootFolder: { folders: Record<string, unknown> } })._rootFolder;
+    assert.isUndefined(folders['/a'], 'folder removed from _folders');
+    assert.isUndefined(rootFolder.folders['/a'], 'folder removed from _rootFolder.folders');
     assert.ok(mockFolders['/a'].close.called, 'native folder was closed');
     assert.ok(updateFilesSpy.called, 'updateFiles emitted for removed folder');
     const emitted = updateFilesSpy.lastCall.args[0];
@@ -143,8 +160,9 @@ describe('ThumbnailManager', () => {
 
     mockFolders['/a'].emit('updateFolders', '/a', {});
 
-    assert.isUndefined(manager._folders['/a/b'], 'sub-folder removed from _folders');
-    assert.isUndefined(manager._folders['/a'].folders['/a/b'], 'sub-folder removed from parent folders map');
+    const folders = (manager as unknown as { _folders: Record<string, unknown> })._folders;
+    assert.isUndefined(folders['/a/b'], 'sub-folder removed from _folders');
+    assert.isUndefined((manager as unknown as { _folders: Record<string, { folders: Record<string, unknown> }> })._folders['/a']?.folders['/a/b'], 'sub-folder removed from parent folders map');
     assert.ok(mockFolders['/a/b'].close.called, 'sub-folder native folder was closed');
     assert.ok(updateFilesSpy.called, 'updateFiles emitted for removed sub-folder');
     const emitted = updateFilesSpy.lastCall.args[0];
@@ -160,15 +178,16 @@ describe('ThumbnailManager', () => {
     // because the watcher hasn't fired yet so _folderData is not yet populated
     mockFolders['/a/b'].getSeparateFilenames.returns({ folders: [], archives: [] });
 
-    assert.ok(manager._folders['/a'], '/a exists before removal');
-    assert.ok(manager._folders['/a/b'], '/a/b exists before removal');
-    assert.ok(manager._folders['/a/b/c'], '/a/b/c exists before removal');
+    const folders = (manager as unknown as { _folders: Record<string, unknown> })._folders;
+    assert.ok(folders['/a'], '/a exists before removal');
+    assert.ok(folders['/a/b'], '/a/b exists before removal');
+    assert.ok(folders['/a/b/c'], '/a/b/c exists before removal');
 
     // /a reports that /a/b no longer exists
     mockFolders['/a'].emit('updateFolders', '/a', {});
 
-    assert.isUndefined(manager._folders['/a/b'], '/a/b removed from _folders');
-    assert.isUndefined(manager._folders['/a/b/c'], '/a/b/c removed from _folders even though getSeparateFilenames was empty');
+    assert.isUndefined(folders['/a/b'], '/a/b removed from _folders');
+    assert.isUndefined(folders['/a/b/c'], '/a/b/c removed from _folders even though getSeparateFilenames was empty');
     assert.ok(mockFolders['/a/b'].close.called, '/a/b native folder closed');
     assert.ok(mockFolders['/a/b/c'].close.called, '/a/b/c native folder closed');
   });
@@ -177,7 +196,8 @@ describe('ThumbnailManager', () => {
     manager.setFolders(['/a']);
     mockFolders['/a'].emit('updateFolders', '/a', { '/a/sub1': { isDirectory: true } });
 
-    assert.ok(manager._folders['/a/sub1'], '/a/sub1 exists before rename');
+    const folders = (manager as unknown as { _folders: Record<string, unknown> })._folders;
+    assert.ok(folders['/a/sub1'], '/a/sub1 exists before rename');
 
     const updateFilesSpy = sinon.spy();
     manager.on('updateFiles', updateFilesSpy);
@@ -185,13 +205,13 @@ describe('ThumbnailManager', () => {
     // Simulate rename: /a now reports /a/sub2 instead of /a/sub1
     mockFolders['/a'].emit('updateFolders', '/a', { '/a/sub2': { isDirectory: true } });
 
-    assert.isUndefined(manager._folders['/a/sub1'], '/a/sub1 removed after rename');
+    assert.isUndefined(folders['/a/sub1'], '/a/sub1 removed after rename');
     assert.ok(mockFolders['/a/sub1'].close.called, '/a/sub1 native folder was closed');
-    assert.ok(manager._folders['/a/sub2'], '/a/sub2 added after rename');
+    assert.ok(folders['/a/sub2'], '/a/sub2 added after rename');
 
     const removedCall = updateFilesSpy.getCalls().find(call => '/a/sub1' in call.args[0]);
     assert.ok(removedCall, 'updateFiles emitted signaling /a/sub1 removal');
-    assert.deepEqual(removedCall.args[0]['/a/sub1'], {}, 'empty data emitted for removed /a/sub1');
+    assert.deepEqual(removedCall!.args[0]['/a/sub1'], {}, 'empty data emitted for removed /a/sub1');
   });
 
   it('does not re-emit stale file data for a folder after it is removed', () => {
@@ -216,7 +236,7 @@ describe('ThumbnailManager', () => {
     manager.on('updateFiles', updateFilesSpy);
 
     // Force the throttled trailing emission — this should NOT re-emit stale data for /a/sub1
-    manager._emitUpdateFiles.flush();
+    (manager as unknown as { _emitUpdateFiles: { flush: () => void } })._emitUpdateFiles.flush();
 
     const staleEmit = updateFilesSpy.getCalls().find((call) => {
       const data = call.args[0]['/a/sub1'];
@@ -239,10 +259,12 @@ describe('ThumbnailManager', () => {
       status: {},
     });
 
+    const folders = (manager as unknown as { _folders: Record<string, unknown> })._folders;
+
     // Rename: sub1 → sub2
     mockFolders['/a'].emit('updateFolders', '/a', { '/a/sub2': { isDirectory: true } });
-    assert.isUndefined(manager._folders['/a/sub1'], '/a/sub1 removed after rename');
-    assert.ok(manager._folders['/a/sub2'], '/a/sub2 added after rename');
+    assert.isUndefined(folders['/a/sub1'], '/a/sub1 removed after rename');
+    assert.ok(folders['/a/sub2'], '/a/sub2 added after rename');
 
     // sub2 also gets pending updates
     mockFolders['/a/sub2'].emit('updateFiles', '/a/sub2', {
@@ -256,14 +278,14 @@ describe('ThumbnailManager', () => {
 
     // Rename back: sub2 → sub1
     mockFolders['/a'].emit('updateFolders', '/a', { '/a/sub1': { isDirectory: true } });
-    assert.isUndefined(manager._folders['/a/sub2'], '/a/sub2 removed after rename-back');
-    assert.ok(manager._folders['/a/sub1'], '/a/sub1 re-added after rename-back');
+    assert.isUndefined(folders['/a/sub2'], '/a/sub2 removed after rename-back');
+    assert.ok(folders['/a/sub1'], '/a/sub1 re-added after rename-back');
 
     const updateFilesSpy = sinon.spy();
     manager.on('updateFiles', updateFilesSpy);
 
     // Flush the throttle — neither sub1 nor sub2 should have stale file data
-    manager._emitUpdateFiles.flush();
+    (manager as unknown as { _emitUpdateFiles: { flush: () => void } })._emitUpdateFiles.flush();
 
     const staleEmit = updateFilesSpy.getCalls().find((call) => {
       const sub1Data = call.args[0]['/a/sub1'];
@@ -276,34 +298,32 @@ describe('ThumbnailManager', () => {
   });
 
   // Helper to create a manager with a custom fs mock (for tests needing existsSync control)
-  function createManagerWithFs(mockFs) {
-    const localMockFolders = {};
-    const localMockArchives = {};
-
-    const nativeFolderFactory = (filename) => {
+  function createManagerWithFs(mockFs: ReturnType<typeof createMockFs>) {
+    const nativeFolderFactory = (filename: string) => {
       const mock = createMockNativeFolder(filename);
-      localMockFolders[filename] = mock;
       mockFolders[filename] = mock;
       return mock;
     };
 
-    const archiveFolderFactory = (filename) => {
+    const archiveFolderFactory = (filename: string) => {
       const mock = createMockArchiveFolder(filename);
-      localMockArchives[filename] = mock;
       mockArchives[filename] = mock;
       return mock;
     };
 
-    const mockWatcher = new EventEmitter();
+    const mockWatcher = new EventEmitter() as EventEmitter & { close: sinon.SinonSpy };
     mockWatcher.close = sinon.spy();
 
     return new ThumbnailManager({
       dataDir: '/data',
       fs: mockFs,
       watcherFactory: sinon.stub().returns(mockWatcher),
-      nativeFolderFactory,
-      archiveFolderFactory,
-      thumbnailPageMakerManager: {},
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      nativeFolderFactory: nativeFolderFactory as any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      archiveFolderFactory: archiveFolderFactory as any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      thumbnailPageMakerManager: {} as any,
     });
   }
 
@@ -313,12 +333,13 @@ describe('ThumbnailManager', () => {
       // data deleted so stale .png/.json files do not accumulate.
       manager.setFolders(['/a']);
       mockFolders['/a'].emit('updateFolders', '/a', { '/a/b': {} });
-      assert.ok(manager._folders['/a/b'], 'sub-folder is tracked before removal');
+      const folders = (manager as unknown as { _folders: Record<string, unknown> })._folders;
+      assert.ok(folders['/a/b'], 'sub-folder is tracked before removal');
 
       // /a/b disappears from the filesystem — watcher reports it gone
       mockFolders['/a'].emit('updateFolders', '/a', {});
 
-      assert.isUndefined(manager._folders['/a/b'], 'sub-folder removed from _folders');
+      assert.isUndefined(folders['/a/b'], 'sub-folder removed from _folders');
       assert.ok(
         mockFolders['/a/b'].deleteData.called,
         'deleteData called on removed sub-folder to clean up .png/.json files',
@@ -333,8 +354,9 @@ describe('ThumbnailManager', () => {
       // /a/b (and thus /a/b/c) disappear
       mockFolders['/a'].emit('updateFolders', '/a', {});
 
-      assert.isUndefined(manager._folders['/a/b'], '/a/b removed');
-      assert.isUndefined(manager._folders['/a/b/c'], '/a/b/c removed');
+      const folders = (manager as unknown as { _folders: Record<string, unknown> })._folders;
+      assert.isUndefined(folders['/a/b'], '/a/b removed');
+      assert.isUndefined(folders['/a/b/c'], '/a/b/c removed');
       assert.ok(mockFolders['/a/b'].deleteData.called, 'deleteData called for /a/b');
       assert.ok(mockFolders['/a/b/c'].deleteData.called, 'deleteData called for /a/b/c');
     });
@@ -377,18 +399,19 @@ describe('ThumbnailManager', () => {
     manager.setFolders(['/a']);
     mockFolders['/a'].emit('updateArchives', '/a', { '/a/b.zip': {} }, []);
 
-    assert.ok(manager._archives['/a/b.zip'], 'archive is tracked');
+    const archives = (manager as unknown as { _archives: Record<string, unknown> })._archives;
+    assert.ok(archives['/a/b.zip'], 'archive is tracked');
 
     const updateFilesSpy = sinon.spy();
     manager.on('updateFiles', updateFilesSpy);
 
     manager.setFolders([]);
 
-    assert.isUndefined(manager._archives['/a/b.zip'], 'archive removed from _archives');
+    assert.isUndefined(archives['/a/b.zip'], 'archive removed from _archives');
     assert.ok(mockArchives['/a/b.zip'].close.called, 'archive folder closed');
     const calls = updateFilesSpy.getCalls();
     const removedArchiveCall = calls.find(call => call.args[0]['/a/b.zip'] !== undefined);
     assert.ok(removedArchiveCall, 'updateFiles emitted for removed archive');
-    assert.deepEqual(removedArchiveCall.args[0]['/a/b.zip'], {}, 'emitted empty data for removed archive');
+    assert.deepEqual(removedArchiveCall!.args[0]['/a/b.zip'], {}, 'emitted empty data for removed archive');
   });
 });

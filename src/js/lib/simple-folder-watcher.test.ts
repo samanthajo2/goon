@@ -29,7 +29,14 @@ import wait from './wait';
 
 const TEST_DIR = '/testdir';
 
-function makeStat(size, mtimeMs, isDirectory = false) {
+type FakeStat = {
+  size: number;
+  mtimeMs: number;
+  mtime: Date;
+  isDirectory: () => boolean;
+};
+
+function makeStat(size: number, mtimeMs: number, isDirectory = false): FakeStat {
   return {
     size,
     mtimeMs,
@@ -40,22 +47,32 @@ function makeStat(size, mtimeMs, isDirectory = false) {
 
 const DIR_STAT_DEFAULT_MTIME = 1_600_000_000_000;
 
-function setupWatcher(options = {}) {
-  const mockWatcherEE = new EventEmitter();
+type ReadDirCb = (err: Error | null, files: string[]) => void;
+type StatCb = (err: Error | null, stat: FakeStat) => void;
+
+type SetupOptions = {
+  dirStat?: boolean;
+  cachedDirMtime?: number;
+  initialEntries?: Map<string, { size: number; mtimeMs: number; isDirectory: boolean }>;
+  onDirMtime?: (mtime: number) => void;
+};
+
+function setupWatcher(options: SetupOptions = {}) {
+  const mockWatcherEE = new EventEmitter() as EventEmitter & { close: sinon.SinonSpy };
   mockWatcherEE.close = sinon.spy();
 
   const watcherFactory = sinon.stub().returns(mockWatcherEE);
 
-  const readdirCallbacks = [];
-  const statCallbacks = {};
+  const readdirCallbacks: ReadDirCb[] = [];
+  const statCallbacks: Record<string, StatCb[]> = {};
   // Pending callbacks for the directory itself (path === TEST_DIR)
-  const dirStatCallbacks = [];
+  const dirStatCallbacks: StatCb[] = [];
 
   const mockFs = {
-    readdir: sinon.stub().callsFake((_dirPath, cb) => {
+    readdir: sinon.stub().callsFake((_dirPath: string, cb: ReadDirCb) => {
       readdirCallbacks.push(cb);
     }),
-    stat: sinon.stub().callsFake((filePath, cb) => {
+    stat: sinon.stub().callsFake((filePath: string, cb: StatCb) => {
       if (filePath === TEST_DIR) {
         // If no dirStat option provided, auto-resolve synchronously with a
         // default mtime so existing tests don't need to drive it manually.
@@ -82,36 +99,36 @@ function setupWatcher(options = {}) {
   });
 
   // Helpers to drive the async callbacks
-  function resolveReaddir(fileNames) {
+  function resolveReaddir(fileNames: string[]): void {
     const cb = readdirCallbacks.shift();
     assert.ok(cb, 'expected a readdir callback');
-    cb(null, fileNames);
+    cb!(null, fileNames);
   }
 
-  function resolveDirStat(stat) {
+  function resolveDirStat(stat: FakeStat): void {
     const cb = dirStatCallbacks.shift();
     assert.ok(cb, 'expected a dir stat callback');
+    cb!(null, stat);
+  }
+
+  function rejectDirStat(err?: Error): void {
+    const cb = dirStatCallbacks.shift();
+    assert.ok(cb, 'expected a dir stat callback');
+    cb!(err || new Error('ENOENT'), null as unknown as FakeStat);
+  }
+
+  function resolveStat(basename: string, stat: FakeStat): void {
+    const cbs = statCallbacks[basename];
+    assert.ok(cbs && cbs.length > 0, `expected a stat callback for ${basename}`);
+    const cb = cbs.shift()!;
     cb(null, stat);
   }
 
-  function rejectDirStat(err) {
-    const cb = dirStatCallbacks.shift();
-    assert.ok(cb, 'expected a dir stat callback');
-    cb(err || new Error('ENOENT'));
-  }
-
-  function resolveStat(basename, stat) {
+  function rejectStat(basename: string, err?: Error): void {
     const cbs = statCallbacks[basename];
     assert.ok(cbs && cbs.length > 0, `expected a stat callback for ${basename}`);
-    const cb = cbs.shift();
-    cb(null, stat);
-  }
-
-  function rejectStat(basename, err) {
-    const cbs = statCallbacks[basename];
-    assert.ok(cbs && cbs.length > 0, `expected a stat callback for ${basename}`);
-    const cb = cbs.shift();
-    cb(err || new Error('ENOENT'));
+    const cb = cbs.shift()!;
+    cb(err || new Error('ENOENT'), null as unknown as FakeStat);
   }
 
   return {

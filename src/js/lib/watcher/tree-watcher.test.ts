@@ -2,7 +2,7 @@
 Copyright 2024 SamanthaJo
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the “Software”), to deal in
+this software and associated documentation files (the "Software"), to deal in
 the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
 the Software, and to permit persons to whom the Software is furnished to do so,
@@ -11,7 +11,7 @@ subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
 FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
@@ -24,25 +24,32 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import path from 'node:path';
 import { describe, it, beforeEach, afterEach } from '../test/mocha';
-import {assert} from 'chai';
+import { assert } from 'chai';
 import TreeWatcher from './tree-watcher';
 import TestFS from '../test/test-fs';
-import {emitSpy} from '../test/test-utils';
+import { emitSpy } from '../test/test-utils';
+
+// TestFS dynamically proxies the underlying fs methods at construction time.
+type TestFSWithMethods = TestFS & {
+  writeFileSync: (path: string, data: string) => void;
+  unlinkSync: (path: string) => void;
+  mkdirSync: (path: string) => void;
+  rmdirSync: (path: string) => void;
+};
 
 describe('TreeWatcher', function () {
   this.timeout(25000);
-  let testFS;
-  let watcher;
+  let testFS: TestFSWithMethods;
+  let watcher: TreeWatcher;
 
   beforeEach(() => {
-    testFS = new TestFS();
+    testFS = new TestFS() as TestFSWithMethods;
     watcher = new TreeWatcher(testFS.baseFilename);
   });
 
   afterEach(() => {
     watcher.close();
     testFS.close();
-    testFS = undefined;
   });
 
   it('notices changes', async () => {
@@ -78,7 +85,7 @@ describe('TreeWatcher', function () {
     assert.strictEqual(change.spy.callCount, 1, 'file changed');
     assert.strictEqual(remove.spy.callCount, 0, 'file not deleted');
 
-    fs.unlinkSync(testpath, 'bar');
+    fs.unlinkSync(testpath);
 
     await remove.wait();
 
@@ -131,7 +138,7 @@ describe('TreeWatcher', function () {
     assert.isAtLeast(change.spy.callCount, 1, 'file changed');
     assert.strictEqual(remove.spy.callCount, 0, 'file not deleted');
 
-    fs.unlinkSync(testpath, 'bar');
+    fs.unlinkSync(testpath);
 
     await remove.wait();
 

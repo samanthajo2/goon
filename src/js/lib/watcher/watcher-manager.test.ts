@@ -2,7 +2,7 @@
 Copyright 2024 SamanthaJo
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the “Software”), to deal in
+this software and associated documentation files (the "Software"), to deal in
 the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
 the Software, and to permit persons to whom the Software is furnished to do so,
@@ -11,7 +11,7 @@ subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
 FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
@@ -24,25 +24,33 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import path from 'node:path';
 import { describe, it, beforeEach, afterEach } from '../test/mocha';
-import {assert} from 'chai';
-import WatcherManager from './watcher-manager';
+import { assert } from 'chai';
+import WatcherManager, { FolderWatcher } from './watcher-manager';
 import TestFS from '../test/test-fs';
-import {emitSpy} from '../test/test-utils';
+import { emitSpy } from '../test/test-utils';
+
+// TestFS dynamically proxies the underlying fs methods at construction time.
+type TestFSWithMethods = TestFS & {
+  writeFileSync: (path: string, data: string) => void;
+  unlinkSync: (path: string) => void;
+  mkdirSync: (path: string) => void;
+  rmdirSync: (path: string) => void;
+};
 
 describe('WatcherManager', function () {
   this.timeout(25000);
-  let testFS;
-  let watcherManager;
-  let watchers = [];
+  let testFS: TestFSWithMethods;
+  let watcherManager: WatcherManager;
+  let watchers: FolderWatcher[] = [];
 
-  function makeWatcher(filepath) {
-    const watcher = watcherManager.watch(filepath);
+  function makeWatcher(filepath: string): FolderWatcher {
+    const watcher = watcherManager.watch(filepath)!;
     watchers.push(watcher);
     return watcher;
   }
 
   beforeEach(() => {
-    testFS = new TestFS();
+    testFS = new TestFS() as TestFSWithMethods;
     watcherManager = new WatcherManager();
   });
 
@@ -52,9 +60,7 @@ describe('WatcherManager', function () {
     });
     watchers = [];
     watcherManager.close();
-    watcherManager = undefined;
     testFS.close();
-    testFS = undefined;
   });
 
   it('notices changes', async () => {
@@ -91,7 +97,7 @@ describe('WatcherManager', function () {
     assert.strictEqual(change.spy.callCount, 1, 'file changed');
     assert.strictEqual(remove.spy.callCount, 0, 'file not deleted');
 
-    fs.unlinkSync(testpath, 'bar');
+    fs.unlinkSync(testpath);
 
     await remove.wait();
 
@@ -116,7 +122,7 @@ describe('WatcherManager', function () {
     await start.wait();
 
     const parentDirname = path.join(fs.baseFilename, 'test');
-    const dirname =  path.join(parentDirname, 'subtest');
+    const dirname = path.join(parentDirname, 'subtest');
     fs.mkdirSync(parentDirname);
 
     await create.wait();
@@ -176,7 +182,7 @@ describe('WatcherManager', function () {
     assert.strictEqual(change.spy.callCount, 0, 'file not changed after change');
     assert.strictEqual(remove.spy.callCount, 0, 'file not deleted after change');
 
-    fs.unlinkSync(testpath, 'bar');
+    fs.unlinkSync(testpath);
 
     await subRemove.wait();
 

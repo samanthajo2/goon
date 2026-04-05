@@ -2,7 +2,7 @@
 Copyright 2024 SamanthaJo
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the “Software”), to deal in
+this software and associated documentation files (the "Software"), to deal in
 the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
 the Software, and to permit persons to whom the Software is furnished to do so,
@@ -11,7 +11,7 @@ subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
 FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
@@ -22,20 +22,22 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import EventEmitter from 'node:events';
 import sinon from 'sinon';
 import { describe, it } from '../../lib/test/mocha';
-import {assert} from 'chai';
+import { assert } from 'chai';
 import NativeFolder from './native-folder';
 import wait from './../../lib/wait';
 
 describe('NativeFolder', () => {
-  function createFolderData(baseFilename, files) {
+  type FolderFiles = Record<string, { type?: string; isDirectory?: boolean; thumbnail?: { url: string } }>;
+
+  function createFolderData(baseFilename: string, files: FolderFiles = {}) {
     return {
-      files: files || {},
+      files: { ...files },
       baseFilename: baseFilename,
       deleteData: sinon.spy(),
-      addFiles: function addFiles(files) {
+      addFiles(files: FolderFiles) {
         Object.assign(this.files, files);
       },
-      removeFiles: function removeFiles(filenames) {
+      removeFiles(filenames: string[]) {
         for (const filename of filenames) {
           delete this.files[filename];
         }
@@ -45,9 +47,9 @@ describe('NativeFolder', () => {
     };
   }
 
-  function setupNativeFolder(files, folders, archives) {
+  function setupNativeFolder(files: FolderFiles, folders: FolderFiles, archives: FolderFiles) {
     // just emits 'files' with Object.<string, FileInfo>
-    const watcher = new EventEmitter();
+    const watcher = new EventEmitter() as EventEmitter & { close: sinon.SinonSpy };
     watcher.close = sinon.spy();
 
     const folderData = createFolderData(
@@ -57,9 +59,13 @@ describe('NativeFolder', () => {
     const thumbnailPageMaker = sinon.stub();
 
     const folder = new NativeFolder('foo', {
-      watcher: watcher,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      watcher: watcher as any,
       thumbnailPageMakerFn: thumbnailPageMaker,
-      folderData: folderData,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      folderData: folderData as any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      fs: {} as any,
     });
 
     const updateFiles = sinon.spy();
@@ -81,13 +87,13 @@ describe('NativeFolder', () => {
   }
 
   it('inits', async () => {
-    const testFiles = {
-      'test.png': { type: 'image/png', },
+    const testFiles: FolderFiles = {
+      'test.png': { type: 'image/png' },
     };
-    const testFolders = {
-      'subFolder': {  isDirectory: true, },
+    const testFolders: FolderFiles = {
+      'subFolder': { isDirectory: true },
     };
-    const testArchives = {
+    const testArchives: FolderFiles = {
       'test.zip': {},
     };
     const nf = setupNativeFolder(testFiles, testFolders, testArchives);
@@ -109,8 +115,8 @@ describe('NativeFolder', () => {
   });
 
   it('makes thumbnails and updates', async () => {
-    const oldFiles = {
-      'test.png': { type: 'image/png', },
+    const oldFiles: FolderFiles = {
+      'test.png': { type: 'image/png' },
     };
     const nf = setupNativeFolder(oldFiles, {}, {});
 
@@ -118,18 +124,18 @@ describe('NativeFolder', () => {
 
     assert.strictEqual(nf.updateFiles.callCount, 1);
     const thumbnailFiles = {
-      'one.jpg': { type: 'image/jpeg', thumbnail: { url: 'foo1', }, },
-      'two.png': { type: 'image/png', thumbnail: { url: 'foo2', }, },
+      'one.jpg': { type: 'image/jpeg', thumbnail: { url: 'foo1' } },
+      'two.png': { type: 'image/png', thumbnail: { url: 'foo2' } },
     };
     nf.thumbnailPageMaker.resolves(thumbnailFiles);
     nf.watcher.emit('files', {
-      'one.jpg': { },
-      'two.png': { },
-      'three.txt': { },
+      'one.jpg': {},
+      'two.png': {},
+      'three.txt': {},
     });
     const newFiles = {
-      'one.jpg': {  },
-      'two.png': {  },
+      'one.jpg': {},
+      'two.png': {},
     };
 
     await wait();
@@ -148,7 +154,7 @@ describe('NativeFolder', () => {
     await wait();
 
     // Set up a deferred first scan so we control when it completes
-    let resolveFirstScan;
+    let resolveFirstScan: (() => void) | undefined;
     const firstScanResult = {'thumb_a.jpg': {type: 'image/jpeg', thumbnail: {url: 'a'}}};
     const secondScanResult = {'thumb_b.jpg': {type: 'image/jpeg', thumbnail: {url: 'b'}}};
     nf.thumbnailPageMaker.onFirstCall().returns(
@@ -165,7 +171,7 @@ describe('NativeFolder', () => {
     assert.strictEqual(nf.thumbnailPageMaker.callCount, 1, 'no second scan while first is running');
 
     // Complete the first scan — the queued watcher result should trigger a second scan
-    resolveFirstScan();
+    resolveFirstScan!();
     await wait();
     await wait();
     await wait();

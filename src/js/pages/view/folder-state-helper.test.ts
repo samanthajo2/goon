@@ -2,7 +2,7 @@
 Copyright 2024 SamanthaJo
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the “Software”), to deal in
+this software and associated documentation files (the "Software"), to deal in
 the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
 the Software, and to permit persons to whom the Software is furnished to do so,
@@ -11,7 +11,7 @@ subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
 FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
@@ -20,25 +20,32 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import { describe, it } from '../../lib/test/mocha';
-import {assert} from 'chai';
-import {FolderStateHelper} from './folder-state-helper';
+import { assert } from 'chai';
+import { FolderStateHelper, FolderStateFolder } from './folder-state-helper';
+import type { FoldersByPath } from '../../lib/folderinfo';
 
-function getFolderNames(folders) {
+// The tests use partial objects (e.g. `{}` for files, partial status) that the
+// real types don't accept. We cast via this helper so call sites stay readable.
+function asUpdate(folders: Record<string, unknown>): FoldersByPath {
+  return folders as unknown as FoldersByPath;
+}
+
+function getFolderNames(folders: FolderStateFolder[]): string[] {
   return folders.map((folder) => folder.filename);
 }
 
-function getFileNames(files) {
+function getFileNames(files: { name: string }[]): string[] {
   return files.map((file) => file.name);
 }
 
 describe('FolderStateHelper', () => {
   it('sorts by full path all at once', () => {
     const root = FolderStateHelper.createRoot('sortPath');
-    FolderStateHelper.updateFolders(root, {
-      'b/a': { files: { 'b/a/e': {}, 'b/a/f': {}, 'b/a/d': {}, }},
-      'c/a': { files: { 'c/a/f': {}, 'c/a/d': {}, 'c/a/e': {}, }},
-      'a/a': { files: { 'a/a/d': {}, 'a/a/f': {}, 'a/a/e': {}, }},
-    });
+    FolderStateHelper.updateFolders(root, asUpdate({
+      'b/a': { files: { 'b/a/e': {}, 'b/a/f': {}, 'b/a/d': {} } },
+      'c/a': { files: { 'c/a/f': {}, 'c/a/d': {}, 'c/a/e': {} } },
+      'a/a': { files: { 'a/a/d': {}, 'a/a/f': {}, 'a/a/e': {} } },
+    }));
     assert.strictEqual(root.totalFiles, 9);
     assert.sameOrderedMembers(getFolderNames(root.folders), ['a/a', 'b/a', 'c/a']);
     assert.strictEqual(root.folders.length, 3);
@@ -49,15 +56,15 @@ describe('FolderStateHelper', () => {
 
   it('sorts by full path a little at a time', () => {
     const root = FolderStateHelper.createRoot('sortPath');
-    FolderStateHelper.updateFolders(root, {
-      'b/a': { files: { 'b/a/e': {}, 'b/a/f': {}, 'b/a/d': {}, }},
-    });
-    FolderStateHelper.updateFolders(root, {
-      'c/a': { files: { 'c/a/f': {}, 'c/a/d': {}, 'c/a/e': {}, }},
-    });
-    FolderStateHelper.updateFolders(root, {
-      'a/a': { files: { 'a/a/d': {}, 'a/a/f': {}, 'a/a/e': {}, }},
-    });
+    FolderStateHelper.updateFolders(root, asUpdate({
+      'b/a': { files: { 'b/a/e': {}, 'b/a/f': {}, 'b/a/d': {} } },
+    }));
+    FolderStateHelper.updateFolders(root, asUpdate({
+      'c/a': { files: { 'c/a/f': {}, 'c/a/d': {}, 'c/a/e': {} } },
+    }));
+    FolderStateHelper.updateFolders(root, asUpdate({
+      'a/a': { files: { 'a/a/d': {}, 'a/a/f': {}, 'a/a/e': {} } },
+    }));
     assert.strictEqual(root.totalFiles, 9);
     assert.sameOrderedMembers(getFolderNames(root.folders), ['a/a', 'b/a', 'c/a']);
     assert.strictEqual(root.folders.length, 3);
@@ -68,20 +75,20 @@ describe('FolderStateHelper', () => {
 
   it('sorts by full path on update', () => {
     const root = FolderStateHelper.createRoot('sortPath');
-    FolderStateHelper.updateFolders(root, {
-      'b/a': { files: { 'b/a/e': {}, 'b/a/f': {}, 'b/a/d': {}, }},
-      'c/a': { files: { 'c/a/f': {}, 'c/a/d': {}, 'c/a/e': {}, }},
-      'a/a': { files: { 'a/a/d': {}, 'a/a/f': {}, 'a/a/e': {}, }},
-    });
-    FolderStateHelper.updateFolders(root, {
-      'b/a': { files: { 'b/a/e': {}, 'b/a/f': {}, 'b/a/d': {}, }},
-    });
-    FolderStateHelper.updateFolders(root, {
-      'c/a': { files: { 'c/a/f': {}, 'c/a/d': {}, 'c/a/e': {}, }},
-    });
-    FolderStateHelper.updateFolders(root, {
-      'a/a': { files: { 'a/a/d': {}, 'a/a/f': {}, 'a/a/e': {}, }},
-    });
+    FolderStateHelper.updateFolders(root, asUpdate({
+      'b/a': { files: { 'b/a/e': {}, 'b/a/f': {}, 'b/a/d': {} } },
+      'c/a': { files: { 'c/a/f': {}, 'c/a/d': {}, 'c/a/e': {} } },
+      'a/a': { files: { 'a/a/d': {}, 'a/a/f': {}, 'a/a/e': {} } },
+    }));
+    FolderStateHelper.updateFolders(root, asUpdate({
+      'b/a': { files: { 'b/a/e': {}, 'b/a/f': {}, 'b/a/d': {} } },
+    }));
+    FolderStateHelper.updateFolders(root, asUpdate({
+      'c/a': { files: { 'c/a/f': {}, 'c/a/d': {}, 'c/a/e': {} } },
+    }));
+    FolderStateHelper.updateFolders(root, asUpdate({
+      'a/a': { files: { 'a/a/d': {}, 'a/a/f': {}, 'a/a/e': {} } },
+    }));
     assert.strictEqual(root.totalFiles, 9);
     assert.sameOrderedMembers(getFolderNames(root.folders), ['a/a', 'b/a', 'c/a']);
     assert.strictEqual(root.folders.length, 3);
@@ -92,11 +99,11 @@ describe('FolderStateHelper', () => {
 
   it('sorts by name all at once', () => {
     const root = FolderStateHelper.createRoot('sortName');
-    FolderStateHelper.updateFolders(root, {
-      'b/z': { files: { 'b/z/e': {}, 'b/z/f': {}, 'b/z/d': {}, }},
-      'c/x': { files: { 'c/x/f': {}, 'c/x/d': {}, 'c/x/e': {}, }},
-      'a/y': { files: { 'a/y/d': {}, 'a/y/f': {}, 'a/y/e': {}, }},
-    });
+    FolderStateHelper.updateFolders(root, asUpdate({
+      'b/z': { files: { 'b/z/e': {}, 'b/z/f': {}, 'b/z/d': {} } },
+      'c/x': { files: { 'c/x/f': {}, 'c/x/d': {}, 'c/x/e': {} } },
+      'a/y': { files: { 'a/y/d': {}, 'a/y/f': {}, 'a/y/e': {} } },
+    }));
     assert.strictEqual(root.totalFiles, 9);
     assert.sameOrderedMembers(getFolderNames(root.folders), ['c/x', 'a/y', 'b/z']);
     assert.strictEqual(root.folders.length, 3);
@@ -107,15 +114,15 @@ describe('FolderStateHelper', () => {
 
   it('sorts by name a little at a time', () => {
     const root = FolderStateHelper.createRoot('sortName');
-    FolderStateHelper.updateFolders(root, {
-      'b/z': { files: { 'b/z/e': {}, 'b/z/f': {}, 'b/z/d': {}, }},
-    });
-    FolderStateHelper.updateFolders(root, {
-      'c/x': { files: { 'c/x/f': {}, 'c/x/d': {}, 'c/x/e': {}, }},
-    });
-    FolderStateHelper.updateFolders(root, {
-      'a/y': { files: { 'a/y/d': {}, 'a/y/f': {}, 'a/y/e': {}, }},
-    });
+    FolderStateHelper.updateFolders(root, asUpdate({
+      'b/z': { files: { 'b/z/e': {}, 'b/z/f': {}, 'b/z/d': {} } },
+    }));
+    FolderStateHelper.updateFolders(root, asUpdate({
+      'c/x': { files: { 'c/x/f': {}, 'c/x/d': {}, 'c/x/e': {} } },
+    }));
+    FolderStateHelper.updateFolders(root, asUpdate({
+      'a/y': { files: { 'a/y/d': {}, 'a/y/f': {}, 'a/y/e': {} } },
+    }));
     assert.strictEqual(root.totalFiles, 9);
     assert.sameOrderedMembers(getFolderNames(root.folders), ['c/x', 'a/y', 'b/z']);
     assert.strictEqual(root.folders.length, 3);
@@ -126,20 +133,20 @@ describe('FolderStateHelper', () => {
 
   it('sorts by name on update', () => {
     const root = FolderStateHelper.createRoot('sortName');
-    FolderStateHelper.updateFolders(root, {
-      'b/z': { files: { 'b/z/e': {}, 'b/z/f': {}, 'b/z/d': {}, }},
-      'c/x': { files: { 'c/x/f': {}, 'c/x/d': {}, 'c/x/e': {}, }},
-      'a/y': { files: { 'a/y/d': {}, 'a/y/f': {}, 'a/y/e': {}, }},
-    });
-    FolderStateHelper.updateFolders(root, {
-      'b/z': { files: { 'b/z/e': {}, 'b/z/f': {}, 'b/z/d': {}, }},
-    });
-    FolderStateHelper.updateFolders(root, {
-      'c/x': { files: { 'c/x/f': {}, 'c/x/d': {}, 'c/x/e': {}, }},
-    });
-    FolderStateHelper.updateFolders(root, {
-      'a/y': { files: { 'a/y/d': {}, 'a/y/f': {}, 'a/y/e': {}, }},
-    });
+    FolderStateHelper.updateFolders(root, asUpdate({
+      'b/z': { files: { 'b/z/e': {}, 'b/z/f': {}, 'b/z/d': {} } },
+      'c/x': { files: { 'c/x/f': {}, 'c/x/d': {}, 'c/x/e': {} } },
+      'a/y': { files: { 'a/y/d': {}, 'a/y/f': {}, 'a/y/e': {} } },
+    }));
+    FolderStateHelper.updateFolders(root, asUpdate({
+      'b/z': { files: { 'b/z/e': {}, 'b/z/f': {}, 'b/z/d': {} } },
+    }));
+    FolderStateHelper.updateFolders(root, asUpdate({
+      'c/x': { files: { 'c/x/f': {}, 'c/x/d': {}, 'c/x/e': {} } },
+    }));
+    FolderStateHelper.updateFolders(root, asUpdate({
+      'a/y': { files: { 'a/y/d': {}, 'a/y/f': {}, 'a/y/e': {} } },
+    }));
     assert.strictEqual(root.totalFiles, 9);
     assert.sameOrderedMembers(getFolderNames(root.folders), ['c/x', 'a/y', 'b/z']);
     assert.strictEqual(root.folders.length, 3);
@@ -150,11 +157,11 @@ describe('FolderStateHelper', () => {
 
   it('sorts by date all at once', () => {
     const root = FolderStateHelper.createRoot('newest');
-    FolderStateHelper.updateFolders(root, {
-      'b/z': { files: { 'b/z/e': { mtime: 9, }, 'b/z/f': { mtime: 7, }, 'b/z/d': { mtime: 8, }, }},
-      'a/y': { files: { 'a/y/d': { mtime: 1, }, 'a/y/f': { mtime: 3, }, 'a/y/e': { mtime: 2, }, }},
-      'c/x': { files: { 'c/x/f': { mtime: 5, }, 'c/x/d': { mtime: 4, }, 'c/x/e': { mtime: 6, }, }},
-    });
+    FolderStateHelper.updateFolders(root, asUpdate({
+      'b/z': { files: { 'b/z/e': { mtime: 9 }, 'b/z/f': { mtime: 7 }, 'b/z/d': { mtime: 8 } } },
+      'a/y': { files: { 'a/y/d': { mtime: 1 }, 'a/y/f': { mtime: 3 }, 'a/y/e': { mtime: 2 } } },
+      'c/x': { files: { 'c/x/f': { mtime: 5 }, 'c/x/d': { mtime: 4 }, 'c/x/e': { mtime: 6 } } },
+    }));
     assert.strictEqual(root.totalFiles, 9);
     assert.sameOrderedMembers(getFolderNames(root.folders), ['b/z', 'c/x', 'a/y']);
     assert.strictEqual(root.folders.length, 3);
@@ -165,16 +172,15 @@ describe('FolderStateHelper', () => {
 
   it('removes a folder when updated with empty files and no scanning status', () => {
     const root = FolderStateHelper.createRoot('sortPath');
-    FolderStateHelper.updateFolders(root, {
-      'a/a': { files: { 'a/a/d': {}, 'a/a/e': {}, }, status: {} },
-      'b/b': { files: { 'b/b/x': {}, }, status: {} },
-    });
+    FolderStateHelper.updateFolders(root, asUpdate({
+      'a/a': { files: { 'a/a/d': {}, 'a/a/e': {} }, status: {} },
+      'b/b': { files: { 'b/b/x': {} }, status: {} },
+    }));
     assert.strictEqual(root.folders.length, 2);
 
-    // Simulate rename/removal: 'a/a' gets empty files + empty status (the removal signal after FolderDB processing)
-    FolderStateHelper.updateFolders(root, {
+    FolderStateHelper.updateFolders(root, asUpdate({
       'a/a': { files: {}, status: {} },
-    });
+    }));
 
     assert.strictEqual(root.folders.length, 1, 'removed folder is gone');
     assert.strictEqual(root.folders[0].filename, 'b/b', 'remaining folder is correct');
@@ -184,24 +190,23 @@ describe('FolderStateHelper', () => {
   it('sorts by numbers', () => {
     {
       const root = FolderStateHelper.createRoot('sortPath');
-      FolderStateHelper.updateFolders(root, {
-        'a': { files: { 'a/e-3': {}, 'a/e-01': {}, 'a/e-002': {}, }},
-      });
+      FolderStateHelper.updateFolders(root, asUpdate({
+        'a': { files: { 'a/e-3': {}, 'a/e-01': {}, 'a/e-002': {} } },
+      }));
       assert.strictEqual(root.totalFiles, 3);
       assert.strictEqual(root.folders.length, 1);
       assert.sameOrderedMembers(getFileNames(root.folders[0].files), ['a/e-01', 'a/e-002', 'a/e-3']);
     }
     {
       const root = FolderStateHelper.createRoot('sortPath');
-      FolderStateHelper.updateFolders(root, {
-        'a/e-3': { files: { 'a/e-3/b': {} }},
-        'a/e-01': { files: { 'a/e-01/b': {} }},
-        'a/e-002': { files: { 'a/e-002/b': {}, }},
-      });
+      FolderStateHelper.updateFolders(root, asUpdate({
+        'a/e-3':   { files: { 'a/e-3/b': {} } },
+        'a/e-01':  { files: { 'a/e-01/b': {} } },
+        'a/e-002': { files: { 'a/e-002/b': {} } },
+      }));
       assert.strictEqual(root.totalFiles, 3);
       assert.strictEqual(root.folders.length, 3);
       assert.sameOrderedMembers(getFolderNames(root.folders), ['a/e-01', 'a/e-002', 'a/e-3']);
     }
   });
 });
-

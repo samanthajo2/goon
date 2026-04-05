@@ -2,7 +2,7 @@
 Copyright 2024 SamanthaJo
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the “Software”), to deal in
+this software and associated documentation files (the "Software"), to deal in
 the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
 the Software, and to permit persons to whom the Software is furnished to do so,
@@ -11,7 +11,7 @@ subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
 FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
@@ -21,7 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
 import { describe, it } from './test/mocha';
-import {assert} from 'chai';
+import { assert } from 'chai';
 import createParallelResourceManager from './parallel-resource-manager';
 import wait from './wait';
 
@@ -29,8 +29,8 @@ describe('parallelResourceManager', () => {
   it('manages 1', async () => {
     const mgr = createParallelResourceManager(1);
 
-    let oneRelease;
-    let twoRelease;
+    let oneRelease: (() => void) | undefined;
+    let twoRelease: (() => void) | undefined;
 
     mgr().then((release) => {
       oneRelease = release;
@@ -44,13 +44,13 @@ describe('parallelResourceManager', () => {
     assert.isOk(oneRelease, 'one acquired');
     assert.isNotOk(twoRelease, 'two is pending');
 
-    oneRelease();
+    oneRelease!();
 
     await wait();
 
     assert.isOk(twoRelease, 'two acquired');
 
-    twoRelease();
+    twoRelease!();
   });
 
   it('manages N', async () => {
@@ -58,9 +58,9 @@ describe('parallelResourceManager', () => {
     const mgr = createParallelResourceManager(numParallel);
 
     const numToTest = 10;
-    const releases = [];
+    const releases: Array<(() => void) | false> = [];
 
-    function get(ndx) {
+    function get(ndx: number): void {
       releases[ndx] = false;
       mgr().then((release) => {
         releases[ndx] = release;
@@ -83,7 +83,7 @@ describe('parallelResourceManager', () => {
       }
 
       if (i < releases.length) {
-        releases[i]();
+        (releases[i] as () => void)();
       }
 
       await wait();
