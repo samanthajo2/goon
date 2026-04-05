@@ -73,6 +73,7 @@ type ObservableViewerState = {
 };
 
 type ObservableImagegridState = {
+  zoom: number;
   currentCollection: unknown;
 };
 
@@ -173,6 +174,7 @@ export default class VPair extends React.Component<Props, ComponentState> {
     } as ObservableViewerState, {}, { deep: false });
 
     this._imagegridState = observable.object({
+      zoom: 1,
       currentCollection: undefined,
       ...initialImagegridState,
     } as ObservableImagegridState, {}, { deep: false });
