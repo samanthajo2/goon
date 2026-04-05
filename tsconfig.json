@@ -21,6 +21,7 @@
     "src/**/*.js",
     "src/**/*.jsx",
     "src/**/*.tsx",
+    "tools/**/*.js",
   ],
   "exclude": [
     "app/**/*",
