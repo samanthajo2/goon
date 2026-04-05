@@ -375,7 +375,7 @@ function saveWindowBounds(window: BrowserWindow, bounds: Rect) {
 }
 
 function saveWindowSize(window: BrowserWindow) {
-  console.log('saveWindowSize');
+  debug('saveWindowSize');
   if (window.isMaximized() || window.isMinimized() || window.isFullScreen()) {
     return;
   }
