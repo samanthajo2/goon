@@ -103,10 +103,6 @@ type WinState = {
   splitStartPosition: number;
 };
 
-type Collection = {
-  name: string;
-};
-
 type FileInfoData = { filename: string; metaData: unknown } | string | null;
 
 type AppState = {
@@ -123,7 +119,6 @@ type AppState = {
   forceDeleteIsFolder?: boolean;
   filter: string;
   filterError: string;
-  collections: Collection[];
   root: FolderStateRoot;
   newRoot?: FolderStateRoot;
   prefsReceived?: boolean;
@@ -201,11 +196,6 @@ export default class App extends React.Component<Props, AppState> {
       showDeleteFolderPrompt: false,
       filter: '',
       filterError: '',
-      collections: [
-        { name: 'foo' },
-        { name: 'bar' },
-        { name: 'moo' },
-      ],
       root: FolderStateHelper.createRoot(winState.sortMode),
     };
 
@@ -692,10 +682,9 @@ export default class App extends React.Component<Props, AppState> {
         zoom={this.state.winState.thumbnailZoom}
         sortMode={this.state.winState.sortMode}
         gridMode={this.state.winState.gridMode}
-        collections={this.state.collections}
+        imagegridStateHolder={this._imagegridStateHolder}
         setThumbnailZoom={this._setThumbnailZoom}
         outEventBus={this._eventBus}
-        imagegridStateHolder={this._imagegridStateHolder}
         filter={this.state.filter}
         handleUpdateFilter={this._handleUpdateFilter}
         filterInputBlurred={this._filterInputBlurred}

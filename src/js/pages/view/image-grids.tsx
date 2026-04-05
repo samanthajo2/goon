@@ -22,7 +22,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import React from 'react';
 import VirtualList, { VirtualListHandle } from '../../lib/ui/virtual-list';
 import ResizeSensor from '../../lib/ui/resize-sensor';
-import { action } from 'mobx';
 import { observer } from 'mobx-react';
 import { getRotatedXY } from '../../lib/rotatehelper';  // eslint-disable-line
 import ListenerManager from '../../lib/listener-manager';
@@ -61,10 +60,6 @@ type WinState = {
   showUI: number;
   rotateMode: number;
   sortMode: string;
-};
-
-type ImagegridState = {
-  currentCollection: unknown;
 };
 
 export type ScrollAnchor = {
@@ -294,7 +289,6 @@ type Props = {
   options: Options;
   prefs: Preferences;
   winState: WinState;
-  imagegridState: ImagegridState;
   eventBus: ForwardableEventDispatcher;
   rotateMode: number;
   setCurrentView: () => void;
@@ -337,7 +331,6 @@ export default class ImageGrids extends React.Component<Props, State> {
     this._imagegrids.addEventListener('wheel', this._handleWheel as EventListener, { passive: false });
     const on = this._listenerManager.on.bind(this._listenerManager);
     const eventBus = this._eventBus;
-    on(eventBus, 'setCollection', this._handleSetCollection);
     on(eventBus, 'scrollToImage', this._handleScrollToImage);
 
     const actionListener = new ActionListener();
@@ -452,10 +445,6 @@ export default class ImageGrids extends React.Component<Props, State> {
     this._programmaticScroll = true;
     this._imagegrids.scrollTop = scrollTop;
   }
-
-  @action private _handleSetCollection = (event: { collection: unknown }): void => {
-    this.props.imagegridState.currentCollection = event.collection;
-  };
 
   private _gotoNext = (): void => {
     // TODO: Find next on right

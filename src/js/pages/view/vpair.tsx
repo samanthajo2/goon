@@ -36,7 +36,7 @@ import ActionListener from '../../lib/action-listener';
 import { FolderStateRoot } from './folder-state-helper';
 import { Preferences } from '../prefs/default-prefs';
 import { ScrollAnchor } from './image-grids';
-import { VideoState } from './viewer-events';
+import { VideoState, ImagegridState } from './viewer-events';
 import { GridMode } from './grid-modes';
 
 let g_vpairCount = 0;
@@ -72,18 +72,13 @@ type ObservableViewerState = {
   videoState: ObservableVideoState;
 };
 
-type ObservableImagegridState = {
-  zoom: number;
-  currentCollection: unknown;
-};
-
 type InitialViewerState = Partial<ObservableViewerState> & {
   videoState?: Partial<ObservableVideoState>;
 };
 
 type InitialState = {
   viewerState?: InitialViewerState;
-  imagegridState?: Partial<ObservableImagegridState>;
+  imagegridState?: Partial<ImagegridState>;
   state?: Partial<ComponentState>;
   scrollTop?: number;
   scrollAnchor?: ScrollAnchor | null;
@@ -105,8 +100,6 @@ type Props = {
   unregisterVPair: (vpair: VPair) => void;
   saveLayout?: () => void;
   root: FolderStateRoot;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  settings?: any;
 };
 
 type ComponentState = {
@@ -121,7 +114,7 @@ export default class VPair extends React.Component<Props, ComponentState> {
   private _eventBus: ForwardableEventDispatcher;
   private _mediaManager: MediaManagerClient;
   private _viewerState: ObservableViewerState;
-  private _imagegridState: ObservableImagegridState;
+  private _imagegridState: ImagegridState;
   private _imagegridsScrollTop: number;
   private _imagegridsAnchor: ScrollAnchor | null;
   private _listenerManager: ListenerManager;
@@ -174,10 +167,8 @@ export default class VPair extends React.Component<Props, ComponentState> {
     } as ObservableViewerState, {}, { deep: false });
 
     this._imagegridState = observable.object({
-      zoom: 1,
-      currentCollection: undefined,
       ...initialImagegridState,
-    } as ObservableImagegridState, {}, { deep: false });
+    } as ImagegridState, {}, { deep: false });
 
     this.state = {
       currentImageIndex: -1,
@@ -232,7 +223,7 @@ export default class VPair extends React.Component<Props, ComponentState> {
     return this._viewerState;
   }
 
-  getImagegridState(): ObservableImagegridState {
+  getImagegridState(): ImagegridState {
     return this._imagegridState;
   }
 
@@ -381,7 +372,6 @@ export default class VPair extends React.Component<Props, ComponentState> {
             options={this.props.options}
             prefs={this.props.prefs}
             winState={this.props.winState}
-            imagegridState={this._imagegridState}
             eventBus={this._eventBus}
             rotateMode={this.props.rotateMode}
             setCurrentView={this._setCurrentView}

@@ -49,15 +49,21 @@ export type ViewerState = {
   videoState: VideoState;
 };
 
-export type ViewerStateHolder = {
-  state: ViewerState | null;
+// Per-pane state for the imagegrid, observed by ImagegridsToolbar. Parallels
+// ViewerState/ViewerStateHolder: as the active pane changes, the toolbar reconnects
+// to the new pane's observable state through ImagegridStateHolder. Currently empty —
+// fields should move here from global app state when they become per-pane
+// (e.g. filter, sort mode).
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export type ImagegridState = {
 };
 
 export type ImagegridStateHolder = {
-  state: {
-    zoom: number;
-    currentCollection: unknown;
-  } | null;
+  state: ImagegridState | null;
+};
+
+export type ViewerStateHolder = {
+  state: ViewerState | null;
 };
 
 export class TimeUpdateEvent extends ForwardableEvent {

@@ -23,20 +23,11 @@ import React from 'react';
 import _ from 'lodash';
 import { actions, ActionId } from '../../lib/actions';
 import debug from '../../lib/debug';
-import ForwardableEvent from '../../lib/forwardable-event';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
+import { ImagegridStateHolder } from './viewer-events';
 import gridModes, { GridMode } from './grid-modes';
 import ActionEvent from '../../lib/action-event';
 import { sortModes, SortMode } from './folder-state-helper';
-import { ImagegridStateHolder } from './viewer-events';
-
-class SetCollectionEvent extends ForwardableEvent {
-  collection: unknown;
-  constructor(collection: unknown) {
-    super('setCollection');
-    this.collection = collection;
-  }
-}
 
 type RangeProps = {
   value: number;
@@ -67,17 +58,14 @@ class Range extends React.Component<RangeProps> {
   }
 }
 
-type Collection = { name: string };
-
 type Props = {
   actions: { [key in ActionId]: () => void };
   zoom: number;
   sortMode: SortMode;
   gridMode: GridMode;
-  collections: Collection[];
+  imagegridStateHolder: ImagegridStateHolder;
   setThumbnailZoom: (zoom: number) => void;
   outEventBus: ForwardableEventDispatcher;
-  imagegridStateHolder: ImagegridStateHolder;
   filter: string;
   handleUpdateFilter: (value: string) => void;
   filterInputBlurred: () => void;
@@ -120,35 +108,12 @@ export default class ImagegridsToolbar extends React.Component<Props> {
     this.props.outEventBus.dispatch(new ActionEvent({ action: 'cycleSortMode' }));
   };
 
-  private _selectCollection = (event: React.ChangeEvent<HTMLSelectElement>): void => {
-    this.props.outEventBus.dispatch(
-      new SetCollectionEvent(this.props.collections[Number(event.target.value) | 0]),
-    );
-  };
-
   render(): React.ReactNode {
     this._logger('render');
     const gridMode = gridModes.value(this.props.gridMode) || { icon: 'images/bad.png', hint: '' };
     const sortMode = sortModes.value(this.props.sortMode) || { icon: 'images/bad.png', hint: '' };
     return (
       <div className="toolbar imagegridstoolbar">
-        {/*
-        {this._makeButton('newCollection')}
-        {this._makeButton('editCollection')}
-        <div data-tooltip="collection">
-          <select
-            value={this.props.collections.indexOf(imagegridState.currentCollection)}
-            onChange={this._selectCollection}
-          >
-            <option key="collection--1" value="-1">all/none</option>
-            {this.props.collections.map((collection, ndx) => {
-              return (
-                <option key={`collection-${ndx}`} value={ndx}>{collection.name}</option>
-              );
-            })}
-          </select>
-        </div>
-        */}
         <div className="button-group">
           <button type="button" onClick={this._changeGridMode} data-tooltip={gridMode.hint}><img src={gridMode.icon} /></button>
           <button type="button" onClick={this._changeSortMode} data-tooltip={sortMode.hint}><img src={sortMode.icon} /></button>

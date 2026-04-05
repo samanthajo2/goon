@@ -196,7 +196,8 @@ function computeTransformAtCenter({ fileInfo, size, containerSize, zoom, rotatio
 
 function moveIfOffScreen(t: TransformInfo, axis: 'x' | 'y'): void {
   if (t.newMin[axis] < 0) {
-    (t[axis] as number) -= t.newMin[axis];
+    if (axis === 'x') t.x -= t.newMin[axis];
+    else t.y -= t.newMin[axis];
   }
 }
 
@@ -210,7 +211,8 @@ function adjustToCenter(
   let scrollBy = 0;
   let delta = t.imgDisplay[dim] - winSize;
   if (delta > 0) {
-    (t[axis] as number) -= delta / 2;
+    if (axis === 'x') t.x -= delta / 2;
+    else t.y -= delta / 2;
   }
   if (t.newMin[axis] < 0) {
     scrollBy = -t.newMin[axis];
