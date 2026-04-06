@@ -24,6 +24,7 @@ import debug, { Logger } from '../../lib/debug';
 import {getImagesAndVideos, getSeparateFilenames, deleteThumbnails} from './folder-utils';
 import FolderData from './folder-data';
 import { FilesByPath } from '../../lib/fileinfo';
+import type { BaseFolder } from './base-folder';
 
 type LocalFsAPI = {
   unlinkSync: (filename: string) => void;
@@ -32,7 +33,7 @@ type LocalFsAPI = {
 
 type ArchiveThumbnailMakerFn = (filepath: string, baseFilename: string) => Promise<FilesByPath>;
 
-export default class ArchiveFolder extends EventEmitter {
+export default class ArchiveFolder extends EventEmitter implements BaseFolder {
   #logger: Logger
   #filename: string;
   #folderData: FolderData;

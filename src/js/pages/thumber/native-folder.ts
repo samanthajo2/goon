@@ -36,6 +36,7 @@ import { FilesByPath } from '../../lib/fileinfo';
 import { ThumbnailPageMakerFn } from './folder-thumbnail-maker';
 import FolderData from './folder-data';
 import WatcherConsolidator from './watcher-consolidator';
+import type { BaseFolder } from './base-folder';
 
 function filterFiles(files: FilesByPath) {
   const filteredFiles: FilesByPath = {};
@@ -57,7 +58,7 @@ type LocalFsAPI = {
 
 
 // Represents one Folder of thumbnails
-export default class NativeFolder extends EventEmitter {
+export default class NativeFolder extends EventEmitter implements BaseFolder {
   #logger: Logger
   #filename: string;
   #folderData: FolderData;

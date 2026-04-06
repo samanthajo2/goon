@@ -70,6 +70,7 @@ import bind from '../../lib/bind';
 import debug from '../../lib/debug';
 import NativeFolder from './native-folder';
 import ArchiveFolder from './archive-folder';
+import type { BaseFolder } from './base-folder';
 import createThumbnailsForFolder, { ThumbnailPageMakerFn } from './folder-thumbnail-maker';
 import createThumbnailsForArchive from './archive-thumbnail-maker';
 import WatcherConsolidator from './watcher-consolidator';
@@ -91,13 +92,13 @@ type NativeFolderInst = InstanceType<typeof NativeFolder>;
 type ArchiveFolderInst = InstanceType<typeof ArchiveFolder>;
 
 type FolderInfo = {
-  folder: NativeFolderInst | ArchiveFolderInst;
+  folder: BaseFolder;
   folders: Record<string, FolderInfo>;
   archives: Record<string, FolderInfo>;
 };
 
 type RootFolderInfo = {
-  folder?: NativeFolderInst | ArchiveFolderInst;
+  folder?: BaseFolder;
   folders: Record<string, FolderInfo>;
   archives: Record<string, FolderInfo>;
 };
