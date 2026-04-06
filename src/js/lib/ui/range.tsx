@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React, { useState } from 'react';
-import _ from 'lodash';
+import { uniqueId } from '../utils';
 
 interface RangeProps {
   label: string;
@@ -31,7 +31,7 @@ interface RangeProps {
 }
 
 export default function Range({ label, min, max, value, onUpdate }: RangeProps): React.ReactElement {
-  const [id] = useState(() => _.uniqueId('Range'));
+  const [id] = useState(() => uniqueId('Range'));
   return (
     <div className="range">
       <input

@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import EventEmitter from 'node:events';
-import _ from 'lodash';
+import { arrayIntersection } from '../../lib/utils';
 import bind from '../../lib/bind';
 import * as filters from '../../lib/filters';
 import debug, { Logger } from '../../lib/debug';
@@ -218,7 +218,7 @@ export default class NativeFolder extends EventEmitter {
     this.#logger('emit updateArchives', this.#filename);
     this._addFiles(newBins.archives);
     // we need to know which archives changed or were added
-    const archiveFilenamesThatNeedUpdate = _.intersection(
+    const archiveFilenamesThatNeedUpdate = arrayIntersection(
       [...diffNames.changed, ...diffNames.added],
       Object.keys(newBins.archives),
     );

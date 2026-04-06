@@ -23,7 +23,7 @@ import { rimraf } from 'rimraf';
 import { ipcRenderer } from 'electron';   
 import otherWindowIPC, { ChannelStream } from 'other-window-ipc';
 import React from 'react';
-import _ from 'lodash';
+import { debounce, throttle, CancelableFn } from '../../lib/utils';
 import { autorun, observable, action } from 'mobx';
 import { observer } from 'mobx-react';
 import { hideMenu, showMenu } from '../../lib/ui/context-menu';
@@ -155,8 +155,8 @@ export default class App extends React.Component<Props, AppState> {
   private _viewerToolbarEventBus: ForwardableEventDispatcher;
   private _keyRouter: KeyRouter;
   private _actionListener: ActionListener;
-  private _saveLayout: _.DebouncedFunc<() => void>;
-  private _setNewRoot: _.DebouncedFunc<() => void>;
+  private _saveLayout: CancelableFn;
+  private _setNewRoot: CancelableFn;
   private _fileInfoMediaManager: MediaManagerClient;
   private _currentView: ViewSplit | null = null;
   private _filterInputActive = false;
@@ -200,8 +200,8 @@ export default class App extends React.Component<Props, AppState> {
     };
 
     this._logger = debug('App');
-    this._saveLayout = _.debounce(this._doSaveLayout.bind(this), 250);
-    this._setNewRoot = _.throttle(this._doSetNewRoot.bind(this), 150);
+    this._saveLayout = debounce(this._doSaveLayout.bind(this), 250);
+    this._setNewRoot = throttle(this._doSetNewRoot.bind(this), 150);
     this._fileInfoMediaManager = new MediaManagerClient();
     this._newRoot = FolderStateHelper.createRoot(winState.sortMode);
 

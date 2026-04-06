@@ -284,7 +284,111 @@ export function fileExistsSync(filename: string) {
 }
 
 export function cloneDeep<T>(src: T): T {
-  return JSON.parse(JSON.stringify(src));
+  return structuredClone(src);
+}
+
+export type CancelableFn<T extends (...args: unknown[]) => void = () => void> = T & {
+  cancel: () => void;
+  flush: () => void;
+};
+
+export function throttle<T extends (...args: unknown[]) => void>(fn: T, timeout: number): CancelableFn<T> {
+  let id: ReturnType<typeof setTimeout> | undefined;
+  let pendingArgs: unknown[] | undefined;
+
+  const schedule = () => {
+    if (pendingArgs !== undefined) {
+      const args = pendingArgs;
+      pendingArgs = undefined;
+      fn(...args);
+      id = setTimeout(schedule, timeout);
+    } else {
+      id = undefined;
+    }
+  };
+
+  const tFn = ((...args: unknown[]) => {
+    if (!id) {
+      fn(...args);
+      id = setTimeout(schedule, timeout);
+    } else {
+      pendingArgs = args;
+    }
+  }) as CancelableFn<T>;
+
+  tFn.cancel = () => {
+    clearTimeout(id);
+    id = undefined;
+    pendingArgs = undefined;
+  };
+
+  tFn.flush = () => {
+    if (id && pendingArgs !== undefined) {
+      clearTimeout(id);
+      id = undefined;
+      const args = pendingArgs;
+      pendingArgs = undefined;
+      fn(...args);
+    }
+  };
+
+  return tFn;
+}
+
+export function debounce<T extends (...args: unknown[]) => void>(fn: T, timeout: number): CancelableFn<T> {
+  let id: ReturnType<typeof setTimeout> | undefined;
+  let savedArgs: unknown[];
+
+  const dFn = ((...args: unknown[]) => {
+    savedArgs = args;
+    if (id) {
+      clearTimeout(id);
+    }
+    id = setTimeout(() => {
+      id = undefined;
+      fn(...savedArgs);
+    }, timeout);
+  }) as CancelableFn<T>;
+
+  dFn.cancel = () => {
+    if (id) {
+      clearTimeout(id);
+      id = undefined;
+    }
+  };
+
+  dFn.flush = () => {
+    if (id) {
+      clearTimeout(id);
+      id = undefined;
+      fn(...savedArgs);
+    }
+  };
+
+  return dFn;
+}
+
+let _uniqueIdCounter = 0;
+export function uniqueId(prefix = ''): string {
+  return `${prefix}${++_uniqueIdCounter}`;
+}
+
+export function arrayDifference<T>(a: T[], b: T[]): T[] {
+  const bSet = new Set(b);
+  return a.filter(x => !bSet.has(x));
+}
+
+export function arrayIntersection<T>(a: T[], b: T[]): T[] {
+  const bSet = new Set(b);
+  return a.filter(x => bSet.has(x));
+}
+
+export function isEmpty(obj: object): boolean {
+  return Object.keys(obj).length === 0;
+}
+
+export function isDeepEqual(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 export function readUTF8FileSync(filename: string): string {
@@ -315,4 +419,5 @@ export {
   resizeCanvasToDisplaySize,
   urlFromFilename,
 };
+
 

@@ -24,7 +24,6 @@ import { dialog } from '@electron/remote';
 import React from 'react';
 import fs from 'fs';
 import path from 'path';
-import _ from 'lodash';
 import keycode from 'keycode';
 import otherWindowIPC from 'other-window-ipc';
 import '../../lib/stacktrace-log.js';  
@@ -40,7 +39,7 @@ import { CSSArray } from '../../lib/css-utils';
 import Checkbox from '../../lib/ui/checkbox';
 import Range from '../../lib/ui/range';
 import LivePasswordEditor from '../../lib/ui/live-password-editor';
-import { readUTF8FileSync } from '../../lib/utils';
+import { readUTF8FileSync, debounce, cloneDeep, CancelableFn } from '../../lib/utils';
 
 type PrefsOptions = {
   userDataDir: string;
@@ -212,7 +211,7 @@ class Key extends React.Component<KeyProps, KeyState> {
   }
 
   _startKeyCapture(): void {
-    this._oldKeyInfo = _.cloneDeep(this.props.keyInfo);
+    this._oldKeyInfo = cloneDeep(this.props.keyInfo);
     this.setState({ setKey: true });
     window.addEventListener('keydown', this._captureKey);
   }
@@ -316,7 +315,7 @@ export default class Prefs extends React.Component<PrefsProps, PrefsState> {
   private _streams: ReturnType<typeof otherWindowIPC.createChannel> extends Promise<infer S> ? S[] : never[] = [] as never[];
   private _ipc: ReturnType<typeof otherWindowIPC.createChannel> | null;
   private _prefsPath: string;
-  private _savePrefs: _.DebouncedFunc<() => void>;
+  private _savePrefs: CancelableFn;
 
   constructor(props: PrefsProps) {
     super(props);
@@ -341,7 +340,7 @@ export default class Prefs extends React.Component<PrefsProps, PrefsState> {
     this._ipc = otherWindowIPC.createChannel('prefs');
     this._ipc.on('connect', this._addStream);
     this._prefsPath = path.join(props.options.userDataDir, 'prefs.json');
-    this._savePrefs = _.debounce(this._savePrefsImpl.bind(this), 200);
+    this._savePrefs = debounce(this._savePrefsImpl.bind(this), 200);
     const { error, prefs } = loadPrefs(this._prefsPath, {
       existsSync: fs.existsSync,
       readUTF8FileSync,
@@ -418,7 +417,7 @@ export default class Prefs extends React.Component<PrefsProps, PrefsState> {
 
   _updateBoolState(p: keyof Preferences, key: string, event: React.ChangeEvent<HTMLInputElement>): void {
     const prefs = this.state.prefs;
-    const mod = { prefs: _.cloneDeep(prefs) };
+    const mod = { prefs: cloneDeep(prefs) };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (mod.prefs[p] as any)[key] = event.target.checked;
     this._updateState(mod);
@@ -426,7 +425,7 @@ export default class Prefs extends React.Component<PrefsProps, PrefsState> {
 
   _updateNumberState(p: keyof Preferences, key: string, event: React.ChangeEvent<HTMLInputElement>): void {
     const prefs = this.state.prefs;
-    const mod = { prefs: _.cloneDeep(prefs) };
+    const mod = { prefs: cloneDeep(prefs) };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (mod.prefs[p] as any)[key] = event.target.value as unknown as number | 0;
     this._updateState(mod);
@@ -586,14 +585,14 @@ export default class Prefs extends React.Component<PrefsProps, PrefsState> {
 
   _setPassword(password: string): void {
     const prefs = this.state.prefs;
-    const mod = { prefs: _.cloneDeep(prefs) };
+    const mod = { prefs: cloneDeep(prefs) };
     mod.prefs.misc.password = password;
     this._updateState(mod);
   }
 
   _changeToolbarPosition(newPosition: string): void {
     const prefs = this.state.prefs;
-    const mod = { prefs: _.cloneDeep(prefs) };
+    const mod = { prefs: cloneDeep(prefs) };
     mod.prefs.misc.toolbarPosition = newPosition as ToolbarPosition;
     this._updateState(mod);
   }

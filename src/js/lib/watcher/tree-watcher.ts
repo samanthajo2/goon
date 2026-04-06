@@ -27,7 +27,7 @@ SOFTWARE.
 
 import EventEmitter from 'node:events';
 import path from 'node:path';
-import _ from 'lodash';
+import { throttle, CancelableFn } from '../utils';
 import debug from '../debug';
 import WinTreeWatcher from './win-tree-watcher';
 import ChokidarTreeWatcher from './chokidar-tree-watcher';
@@ -42,13 +42,13 @@ export default class TreeWatcher extends EventEmitter {
   private _folderpath: string;
   private _bufferedEvents: RawFileChange[];
   private _rawWatcher: RawWatcher;
-  private _throttledSendEvents!: _.DebouncedFunc<() => void>;
+  private _throttledSendEvents!: CancelableFn;
 
   constructor(folderpath: string) {
     super();
     this._logger = debug('TreeWatcher', folderpath);
     this._folderpath = folderpath;
-    this._throttledSendEvents = _.throttle(this._doSendEvents.bind(this), 250);
+    this._throttledSendEvents = throttle(this._doSendEvents.bind(this), 250);
     this._bufferedEvents = [];
     const filter = (): boolean => true;
     const verbose = false;

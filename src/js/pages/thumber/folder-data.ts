@@ -19,10 +19,9 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import _ from 'lodash';
 import debug, { Logger } from '../../lib/debug';
 import bind from '../../lib/bind';
-import {createBasename} from '../../lib/utils';
+import { createBasename, debounce, isDeepEqual } from '../../lib/utils';
 import { FileInfo } from '../../lib/fileinfo';
 
 const s_saveDebounceDuration = 2000;
@@ -78,7 +77,7 @@ export default class FolderData {
       folderPath: filepath,
       files: {},
     };
-    this.#queueWrite = _.debounce(this._save, s_saveDebounceDuration);  // save if we haven't added anything in 1 second
+    this.#queueWrite = debounce(this._save, s_saveDebounceDuration);  // save if we haven't added anything in 1 second
     this.#logger('checking:', this.#jsonFilename);
     if (this.#fs.existsSync(this.#jsonFilename)) {
       this.#logger('read:', this.#jsonFilename);
@@ -144,7 +143,7 @@ export default class FolderData {
   addFiles(files: Record<string, FileInfo>) {
     let changed = false;
     for (const [filePath, fileInfo] of Object.entries(files)) {
-      if (!_.isEqual(this.#data.files[filePath], fileInfo)) {
+      if (!isDeepEqual(this.#data.files[filePath], fileInfo)) {
         changed = true;
         this.#data.files[filePath] = fileInfo;
       }

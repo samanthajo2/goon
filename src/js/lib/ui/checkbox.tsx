@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React, { useState } from 'react';
-import _ from 'lodash';
+import { uniqueId } from '../utils';
 
 interface CheckboxProps {
   checked: boolean;
@@ -29,7 +29,7 @@ interface CheckboxProps {
 }
 
 export default function Checkbox({ checked, label, onUpdate }: CheckboxProps): React.ReactElement {
-  const [id] = useState(() => _.uniqueId('Checkbox'));
+  const [id] = useState(() => uniqueId('Checkbox'));
   return (
     <div>
       <input

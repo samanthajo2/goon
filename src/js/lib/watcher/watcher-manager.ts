@@ -21,7 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import path from 'node:path';
 import EventEmitter from 'node:events';
-import _ from 'lodash';
+import { throttle, arrayDifference, CancelableFn } from '../utils';
 import bind from '../bind';
 import debug from '../debug';
 import ListenerManager from '../listener-manager';
@@ -81,11 +81,11 @@ class TreeWatcherDispatcher {
   private _started: boolean;
   private _treeWatcher: TreeWatcher | null;
   private _folderWatchers: FolderWatcher[];
-  private _emitStartEvent: _.DebouncedFunc<() => void>;
+  private _emitStartEvent: CancelableFn;
 
   constructor(treeWatcher: TreeWatcher) {
     bind(this, '_startEventForwarder');
-    this._emitStartEvent = _.throttle(this._doEmitStartEvent.bind(this));
+    this._emitStartEvent = throttle(this._doEmitStartEvent.bind(this), 0);
     this._logger = debug('TreeWatcherDispatcher', treeWatcher.folderPath);
     this._listenerManager = new ListenerManager();
     const on = this._listenerManager.on.bind(this._listenerManager);
@@ -210,8 +210,8 @@ export default class WatcherManager {
   private _shuffleFolderWatchers(): void {
     const treeWatcherPathsWeNeed = removeChildFolders(Object.keys(this._folderWatchersByPath));
     const treeWatcherPathsWeHave = Object.keys(this._treeWatchersDispatcherByPath);
-    const treeWatcherPathsToRemove = _.difference(treeWatcherPathsWeHave, treeWatcherPathsWeNeed);
-    const treeWatcherPathsToAdd = _.difference(treeWatcherPathsWeNeed, treeWatcherPathsWeHave);
+    const treeWatcherPathsToRemove = arrayDifference(treeWatcherPathsWeHave, treeWatcherPathsWeNeed);
+    const treeWatcherPathsToAdd = arrayDifference(treeWatcherPathsWeNeed, treeWatcherPathsWeHave);
 
     for (const treeWatcherDispatcher of Object.values(this._treeWatchersDispatcherByPath)) {
       treeWatcherDispatcher.removeAllWatchers();

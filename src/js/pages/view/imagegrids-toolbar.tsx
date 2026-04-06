@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import _ from 'lodash';
+import { uniqueId } from '../../lib/utils';
 import { actions, ActionId } from '../../lib/actions';
 import debug from '../../lib/debug';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
@@ -40,7 +40,7 @@ class Range extends React.Component<RangeProps> {
   private id: string;
   constructor(props: RangeProps) {
     super(props);
-    this.id = _.uniqueId('Range');
+    this.id = uniqueId('Range');
   }
   render(): React.ReactNode {
     return (

@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import EventEmitter from 'node:events';
-import _ from 'lodash';
+import { throttle, isEmpty } from '../../lib/utils';
 import path from 'node:path';
 import { FileInfo, FilesByPath } from '../../lib/fileinfo';
 import { FolderInfo, FoldersByPath } from '../../lib/folderinfo';
@@ -78,7 +78,7 @@ export default class FolderDB extends EventEmitter {
     this._folders = {};
     this._totalFiles = 0;
     this._newFolders = {};
-    this._processNewFolders = _.throttle(this._processNewFolders.bind(this), 1500);
+    this._processNewFolders = throttle(this._processNewFolders.bind(this), 1500);
   }
   get totalFiles() {
     return this._totalFiles;
@@ -100,7 +100,7 @@ export default class FolderDB extends EventEmitter {
       if (oldFolder) {
         this._totalFiles -= Object.keys(oldFolder.files).length;
       }
-      if (_.isEmpty(folder.files) && !status.scanning && !status.checking) {
+      if (isEmpty(folder.files) && !status.scanning && !status.checking) {
         delete this._folders[folderName];
       } else {
         this._folders[folderName] = folder;

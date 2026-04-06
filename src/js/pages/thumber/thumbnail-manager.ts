@@ -65,7 +65,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import EventEmitter from 'node:events';
 import path from 'node:path';
-import _ from 'lodash';
+import { throttle, arrayDifference } from '../../lib/utils';
 import bind from '../../lib/bind';
 import debug from '../../lib/debug';
 import NativeFolder from './native-folder';
@@ -185,7 +185,7 @@ export default class ThumbnailManager extends EventEmitter {
       '_emitUpdateFiles',
       'refreshFolder',
     );
-    this._emitUpdateFiles = _.throttle(this._emitUpdateFiles.bind(this), 500);
+    this._emitUpdateFiles = throttle(this._emitUpdateFiles.bind(this), 500);
     this.#logger = debug('ThumbnailManager');
     this.#folderThumbnailPageMakerFn = (oldFiles, newFiles, baseFilename) => createThumbnailsForFolder(oldFiles, newFiles, baseFilename, thumbnailPageMakerManager);
     this.#archiveThumbnailPageMakerFn = (filepath, baseFilename) => createThumbnailsForArchive(filepath, baseFilename, thumbnailPageMakerManager);
@@ -193,7 +193,7 @@ export default class ThumbnailManager extends EventEmitter {
 
   setFolders(dirs: string[], deleteMetaDataOnRemovedFolders?: boolean) {
     this.#baseFolderNames = dirs.map((folderPath) => path.dirname(folderPath));
-    const foldersToRemove = _.difference(this.#rootFolderNames, dirs);
+    const foldersToRemove = arrayDifference(this.#rootFolderNames, dirs);
     foldersToRemove.forEach((folder) => {
       const shouldDelete = deleteMetaDataOnRemovedFolders && this.#fs.existsSync(folder);
       this._removeFolder(folder, shouldDelete);

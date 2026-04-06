@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import _ from 'lodash';
+import { throttle, debounce } from '../../lib/utils';
 import { autorun, action } from 'mobx';
 import { ipcRenderer } from 'electron';   
 import { observer } from 'mobx-react';
@@ -64,37 +64,6 @@ const modeInfo: Record<StretchMode, { desc: string; image: string }> = {
   'cover':      { desc: 'cover (scale so container is covered)',  image: 'images/stretch-cover.svg' },
 };
 
-type ThrottleFn = ((...args: unknown[]) => void) & { cancel: () => void };
-
-function throttle(fn: (...args: unknown[]) => void, timeout: number): ThrottleFn {
-  let id: ReturnType<typeof setTimeout> | undefined;
-  let args: unknown[];
-  let once: boolean | undefined;
-
-  const execute = () => {
-    id = undefined;
-    fn(...args);
-  };
-
-  const tFn = (...a: unknown[]) => {
-    args = a;
-    if (!id) {
-      const tm = once ? timeout : 0;
-      once = true;
-      id = setTimeout(execute, tm);
-    }
-  };
-
-  tFn.cancel = () => {
-    if (id) {
-      clearTimeout(id);
-      id = undefined;
-      once = undefined;
-    }
-  };
-
-  return tFn;
-}
 
 function assert(cond: unknown, msg: string): asserts cond {
   if (!cond) {
@@ -324,7 +293,7 @@ export default class Viewer extends React.Component<Props, State> {
       let lastDeltaSign = 0;
       let tickOk = false;
       const tickHelper = throttle(() => { tickOk = true; }, 500);
-      const unpressedHelper = _.debounce(() => { lastDeltaSign = 0; }, 50, { trailing: true });
+      const unpressedHelper = debounce(() => { lastDeltaSign = 0; }, 50);
 
       this._processWheelTick = (delta: number) => {
         const deltaSign = Math.sign(delta);

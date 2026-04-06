@@ -24,7 +24,7 @@ import {getCurrentWindow, require as req} from '@electron/remote';
 import otherWindowIPC, { ChannelStream } from 'other-window-ipc';
 import fs from 'graceful-fs';
 import path from 'path';
-import _ from 'lodash';
+import { debounce } from '../../lib/utils';
 
 import createLimitedResourceManager, { LimitedResourceManager } from '../../lib/limited-resource-manager';
 import createMediaLoader from './media-loader';
@@ -88,7 +88,7 @@ function start(args: ProgOptions) {
 
   //g.window.show();
 
-  const hide = _.debounce(() => {
+  const hide = debounce(() => {
     if (g.visible) {
       g.visible = false;
       g.window.hide();

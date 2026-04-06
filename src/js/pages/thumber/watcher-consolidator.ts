@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import EventEmitter from 'node:events';
-import _ from 'lodash';
+import { debounce } from '../../lib/utils';
 
 import bind from '../../lib/bind';
 import debug, { Logger } from '../../lib/debug';
@@ -113,7 +113,7 @@ export default class WatcherConsolidator extends EventEmitter {
   _end() {
     this.#logger('end');
     this._send();
-    this.#queueSend = _.throttle(this._send, s_sendDebounceDuration);  // send if we haven't added anyhting in 1 second
+    this.#queueSend = debounce(this._send, s_sendDebounceDuration);  // send if we haven't added anything in 1 second
   }
   _error() {
     // does this matter?

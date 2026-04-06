@@ -23,7 +23,7 @@ import React from 'react';
 import { observable, action, IObservableArray } from 'mobx';
 import { observer } from 'mobx-react';
 import ResizeSensor from '../../lib/ui/resize-sensor';
-import _ from 'lodash';
+import { debounce, CancelableFn } from '../../lib/utils';
 import { ipcRenderer } from 'electron';   
 import debug from '../../lib/debug';
 import VPair from './vpair';
@@ -402,7 +402,7 @@ export default class ViewSplit extends React.Component<Props, State> {
   private _viewers: IObservableArray<ViewerStateShape>;
   private _eventBus: ForwardableEventDispatcher;
   private _actionListener: ActionListener;
-  private _saveLayout: _.DebouncedFunc<() => void>;
+  private _saveLayout: CancelableFn;
   private _currentSlider: Two | null = null;
   private _sliderMouseHandlersInstalled = false;
   private _lastX = 0;
@@ -413,7 +413,7 @@ export default class ViewSplit extends React.Component<Props, State> {
     this._logger = debug('ViewSplit');
     this._logger('ctor');
 
-    this._saveLayout = _.debounce(this._doSaveLayout.bind(this), 500);
+    this._saveLayout = debounce(this._doSaveLayout.bind(this), 500);
 
     const two = new Two();
     this._root = two;

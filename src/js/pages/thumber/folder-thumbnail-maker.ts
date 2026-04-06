@@ -21,7 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import mime from 'mime-types';
 import { FilesByPath } from '../../lib/fileinfo';
-import { cloneDeep } from 'lodash';
+import { cloneDeep } from '../../lib/utils';
 import { LimitedResourceManager } from '../../lib/limited-resource-manager';
 import { MakeThumbnailPagesFn } from './thumbnail-page-maker-def';
 
