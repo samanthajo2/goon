@@ -20,7 +20,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-// eslint-disable-next-line react/no-deprecated
 import ReactDOM from 'react-dom';
 
 type ModelProps = {

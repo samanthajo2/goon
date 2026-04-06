@@ -58,7 +58,7 @@ export default class ThumbnailRenderer {
     const ctx = this.#ctx;
 
     orientation = orientation ? orientation : 1;
-    const swap = (orientation - 1) & 0x4;  // eslint-disable-line no-bitwise
+    const swap = (orientation - 1) & 0x4;   
     const exifWidth  = swap ? elemHeight : elemWidth;
     const exifHeight = swap ? elemWidth : elemHeight;
 

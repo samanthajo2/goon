@@ -24,7 +24,7 @@ import { observable, action, IObservableArray } from 'mobx';
 import { observer } from 'mobx-react';
 import ResizeSensor from '../../lib/ui/resize-sensor';
 import _ from 'lodash';
-import { ipcRenderer } from 'electron';  // eslint-disable-line
+import { ipcRenderer } from 'electron';   
 import debug from '../../lib/debug';
 import VPair from './vpair';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
@@ -426,8 +426,8 @@ export default class ViewSplit extends React.Component<Props, State> {
     }
 
     this.state = {
-      treeVersion: 0,  // eslint-disable-line
-      currentId: 0,    // eslint-disable-line
+      treeVersion: 0,   
+      currentId: 0,     
       dimensions: {
         width: -1,
         height: -1,

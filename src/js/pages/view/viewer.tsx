@@ -22,7 +22,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import React from 'react';
 import _ from 'lodash';
 import { autorun, action } from 'mobx';
-import { ipcRenderer } from 'electron';  // eslint-disable-line
+import { ipcRenderer } from 'electron';   
 import { observer } from 'mobx-react';
 import ResizeSensor from '../../lib/ui/resize-sensor';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
@@ -290,7 +290,6 @@ type State = {
 
 @observer
 export default class Viewer extends React.Component<Props, State> {
-  private _id: number;
   private _logger: ReturnType<typeof debug>;
   private _baseRotation: number;
   private _baseScale: [number, number];
@@ -310,7 +309,7 @@ export default class Viewer extends React.Component<Props, State> {
 
   constructor(props: Props) {
     super(props);
-    this._id = s_viewerCount++;
+    s_viewerCount++;
     this._logger = debug('Viewer', s_viewerCount);
     this._logger('ctor');
     this._baseRotation = 0;
@@ -510,10 +509,6 @@ export default class Viewer extends React.Component<Props, State> {
     this._eventBus.dispatch(new ForwardableEvent('fileContextMenu', event.nativeEvent), this._currentFileInfo);
   };
 
-  private _bumpId(): void {
-    this.setState(prevState => ({ id: prevState.id + 1 }));
-  }
-
   private _adjustSize(
     { fileInfo, stretchMode, rotation, zoom, baseScale }: {
       fileInfo: FileInfo;
@@ -588,10 +583,6 @@ export default class Viewer extends React.Component<Props, State> {
       });
     }
   };
-
-  nextSlide(): void {
-    this._gotoNext();
-  }
 
   @action private _setVideoTime = (event: ForwardableEvent): void => {
     const te = event as TimeUpdateEvent;
@@ -712,14 +703,6 @@ export default class Viewer extends React.Component<Props, State> {
     this._currentFileInfo = undefined;
   };
 
-  private _hidePlayer(): void {
-    this.setState({ playerFlash: false });
-  }
-
-  private _hideInfo(): void {
-    this.setState({ infoFlash: false });
-  }
-
   private _launchBrowser = (): void => {
     ipcRenderer.invoke('launchBrowser', this.props.viewerState.filename);
   };
@@ -764,12 +747,6 @@ export default class Viewer extends React.Component<Props, State> {
       this._slideshow = true;
       this._slideshowId = setTimeout(this._gotoNext, timeout * 1000);
     }
-  }
-
-  viewImage(_event: ForwardableEvent, fileInfo: FileInfo): void {
-    this.props.mediaManager.requestMedia(fileInfo, (err, mediaInfo) => {
-      this._showNewMedia(err, mediaInfo, fileInfo);
-    });
   }
 
   private _loadMediaIfNew(): void {

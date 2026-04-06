@@ -21,7 +21,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import React from 'react';
 import path from 'path';
-import debug from '../../lib/debug';
 import { getRotatedXY } from '../../lib/rotatehelper';
 import ForwardableEvent from '../../lib/forwardable-event';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
@@ -111,13 +110,11 @@ type Props = {
 };
 
 export default class Folders extends React.Component<Props> {
-  private _logger: ReturnType<typeof debug>;
   private _filenameToRef = new Map<string, React.RefObject<Folder>>();
   private main!: HTMLDivElement;
 
   constructor(props: Props) {
     super(props);
-    this._logger = debug('Folders');
     this.props.eventBus.on('scrollFolderViewToFile', this._handleScrollFolderToViewFile);
   }
 

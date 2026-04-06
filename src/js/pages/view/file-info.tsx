@@ -9,6 +9,7 @@ function JSONArray({ value }: { value: any[] }) {
       <tbody>
       {
         value.map((value, index) => (
+          // eslint-disable-next-line @eslint-react/no-array-index-key
           <tr key={`ja-${index}`}>
             <td>{index}</td>
             <td>
@@ -28,8 +29,8 @@ function JSONObject({ value }: { value: { [key: string]: any } }) {
     <table className="data-table">
       <tbody>
       {
-        Object.entries(value).map(([key, value], index) => (
-          <tr key={`jo-${index}`}>
+        Object.entries(value).map(([key, value]) => (
+          <tr key={key}>
             <td>{key}</td>
             <td><JSONValue value={value} /></td>
           </tr>

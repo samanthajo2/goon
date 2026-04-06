@@ -20,12 +20,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-// eslint-disable-next-line react/no-deprecated
 import { render as reactRender } from 'react-dom';
-import { ipcRenderer } from 'electron';  // eslint-disable-line
+import { ipcRenderer } from 'electron';   
 import bind from '../../lib/bind';
 import debug from '../../lib/debug';
-import '../../lib/stacktrace-log.js';  // eslint-disable-line
+import '../../lib/stacktrace-log.js';   
 import '../../lib/title';
 import Modal from '../../lib/ui/modal';
 import ListenerManager from '../../lib/listener-manager';

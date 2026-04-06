@@ -155,7 +155,7 @@ async function rarDecompress(filename: string) {
   // Require libunrar lazily. This module assumes a non-Node environment
   // in some builds; requiring it at module-load time can throw during
   // unit tests. Load it only when needed.
-  // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const readRARContent = require('../../../../app/3rdparty/libunrar-js/libunrar');
   const rarContent = readRARContent([
     { name: 'tmp.rar', content: data },

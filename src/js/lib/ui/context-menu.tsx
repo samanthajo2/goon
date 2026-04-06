@@ -29,6 +29,7 @@ interface ContextMenuProps {
 
 // Note: only re-renders when `id` changes (parent passes a new id to trigger open/close).
 export function ContextMenu({ id, children }: ContextMenuProps): React.ReactElement | null {
+  // eslint-disable-next-line @eslint-react/use-state -- forceUpdate toggle, not real state
   const [, forceUpdate] = useState(false);
   const [adjustedPos, setAdjustedPos] = useState<{ x: number; y: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -38,8 +39,10 @@ export function ContextMenu({ id, children }: ContextMenuProps): React.ReactElem
 
   useLayoutEffect(() => {
     if (!visible || !menuRef.current) return;
+    // eslint-disable-next-line @eslint-react/set-state-in-effect
     setAdjustedPos(null);
     const { width, height } = menuRef.current.getBoundingClientRect();
+    // eslint-disable-next-line @eslint-react/set-state-in-effect
     setAdjustedPos({
       x: Math.min(position.x, window.innerWidth - width),
       y: Math.min(position.y, window.innerHeight - height),

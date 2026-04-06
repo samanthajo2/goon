@@ -23,7 +23,7 @@ import React from 'react';
 import VirtualList, { VirtualListHandle } from '../../lib/ui/virtual-list';
 import ResizeSensor from '../../lib/ui/resize-sensor';
 import { observer } from 'mobx-react';
-import { getRotatedXY } from '../../lib/rotatehelper';  // eslint-disable-line
+import { getRotatedXY } from '../../lib/rotatehelper';   
 import ListenerManager from '../../lib/listener-manager';
 import debug from '../../lib/debug';
 import ForwardableEvent from '../../lib/forwardable-event';

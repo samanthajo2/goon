@@ -46,7 +46,6 @@ type LocalFsAPI = {
 // Wrapper SimpleFolderWatcher. emits ALL files
 export default class WatcherConsolidator extends EventEmitter {
   #logger: Logger;
-  #filepath: string;
   #files: Record<string, { size: number; mtime: number; isDirectory: boolean }>;
   #queueSend: () => void;
   #listenerManager: ListenerManager;
@@ -58,7 +57,6 @@ export default class WatcherConsolidator extends EventEmitter {
     onDirMtime?: (mtime: number) => void;
   }) {
     super();
-    this.#filepath = filepath;
     this.#logger = debug('WatcherConsolidator', filepath);
     this.#watcher = new SimpleFolderWatcher(filepath, {
       watcherFactory,

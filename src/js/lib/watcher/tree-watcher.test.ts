@@ -19,8 +19,8 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-/* eslint-disable prefer-arrow-callback */
-/* eslint-disable func-names */
+ 
+ 
 
 import path from 'node:path';
 import { describe, it, beforeEach, afterEach } from '../test/mocha';

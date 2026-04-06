@@ -19,7 +19,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import { ipcRenderer } from 'electron';  // eslint-disable-line
+import { ipcRenderer } from 'electron';   
 import { dialog } from '@electron/remote';
 import React from 'react';
 import fs from 'fs';
@@ -27,9 +27,9 @@ import path from 'path';
 import _ from 'lodash';
 import keycode from 'keycode';
 import otherWindowIPC from 'other-window-ipc';
-import '../../lib/stacktrace-log.js'; // eslint-disable-line
+import '../../lib/stacktrace-log.js';  
 import bind from '../../lib/bind';
-import { shell } from 'electron';  // eslint-disable-line
+import { shell } from 'electron';   
 import debug from '../../lib/debug';
 import ListenerManager from '../../lib/listener-manager';
 import { eventToKeyInfo, keyInfoToId, keyInfoToString } from '../../lib/keyrouter';
@@ -137,7 +137,7 @@ class BaseFolder extends React.Component<BaseFolderProps, BaseFolderState> {
     classes.addIf(!this.state.exists, 'missing');
     return (
       <div className={classes.toString()}>
-        <div onClick={() => { this.props.setFolder(foldername, ndx); }}>  {/* eslint-disable-line */}
+        <div onClick={() => { this.props.setFolder(foldername, ndx); }}>  { }
           <pre>{foldername}</pre>
         </div>
         <button type="button" onClick={() => { this.props.setFolder(foldername, ndx); }}>...</button>
@@ -316,7 +316,6 @@ export default class Prefs extends React.Component<PrefsProps, PrefsState> {
   private _streams: ReturnType<typeof otherWindowIPC.createChannel> extends Promise<infer S> ? S[] : never[] = [] as never[];
   private _ipc: ReturnType<typeof otherWindowIPC.createChannel> | null;
   private _prefsPath: string;
-  private _logger: ReturnType<typeof debug>;
   private _savePrefs: _.DebouncedFunc<() => void>;
 
   constructor(props: PrefsProps) {
@@ -339,7 +338,6 @@ export default class Prefs extends React.Component<PrefsProps, PrefsState> {
       '_setPassword',
       '_changeToolbarPosition',
     );
-    this._logger = debug('Prefs');
     this._ipc = otherWindowIPC.createChannel('prefs');
     this._ipc.on('connect', this._addStream);
     this._prefsPath = path.join(props.options.userDataDir, 'prefs.json');

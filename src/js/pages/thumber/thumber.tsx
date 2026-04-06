@@ -19,7 +19,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import {BrowserWindow, ipcRenderer} from 'electron'; // eslint-disable-line
+import {BrowserWindow, ipcRenderer} from 'electron';  
 import {getCurrentWindow, require as req} from '@electron/remote';
 import otherWindowIPC, { ChannelStream } from 'other-window-ipc';
 import fs from 'graceful-fs';

@@ -1,4 +1,3 @@
-/* eslint-disable react/no-unknown-property */
 /*
 Copyright 2024 SamanthaJo
 

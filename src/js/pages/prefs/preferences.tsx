@@ -20,11 +20,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-// eslint-disable-next-line react/no-deprecated
 import { render as reactRender } from 'react-dom';
-import { ipcRenderer } from 'electron';  // eslint-disable-line
+import { ipcRenderer } from 'electron';   
 import Prefs from './prefs';
-import '../../lib/stacktrace-log.js';  // eslint-disable-line
+import '../../lib/stacktrace-log.js';   
 import '../../lib/title';
 
 type StartArgs = {

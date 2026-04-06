@@ -21,7 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import React from 'react';
 import path from 'path';
-import { ipcRenderer } from 'electron';  // eslint-disable-line
+import { ipcRenderer } from 'electron';   
 import { ContextMenu, MenuItem } from '../../lib/ui/context-menu';
 import debug from '../../lib/debug';
 import ForwardableEvent from '../../lib/forwardable-event';

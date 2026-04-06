@@ -25,7 +25,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-/* eslint-disable */
+ 
 
 import cp from 'child_process';
 import path from 'node:path';

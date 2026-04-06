@@ -30,7 +30,7 @@ type HSL ={
 
 let s_colorNdx = 0;
 function generateColor(): HSL {
-  /* eslint-disable no-bitwise */
+   
   const h = (((s_colorNdx & 0x01) << 5) |
              ((s_colorNdx & 0x02) << 3) |
              ((s_colorNdx & 0x04) << 1) |
@@ -39,7 +39,7 @@ function generateColor(): HSL {
              ((s_colorNdx & 0x20) >> 5)) / 64.0;
   const s   = (s_colorNdx & 0x10) !== 0 ? 0.5 : 1.0;
   const l   = (s_colorNdx & 0x20) !== 0 ? 0.2 : 0.4;
-  /* eslint-enable no-bitwise */
+   
 
   ++s_colorNdx;
   return {
@@ -55,11 +55,11 @@ function makeCSSColor(hsl: HSL): string {
 
 const defaultColor = 'color:inherit;';
 function makeBrowserLog(color: HSL, name: string) {
-  return console.log.bind(console, '%c%s: %c', `color: ${makeCSSColor(color)}`, name, defaultColor);  // eslint-disable-line
+  return console.log.bind(console, '%c%s: %c', `color: ${makeCSSColor(color)}`, name, defaultColor);   
 }
 
 function makeTerminalLog(color: HSL, name: string) {
-  return console.log.bind(console, chalk.hsl(color.h, color.s, color.l)(name));  // eslint-disable-line
+  return console.log.bind(console, chalk.hsl(color.h, color.s, color.l)(name));   
 }
 
 type LogFunc = (...args: any[]) => void;

@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import { rimraf } from 'rimraf';
-import { ipcRenderer } from 'electron';  // eslint-disable-line
+import { ipcRenderer } from 'electron';   
 import otherWindowIPC, { ChannelStream } from 'other-window-ipc';
 import React from 'react';
 import _ from 'lodash';
@@ -651,7 +651,7 @@ export default class App extends React.Component<Props, AppState> {
       prefs,
     }, () => {
       this._keyRouter.registerKeys(prefs.keyConfig as never);
-      this._logger('prefs:', JSON.stringify(this.state.prefs));
+      this._logger('prefs:', JSON.stringify(prefs));
       this._rerunFilter();
     });
   };
@@ -661,7 +661,7 @@ export default class App extends React.Component<Props, AppState> {
   };
 
   private _getToolbar(): React.ReactNode {
-    if (!(this.state.winState.showUI & 1)) { // eslint-disable-line no-bitwise
+    if (!(this.state.winState.showUI & 1)) {  
       return undefined;
     }
     if (this._viewerStateHolder.state?.viewing) {
@@ -726,8 +726,8 @@ export default class App extends React.Component<Props, AppState> {
     const isFullScreen = true;
     const rotateMode = this.state.winState.rotateMode;
     const showUI = this.state.winState.showUI;
-    const hideClass = (showUI & 2) ? 'noop' : 'hide';  // eslint-disable-line no-bitwise
-    const fullClass = (showUI & 2) ? 'noop' : 'fullsplit';  // eslint-disable-line no-bitwise
+    const hideClass = (showUI & 2) ? 'noop' : 'hide';   
+    const fullClass = (showUI & 2) ? 'noop' : 'fullsplit';   
     if (!this.state.prefsReceived) {
       return (<Loading />);
     }
@@ -762,7 +762,7 @@ export default class App extends React.Component<Props, AppState> {
                 root={this.state.root}
                 eventBus={this._eventBus}
                 prefs={this.state.prefs as Preferences}
-                show={!!(this.state.winState.showUI & 2)} // eslint-disable-line no-bitwise
+                show={!!(this.state.winState.showUI & 2)}  
                 rotateMode={rotateMode}
               />
             }

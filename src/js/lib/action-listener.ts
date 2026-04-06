@@ -37,6 +37,6 @@ export default class ActionListener extends EventEmitter {
     this.emit(event.action.action, event, ...args);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
+   
   close(): void {}
 }

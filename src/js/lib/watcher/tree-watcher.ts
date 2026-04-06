@@ -35,7 +35,7 @@ import FileChangeType, { RawFileChange } from './file-change-types';
 
 type RawWatcher = WinTreeWatcher | ChokidarTreeWatcher;
 
-/* eslint-disable */
+ 
 
 export default class TreeWatcher extends EventEmitter {
   private _logger: ReturnType<typeof debug>;

@@ -33,7 +33,7 @@ export default class ViewSplitHolder extends React.PureComponent<Props> {
     return (
       <div className="viewers">
         <ViewSplit
-          {...this.props} // eslint-disable-line react/jsx-props-no-spreading
+          {...this.props}
         />
       </div>
     );

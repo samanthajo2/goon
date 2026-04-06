@@ -281,9 +281,9 @@ describe('ThumbnailPageMaker', () => {
 
   it('remakes a page', async () => {
     const files: Files = {
-      'abc.jpg': { thumbnail: { url: 'page1', x:   0, y: 0, width: 150, height: 150 } }, // eslint-disable-line
-      'def.jpg': { thumbnail: { url: 'page1', x: 150, y: 0, width: 150, height: 150 } }, // eslint-disable-line
-      'ghi.jpg': { thumbnail: { url: 'page1', x: 300, y: 0, width: 150, height: 150 } }, // eslint-disable-line
+      'abc.jpg': { thumbnail: { url: 'page1', x:   0, y: 0, width: 150, height: 150 } },  
+      'def.jpg': { thumbnail: { url: 'page1', x: 150, y: 0, width: 150, height: 150 } },  
+      'ghi.jpg': { thumbnail: { url: 'page1', x: 300, y: 0, width: 150, height: 150 } },  
     };
     const r = await testThumbnailPageMaker({
       thumbnailWidth: 150,
@@ -299,9 +299,9 @@ describe('ThumbnailPageMaker', () => {
 
   it('remakes 3 pages', async () => {
     const files: Files = {
-      'abc.jpg': { thumbnail: { url: 'page1', x:   0, y: 0, width: 150, height: 150 } }, // eslint-disable-line
-      'def.jpg': { thumbnail: { url: 'page2', x: 150, y: 0, width: 150, height: 150 } }, // eslint-disable-line
-      'ghi.jpg': { thumbnail: { url: 'page3', x: 300, y: 0, width: 150, height: 150 } }, // eslint-disable-line
+      'abc.jpg': { thumbnail: { url: 'page1', x:   0, y: 0, width: 150, height: 150 } },  
+      'def.jpg': { thumbnail: { url: 'page2', x: 150, y: 0, width: 150, height: 150 } },  
+      'ghi.jpg': { thumbnail: { url: 'page3', x: 300, y: 0, width: 150, height: 150 } },  
     };
     const r = await testThumbnailPageMaker({
       thumbnailWidth: 150,
@@ -317,9 +317,9 @@ describe('ThumbnailPageMaker', () => {
 
   it('delete 3 pages makes 1', async () => {
     const files: Files = {
-      'abc.jpg': { thumbnail: { url: 'page1', x:   0, y: 0, width: 150, height: 150 } }, // eslint-disable-line
-      'def.jpg': { thumbnail: { url: 'page2', x: 150, y: 0, width: 150, height: 150 } }, // eslint-disable-line
-      'ghi.jpg': { thumbnail: { url: 'page3', x: 300, y: 0, width: 150, height: 150 } }, // eslint-disable-line
+      'abc.jpg': { thumbnail: { url: 'page1', x:   0, y: 0, width: 150, height: 150 } },  
+      'def.jpg': { thumbnail: { url: 'page2', x: 150, y: 0, width: 150, height: 150 } },  
+      'ghi.jpg': { thumbnail: { url: 'page3', x: 300, y: 0, width: 150, height: 150 } },  
     };
     const r = await testThumbnailPageMaker({
       thumbnailWidth: 150,
@@ -338,9 +338,9 @@ describe('ThumbnailPageMaker', () => {
 
   it('remakes a page with 2 old and 1 new file', async () => {
     const files: Files = {
-      'abc.jpg': { thumbnail: { url: 'page1', x:   0, y: 0, width: 150, height: 150 } }, // eslint-disable-line
-      'def.jpg': { thumbnail: { url: 'page1', x: 150, y: 0, width: 150, height: 150 } }, // eslint-disable-line
-      'ghi.jpg': { thumbnail: { url: 'page1', x: 300, y: 0, width: 150, height: 150 } }, // eslint-disable-line
+      'abc.jpg': { thumbnail: { url: 'page1', x:   0, y: 0, width: 150, height: 150 } },  
+      'def.jpg': { thumbnail: { url: 'page1', x: 150, y: 0, width: 150, height: 150 } },  
+      'ghi.jpg': { thumbnail: { url: 'page1', x: 300, y: 0, width: 150, height: 150 } },  
     };
     const r = await testThumbnailPageMaker({
       thumbnailWidth: 150,
@@ -380,9 +380,9 @@ describe('ThumbnailPageMaker', () => {
 
   it('remakes thumbnails if can not load page', async () => {
     const files: Files = {
-      'abc.jpg': { thumbnail: { url: 'page1', x:   0, y: 0, width: 150, height: 150 } }, // eslint-disable-line
-      'def.jpg': { thumbnail: { url: 'page1', x: 150, y: 0, width: 150, height: 150 } }, // eslint-disable-line
-      'ghi.jpg': { thumbnail: { url: 'page1', x: 300, y: 0, width: 150, height: 150 } }, // eslint-disable-line
+      'abc.jpg': { thumbnail: { url: 'page1', x:   0, y: 0, width: 150, height: 150 } },  
+      'def.jpg': { thumbnail: { url: 'page1', x: 150, y: 0, width: 150, height: 150 } },  
+      'ghi.jpg': { thumbnail: { url: 'page1', x: 300, y: 0, width: 150, height: 150 } },  
     };
     const r = await testThumbnailPageMaker({
       thumbnailWidth: 150,

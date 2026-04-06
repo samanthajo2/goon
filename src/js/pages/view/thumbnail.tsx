@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import { ipcRenderer } from 'electron';  // eslint-disable-line
+import { ipcRenderer } from 'electron';   
 import ForwardableEvent from '../../lib/forwardable-event';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
 import gridModes, { ThumbnailProps } from './grid-modes';

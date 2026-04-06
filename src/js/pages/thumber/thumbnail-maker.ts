@@ -145,7 +145,7 @@ export default function createThumbnailMaker(options: {
     } catch (e) {
       console.error(e);
       release();
-      throw new Error(`could not load ${filename}`);
+      throw new Error(`could not load ${filename}`, { cause: e });
     }
   };
 }

@@ -37,7 +37,7 @@ export default async function createThumbnailsForArchive(
 ) {
   let archiveHandle: (() => void) | undefined;
   let tpmHandle: Awaited<ReturnType<typeof thumbnailPageMakerManager>> | undefined;
-  let newFiles: FilesByPath = {};
+  let newFiles: FilesByPath | undefined;
   const blobUrls: string[] = [];
   const startTime = Date.now();
 

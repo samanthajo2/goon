@@ -68,8 +68,8 @@ export default function SplitPane({
   const [isDragging, setIsDragging] = useState(false);
 
   // Logical drag-start position and split fraction, tracked across moves.
-  const startLogicalX = useRef(0);
-  const startSplit = useRef(split);
+  const startLogicalXRef = useRef(0);
+  const startSplitRef = useRef(split);
 
   // After the parent's CSS rotation, col-resize appears as row-resize to the
   // user when rotated 90° or 270°.
@@ -81,8 +81,8 @@ export default function SplitPane({
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>): void => {
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
-    startLogicalX.current = getLogicalX(e);
-    startSplit.current = split;
+    startLogicalXRef.current = getLogicalX(e);
+    startSplitRef.current = split;
     setIsDragging(true);
   };
 
@@ -94,9 +94,9 @@ export default function SplitPane({
     // offsetWidth is the pre-transform logical width — correct denominator
     // regardless of how the parent is CSS-rotated.
     const logicalSize = container.offsetWidth;
-    const delta = getLogicalX(e) - startLogicalX.current;
+    const delta = getLogicalX(e) - startLogicalXRef.current;
 
-    const rawSplit = startSplit.current + delta / logicalSize;
+    const rawSplit = startSplitRef.current + delta / logicalSize;
     const minFlex = minSize > 0 ? minSize / logicalSize : 0;
     const newSplit = Math.max(minFlex, Math.min(1 - minFlex, rawSplit));
 
