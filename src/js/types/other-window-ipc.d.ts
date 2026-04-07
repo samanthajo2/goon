@@ -9,6 +9,8 @@ declare module 'other-window-ipc' {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     on(event: string, listener: (...args: any[]) => void): void;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    removeListener(event: string, listener: (...args: any[]) => void): void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     send(event: string, ...args: any[]): void;
     close(): void;
   }
