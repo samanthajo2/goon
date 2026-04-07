@@ -24,28 +24,29 @@ import { action } from 'mobx';
 import { observer } from 'mobx-react';
 import ActionEvent from '../../lib/action-event';
 import { TimeUpdateEvent, VideoState } from './viewer-events';
-import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
-import type { AppEventMap } from './app-event-map';
+import { AppContext } from './contexts';
 
 const _pauseIcon = '❚❚';
 const _playIcon = '▶';
 const _padZero = (num: number, size: number): string => num.toString().padStart(size, '0');
 
 type Props = {
-  eventBus: ForwardableEventDispatcher<AppEventMap>;
   videoState: VideoState;
 };
 
 @observer
 export default class Player extends React.Component<Props> {
+  static contextType = AppContext;
+  declare context: React.ContextType<typeof AppContext>;
+
   private _changeTime = (event: React.ChangeEvent<HTMLInputElement>): void => {
-    this.props.eventBus.dispatch(
+    this.context.eventBus.dispatch(
       new TimeUpdateEvent(Number(event.target.value) / Number(event.target.max) * this.props.videoState.duration),
     );
   };
 
   private _togglePlay = (): void => {
-    this.props.eventBus.dispatch(new ActionEvent({ action: 'togglePlay' }));
+    this.context.eventBus.dispatch(new ActionEvent({ action: 'togglePlay' }));
   };
 
   @action private _changeVolume = (e: React.ChangeEvent<HTMLInputElement>): void => {

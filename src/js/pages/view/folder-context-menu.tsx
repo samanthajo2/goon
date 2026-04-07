@@ -20,13 +20,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import { ipcRenderer } from 'electron';   
+import { ipcRenderer } from 'electron';
 import { ContextMenu, MenuItem } from '../../lib/ui/context-menu';
 import debug from '../../lib/debug';
 import ForwardableEvent from '../../lib/forwardable-event';
-import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
-import type { AppEventMap } from './app-event-map';
 import { FolderContextInfo } from './viewer-events';
+import { AppContext } from './contexts';
 
 const logger = debug('FolderContextMenu');
 
@@ -40,14 +39,15 @@ function showItem(filename: string, archive: boolean | undefined): void {
 }
 
 type Props = {
-  eventBus: ForwardableEventDispatcher<AppEventMap>;
   folder: FolderContextInfo;
   rotateMode: number;
 };
 
 export default class FolderContextMenu extends React.Component<Props> {
+  static contextType = AppContext;
+  declare context: React.ContextType<typeof AppContext>;
   private _handleCopy = (): void => {
-    this.props.eventBus.dispatch(new ForwardableEvent('copyFolder'), this.props.folder);
+    this.context.eventBus.dispatch(new ForwardableEvent('copyFolder'), this.props.folder);
   };
 
   private _handleOpen = (): void => {
@@ -55,15 +55,15 @@ export default class FolderContextMenu extends React.Component<Props> {
   };
 
   private _handleDelete = (): void => {
-    this.props.eventBus.dispatch(new ForwardableEvent('deleteFolder'), this.props.folder);
+    this.context.eventBus.dispatch(new ForwardableEvent('deleteFolder'), this.props.folder);
   };
 
   private _handleRefreshFolder = (): void => {
-    this.props.eventBus.dispatch(new ForwardableEvent('refreshFolder'), this.props.folder.filename);
+    this.context.eventBus.dispatch(new ForwardableEvent('refreshFolder'), this.props.folder.filename);
   };
 
   private _handleSyncFolderView = (): void => {
-    this.props.eventBus.dispatch(
+    this.context.eventBus.dispatch(
       new ForwardableEvent('scrollFolderViewToFile'),
       this.props.folder.filename,
     );

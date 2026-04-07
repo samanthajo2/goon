@@ -62,6 +62,7 @@ import { useWinState } from './hooks/use-win-state';
 import { useIPCStreams } from './hooks/use-ipc-streams';
 import { useFilter, makeGoodFilter, makeSmallDimensionsFilter } from './hooks/use-filter';
 import { useFolderPipeline } from './hooks/use-folder-pipeline';
+import { AppContext } from './contexts';
 
 const dummyEvent = {
   preventDefault: () => {},
@@ -507,6 +508,7 @@ const App = observer(function App({ options, startState }: Props): React.ReactEl
     : s_toolbarModeBottomTable[toolbarPosition];
 
   return (
+    <AppContext.Provider value={{ eventBus, prefs: prefs as Preferences }}>
     <div
       style={splitStyle}
       className={`view ${rotateModes[rotateMode].className}`}
@@ -530,8 +532,6 @@ const App = observer(function App({ options, startState }: Props): React.ReactEl
           first={
             <Folders
               root={root}
-              eventBus={eventBus}
-              prefs={prefs as Preferences}
               show={!!(winState.showUI & 2)}
               rotateMode={rotateMode}
             />
@@ -540,7 +540,6 @@ const App = observer(function App({ options, startState }: Props): React.ReactEl
             <ViewSplitHolder
               root={root}
               options={options}
-              prefs={prefs as Preferences}
               rotateMode={rotateMode}
               startingLayout={startState?.layout as never}
               setCurrentView={setCurrentView}
@@ -553,12 +552,10 @@ const App = observer(function App({ options, startState }: Props): React.ReactEl
         <FolderContextMenu
           rotateMode={rotateMode}
           folder={contextFolderInfo!}
-          eventBus={eventBus}
         />
         <FileContextMenu
           rotateMode={rotateMode}
           file={contextFileInfo!}
-          eventBus={eventBus}
         />
         {showDeleteFilePrompt && contextFileInfo && (
           <OkayCancel
@@ -601,6 +598,7 @@ const App = observer(function App({ options, startState }: Props): React.ReactEl
         )}
       </div>
     </div>
+    </AppContext.Provider>
   );
 });
 

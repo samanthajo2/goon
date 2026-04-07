@@ -23,11 +23,9 @@ import React from 'react';
 import path from 'path';
 import { getRotatedXY } from '../../lib/rotatehelper';
 import ForwardableEvent from '../../lib/forwardable-event';
-import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
-import type { AppEventMap } from './app-event-map';
 import { cssArray } from '../../lib/css-utils';
-import { Preferences } from '../prefs/default-prefs';
 import { FolderStateRoot, FolderStateFolder } from './folder-state-helper';
+import { AppContext } from './contexts';
 
 const s_depthCache: Record<number, string> = {};
 
@@ -53,23 +51,24 @@ function depthPrefixedFilename(baseFolders: string[], filename: string): string 
 }
 
 type FolderProps = {
-  eventBus: ForwardableEventDispatcher<AppEventMap>;
   folder: FolderStateFolder;
   count: number;
   folderCount: number;
   numFiles: number;
-  prefs: Preferences;
 };
 
 class Folder extends React.Component<FolderProps> {
+  static contextType = AppContext;
+  declare context: React.ContextType<typeof AppContext>;
+
   private _ref = React.createRef<HTMLDivElement>();
 
   private _handleClick = (): void => {
-    this.props.eventBus.dispatch(new ForwardableEvent('goToImage'), this.props.count, this.props.folderCount);
+    this.context.eventBus.dispatch(new ForwardableEvent('goToImage'), this.props.count, this.props.folderCount);
   };
 
   private _handleContextMenu = (event: React.MouseEvent): void => {
-    this.props.eventBus.dispatch(new ForwardableEvent('folderContextMenu', event.nativeEvent), this.props.folder);
+    this.context.eventBus.dispatch(new ForwardableEvent('folderContextMenu', event.nativeEvent), this.props.folder);
   };
 
   scrollIntoView(): void {
@@ -81,7 +80,8 @@ class Folder extends React.Component<FolderProps> {
   }
 
   render(): React.ReactNode {
-    const { folder, prefs } = this.props;
+    const { folder } = this.props;
+    const { prefs } = this.context;
     const name = prefs.misc.indentByFolderDepth
       ? depthPrefixedFilename(prefs.folders, folder.filename)
       : folder.name;
@@ -104,19 +104,20 @@ class Folder extends React.Component<FolderProps> {
 
 type Props = {
   root: FolderStateRoot;
-  eventBus: ForwardableEventDispatcher<AppEventMap>;
-  prefs: Preferences;
   show: boolean;
   rotateMode: number;
 };
 
 export default class Folders extends React.Component<Props> {
+  static contextType = AppContext;
+  declare context: React.ContextType<typeof AppContext>;
+
   private _filenameToRef = new Map<string, React.RefObject<Folder>>();
   private main!: HTMLDivElement;
 
-  constructor(props: Props) {
-    super(props);
-    this.props.eventBus.on('scrollFolderViewToFile', this._handleScrollFolderToViewFile);
+  constructor(props: Props, context: React.ContextType<typeof AppContext>) {
+    super(props, context);
+    this.context.eventBus.on('scrollFolderViewToFile', this._handleScrollFolderToViewFile);
   }
 
   componentDidMount(): void {
@@ -125,6 +126,7 @@ export default class Folders extends React.Component<Props> {
 
   componentWillUnmount(): void {
     this.main.removeEventListener('wheel', this._handleWheel as EventListener);
+    this.context.eventBus.removeListener('scrollFolderViewToFile', this._handleScrollFolderToViewFile);
   }
 
   private _handleScrollFolderToViewFile = (_event: unknown, folderName: string): void => {
@@ -155,8 +157,6 @@ export default class Folders extends React.Component<Props> {
           numFiles={numFiles}
           count={ndx}
           folderCount={ndx}
-          eventBus={this.props.eventBus}
-          prefs={this.props.prefs}
         />
       );
     });

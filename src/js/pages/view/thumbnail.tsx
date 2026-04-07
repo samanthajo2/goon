@@ -20,28 +20,29 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import { ipcRenderer } from 'electron';   
+import { ipcRenderer } from 'electron';
 import ForwardableEvent from '../../lib/forwardable-event';
-import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
 import gridModes, { ThumbnailProps } from './grid-modes';
-import type { AppEventMap } from './app-event-map';
+import { AppContext } from './contexts';
 
 type Props = ThumbnailProps & {
   count: number;
-  eventBus: ForwardableEventDispatcher<AppEventMap>;
   setCurrentView: () => void;
 };
 
 export default class Thumbnail extends React.PureComponent<Props> {
+  static contextType = AppContext;
+  declare context: React.ContextType<typeof AppContext>;
+
   private _viewImage = (): void => {
     this.props.setCurrentView();
-    this.props.eventBus.dispatch(new ForwardableEvent('setCurrentNdx'), this.props.count);
-    this.props.eventBus.dispatch(new ForwardableEvent('view'), this.props.info);
+    this.context.eventBus.dispatch(new ForwardableEvent('setCurrentNdx'), this.props.count);
+    this.context.eventBus.dispatch(new ForwardableEvent('view'), this.props.info);
   };
 
   private _handleContextMenu = (event: MouseEvent | React.MouseEvent): void => {
     const domEvent = (event instanceof MouseEvent) ? event : event.nativeEvent;
-    this.props.eventBus.dispatch(new ForwardableEvent('fileContextMenu', domEvent), this.props.info);
+    this.context.eventBus.dispatch(new ForwardableEvent('fileContextMenu', domEvent), this.props.info);
   };
 
   private _handleDragStart = (event: DragEvent | React.DragEvent): void => {

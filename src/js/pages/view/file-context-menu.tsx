@@ -21,13 +21,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import React from 'react';
 import path from 'path';
-import { ipcRenderer } from 'electron';   
+import { ipcRenderer } from 'electron';
 import { ContextMenu, MenuItem } from '../../lib/ui/context-menu';
 import debug from '../../lib/debug';
 import ForwardableEvent from '../../lib/forwardable-event';
-import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
-import type { AppEventMap } from './app-event-map';
 import { DBFileInfo } from './folder-db';
+import { AppContext } from './contexts';
 
 const logger = debug('FileContextMenu');
 
@@ -37,14 +36,15 @@ function showItem(filename: string): void {
 }
 
 type Props = {
-  eventBus: ForwardableEventDispatcher<AppEventMap>;
   file: DBFileInfo;
   rotateMode: number;
 };
 
 export default class FileContextMenu extends React.Component<Props> {
+  static contextType = AppContext;
+  declare context: React.ContextType<typeof AppContext>;
   private _handleCopy = (): void => {
-    this.props.eventBus.dispatch(new ForwardableEvent('copyFile'), this.props.file);
+    this.context.eventBus.dispatch(new ForwardableEvent('copyFile'), this.props.file);
   };
 
   private _handleOpen = (): void => {
@@ -52,29 +52,29 @@ export default class FileContextMenu extends React.Component<Props> {
   };
 
   private _handleInfo = (): void => {
-    this.props.eventBus.dispatch(new ForwardableEvent('showFileInfo'), this.props.file);
+    this.context.eventBus.dispatch(new ForwardableEvent('showFileInfo'), this.props.file);
   };
 
   private _handleDelete = (): void => {
     if (this.props.file.archiveName) {
-      this.props.eventBus.dispatch(new ForwardableEvent('deleteFolder'), {
+      this.context.eventBus.dispatch(new ForwardableEvent('deleteFolder'), {
         filename: this.props.file.archiveName,
         archive: true,
       });
     } else {
-      this.props.eventBus.dispatch(new ForwardableEvent('deleteFile'), this.props.file);
+      this.context.eventBus.dispatch(new ForwardableEvent('deleteFile'), this.props.file);
     }
   };
 
   private _handleRefreshFolder = (): void => {
-    this.props.eventBus.dispatch(
+    this.context.eventBus.dispatch(
       new ForwardableEvent('refreshFolder'),
       path.dirname(this.props.file.filename),
     );
   };
 
   private _handleSyncFolderView = (): void => {
-    this.props.eventBus.dispatch(
+    this.context.eventBus.dispatch(
       new ForwardableEvent('scrollFolderViewToFile'),
       path.dirname(this.props.file.filename),
     );

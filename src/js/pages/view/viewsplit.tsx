@@ -34,7 +34,6 @@ import ActionListener from '../../lib/action-listener';
 import { getRotatedXY } from '../../lib/rotatehelper';
 import { px } from '../../lib/utils';
 import { FolderStateRoot } from './folder-state-helper';
-import { Preferences } from '../prefs/default-prefs';
 import { GridMode } from './grid-modes';
 
 /* global Yoga */
@@ -375,7 +374,6 @@ type ViewerStateShape = {
 type Props = {
   root: FolderStateRoot;
   options: Options;
-  prefs: Preferences;
   winState: WinState;
   rotateMode: number;
   startingLayout?: TwoDump;
@@ -734,10 +732,8 @@ export default class ViewSplit extends React.Component<Props, State> {
               width={bounds.width}
               isCurrentView={this._currentTwo === two}
               options={this.props.options}
-              prefs={this.props.prefs}
               winState={this.props.winState}
               rotateMode={this.props.rotateMode}
-              eventBus={this._eventBus}
               setCurrentView={this._setCurrentView}
               actionListener={this._actionListener}
               registerVPair={this._registerVPair}

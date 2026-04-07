@@ -23,12 +23,11 @@ import React from 'react';
 import VirtualList, { VirtualListHandle } from '../../lib/ui/virtual-list';
 import ResizeSensor from '../../lib/ui/resize-sensor';
 import { observer } from 'mobx-react';
-import { getRotatedXY } from '../../lib/rotatehelper';   
+import { getRotatedXY } from '../../lib/rotatehelper';
 import ListenerManager from '../../lib/listener-manager';
 import debug from '../../lib/debug';
 import ForwardableEvent from '../../lib/forwardable-event';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
-import type { AppEventMap } from './app-event-map';
 import { DBFileInfo } from './folder-db';
 import Thumbnail from './thumbnail';
 import ActionListener from '../../lib/action-listener';
@@ -36,7 +35,7 @@ import { px } from '../../lib/utils';
 import gridModes, { GridMode } from './grid-modes';
 import { setRAF } from '../../lib/wait';
 import { FolderStateRoot, FolderStateFolder, SortInfo } from './folder-state-helper';
-import { Preferences } from '../prefs/default-prefs';
+import { AppContext } from './contexts';
 
 let g_imageGridsRenderCount = 0;
 let g_renderCount = 0;
@@ -187,9 +186,7 @@ type ImageGridProps = {
   width: number;
   name: string;
   folder: FolderStateFolder;
-  eventBus: ForwardableEventDispatcher<AppEventMap>;
   options: Options;
-  prefs: Preferences;
   gridMode: GridMode;
   scrollParent: (pos: number) => void;
   setCurrentView: () => void;
@@ -199,6 +196,9 @@ type ImageGridProps = {
 };
 
 class ImageGrid extends React.Component<ImageGridProps> {
+  static contextType = AppContext;
+  declare context: React.ContextType<typeof AppContext>;
+
   private _logger: ReturnType<typeof debug>;
   private grid!: HTMLDivElement;
 
@@ -208,11 +208,11 @@ class ImageGrid extends React.Component<ImageGridProps> {
   }
 
   componentDidMount(): void {
-    this.props.eventBus.on('scrollToImagePropagate', this._scrollToImageIfYours);
+    this.context.eventBus.on('scrollToImagePropagate', this._scrollToImageIfYours);
   }
 
   componentWillUnmount(): void {
-    this.props.eventBus.removeListener('scrollToImagePropagate', this._scrollToImageIfYours);
+    this.context.eventBus.removeListener('scrollToImagePropagate', this._scrollToImageIfYours);
   }
 
   private _scrollToImageIfYours = (_event: ForwardableEvent, ndx: number): void => {
@@ -222,7 +222,7 @@ class ImageGrid extends React.Component<ImageGridProps> {
   };
 
   private _handleContextMenu = (event: React.MouseEvent): void => {
-    this.props.eventBus.dispatch(
+    this.context.eventBus.dispatch(
       new ForwardableEvent('folderContextMenu', event.nativeEvent),
       this.props.folder,
       event.nativeEvent,
@@ -231,16 +231,8 @@ class ImageGrid extends React.Component<ImageGridProps> {
 
   render(): React.ReactNode {
     this._logger('render');
-    const {
-      setCurrentView,
-      eventBus,
-      folder,
-      width,
-      zoom,
-      gridMode,
-      options,
-      prefs,
-    } = this.props;
+    const { setCurrentView, folder, width, zoom, gridMode, options } = this.props;
+    const { prefs } = this.context;
     const files = folder.files;
     const columnManager = gridModes.value(gridMode).helper(width, {
       padding: options.padding,
@@ -261,7 +253,6 @@ class ImageGrid extends React.Component<ImageGridProps> {
           showDates={prefs.misc.showDates}
           showDimensions={prefs.misc.showDimensions}
           gridMode={gridMode}
-          eventBus={eventBus}
           count={count + ndx}
           zoom={zoom}
           setCurrentView={setCurrentView}
@@ -288,9 +279,7 @@ type Props = {
   root: FolderStateRoot;
   width: number;
   options: Options;
-  prefs: Preferences;
   winState: WinState;
-  eventBus: ForwardableEventDispatcher<AppEventMap>;
   rotateMode: number;
   setCurrentView: () => void;
   currentImageIndex: number;
@@ -303,6 +292,9 @@ type State = {
 
 @observer
 export default class ImageGrids extends React.Component<Props, State> {
+  static contextType = AppContext;
+  declare context: React.ContextType<typeof AppContext>;
+
   private _logger: ReturnType<typeof debug>;
   private _listenerManager: ListenerManager;
   private _eventBus: ForwardableEventDispatcher;
@@ -342,7 +334,7 @@ export default class ImageGrids extends React.Component<Props, State> {
     actionListener.on('fastBackward', this._gotoPrev);
     on(eventBus, 'action', this._actionListener.routeAction);
 
-    this.props.eventBus.setForward(this._eventBus);
+    this.context.eventBus.setForward(this._eventBus);
 
     this._logger('setScrollStop:', this.props.scrollTop);
     const startingFolderNdx = this.props.gotoFolderNdx;
@@ -380,7 +372,7 @@ export default class ImageGrids extends React.Component<Props, State> {
   componentWillUnmount(): void {
     this._imagegrids.removeEventListener('wheel', this._handleWheel as EventListener);
     this._actionListener.close();
-    this.props.eventBus.setForward(null);
+    this.context.eventBus.setForward(null);
     this._listenerManager.removeAll();
     if (this._restoreAnchorTimer !== null) {
       clearTimeout(this._restoreAnchorTimer);
@@ -519,9 +511,7 @@ export default class ImageGrids extends React.Component<Props, State> {
         width={width}
         name={info.name}
         folder={info.folder}
-        eventBus={this.props.eventBus}
         options={this.props.options}
-        prefs={this.props.prefs}
         gridMode={this.props.winState.gridMode}
         scrollParent={this._scrollToRelativePosition}
         setCurrentView={this.props.setCurrentView}

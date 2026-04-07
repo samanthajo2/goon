@@ -35,7 +35,7 @@ import { CSSArray } from '../../lib/css-utils';
 import { euclideanModulo } from '../../lib/utils';
 import ActionListener from '../../lib/action-listener';
 import { FolderStateRoot } from './folder-state-helper';
-import { Preferences } from '../prefs/default-prefs';
+import { AppContext } from './contexts';
 import { ScrollAnchor } from './image-grids';
 import { VideoState, ImagegridState } from './viewer-events';
 import { GridMode } from './grid-modes';
@@ -91,10 +91,8 @@ type Props = {
   width: number;
   isCurrentView: boolean;
   options: Options;
-  prefs: Preferences;
   winState: WinState;
   rotateMode: number;
-  eventBus: ForwardableEventDispatcher<AppEventMap>;
   setCurrentView: (vpair: VPair) => void;
   actionListener: ActionListener;
   registerVPair: (vpair: VPair) => void;
@@ -110,9 +108,16 @@ type ComponentState = {
 
 @observer
 export default class VPair extends React.Component<Props, ComponentState> {
+  static contextType = AppContext;
+  declare context: React.ContextType<typeof AppContext>;
+
   private _logger: ReturnType<typeof debug>;
   private _downstreamEventBus: ForwardableEventDispatcher;
   private _eventBus: ForwardableEventDispatcher<AppEventMap>;
+  // Cached context value so the Provider reference is stable across renders
+  // when neither eventBus nor prefs has changed, avoiding spurious re-renders.
+  private _cachedContextPrefs: React.ContextType<typeof AppContext>['prefs'] | null = null;
+  private _cachedContextValue: React.ContextType<typeof AppContext> | null = null;
   private _mediaManager: MediaManagerClient;
   private _viewerState: ObservableViewerState;
   private _imagegridState: ImagegridState;
@@ -347,46 +352,52 @@ export default class VPair extends React.Component<Props, ComponentState> {
   };
 
   render(): React.ReactNode {
+    // Re-provide AppContext with VPair's own eventBus so that Viewer, ImageGrids,
+    // Player, and Thumbnail automatically route events through this pane.
+    // The value object is cached by prefs reference to avoid spurious re-renders.
+    if (this._cachedContextPrefs !== this.context.prefs) {
+      this._cachedContextPrefs = this.context.prefs;
+      this._cachedContextValue = { eventBus: this._eventBus, prefs: this.context.prefs };
+    }
+
     const classes = new CSSArray('vpair');
     classes.addIf(this.props.isCurrentView, 'active');
     return (
-      <div className={classes.toString()} onClick={this._handleClick}>
-        { this._viewerState.viewing ? (
-          <Viewer
-            options={this.props.options}
-            eventBus={this._eventBus}
-            downstreamEventBus={this._downstreamEventBus}
-            viewerState={this._viewerState}
-            prefs={this.props.prefs}
-            mediaManager={this._mediaManager}
-            setCurrentView={this._setCurrentView}
-            rotateMode={this.props.rotateMode}
-          />
-        ) : (
-          <ImageGrids
-            gotoFolderNdx={this.state.gotoFolderNdx}
-            scrollTop={this._imagegridsScrollTop}
-            initialAnchor={this._imagegridsAnchor}
-            saveScrollTop={this._saveScrollTop}
-            root={this.props.root}
-            width={this.props.width}
-            options={this.props.options}
-            prefs={this.props.prefs}
-            winState={this.props.winState}
-            eventBus={this._eventBus}
-            rotateMode={this.props.rotateMode}
-            setCurrentView={this._setCurrentView}
-            currentImageIndex={this.state.currentImageIndex}
-          />
-        )}
-        <div className="close-vpair" onClick={this._close}>❎</div>
-        <div className="vpair-split-up" onClick={this._splitUp}>⬆</div>
-        <div className="vpair-split-down" onClick={this._splitDown}>⬇</div>
-        <div className="vpair-split-left" onClick={this._splitLeft}>⬅</div>
-        <div className="vpair-split-right" onClick={this._splitRight}>➡</div>
-        <div className="tick">◤</div>
-        <div className="spacer"></div>
-      </div>
+      <AppContext.Provider value={this._cachedContextValue!}>
+        <div className={classes.toString()} onClick={this._handleClick}>
+          { this._viewerState.viewing ? (
+            <Viewer
+              options={this.props.options}
+              downstreamEventBus={this._downstreamEventBus}
+              viewerState={this._viewerState}
+              mediaManager={this._mediaManager}
+              setCurrentView={this._setCurrentView}
+              rotateMode={this.props.rotateMode}
+            />
+          ) : (
+            <ImageGrids
+              gotoFolderNdx={this.state.gotoFolderNdx}
+              scrollTop={this._imagegridsScrollTop}
+              initialAnchor={this._imagegridsAnchor}
+              saveScrollTop={this._saveScrollTop}
+              root={this.props.root}
+              width={this.props.width}
+              options={this.props.options}
+              winState={this.props.winState}
+              rotateMode={this.props.rotateMode}
+              setCurrentView={this._setCurrentView}
+              currentImageIndex={this.state.currentImageIndex}
+            />
+          )}
+          <div className="close-vpair" onClick={this._close}>❎</div>
+          <div className="vpair-split-up" onClick={this._splitUp}>⬆</div>
+          <div className="vpair-split-down" onClick={this._splitDown}>⬇</div>
+          <div className="vpair-split-left" onClick={this._splitLeft}>⬅</div>
+          <div className="vpair-split-right" onClick={this._splitRight}>➡</div>
+          <div className="tick">◤</div>
+          <div className="spacer"></div>
+        </div>
+      </AppContext.Provider>
     );
   }
 }

@@ -22,11 +22,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import React from 'react';
 import { throttle, debounce } from '../../lib/utils';
 import { autorun, action } from 'mobx';
-import { ipcRenderer } from 'electron';   
+import { ipcRenderer } from 'electron';
 import { observer } from 'mobx-react';
 import ResizeSensor from '../../lib/ui/resize-sensor';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
-import type { AppEventMap } from './app-event-map';
 import ForwardableEvent from '../../lib/forwardable-event';
 import ListenerManager from '../../lib/listener-manager';
 import ActionListener from '../../lib/action-listener';
@@ -39,9 +38,9 @@ import { px, euclideanModulo } from '../../lib/utils';
 import { getOrientationInfo } from '../../lib/rotatehelper';
 import { createImageFromString } from '../../lib/string-image';
 import MediaManagerClient from '../../lib/media-manager-client';
-import { Preferences } from '../prefs/default-prefs';
 import { VideoState, TimeUpdateEvent } from './viewer-events';
 import { MediaResult } from '../../lib/media-manager-types';
+import { AppContext } from './contexts';
 
 let s_viewerCount = 0;
 
@@ -241,10 +240,8 @@ type Options = {
 
 type Props = {
   options: Options;
-  eventBus: ForwardableEventDispatcher<AppEventMap>;
   downstreamEventBus: ForwardableEventDispatcher;
   viewerState: ViewerState;
-  prefs: Preferences;
   mediaManager: MediaManagerClient;
   setCurrentView: () => void;
   rotateMode: number;
@@ -260,11 +257,14 @@ type State = {
 
 @observer
 export default class Viewer extends React.Component<Props, State> {
+  static contextType = AppContext;
+  declare context: React.ContextType<typeof AppContext>;
+
   private _logger: ReturnType<typeof debug>;
   private _baseRotation: number;
   private _baseScale: [number, number];
   private _listenerManager: ListenerManager;
-  private _eventBus: ForwardableEventDispatcher<AppEventMap>;
+  private _eventBus: ForwardableEventDispatcher;
   private _actionListener!: ActionListener;
   private _currentFilename: string;
   private _currentFileInfo: FileInfo | undefined;
@@ -361,8 +361,8 @@ export default class Viewer extends React.Component<Props, State> {
     actionListener.on('gotoNext', () => { this._gotoNext(); });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     actionListener.on('togglePlay', (fe: any) => { this._togglePlay(fe); });
-    actionListener.on('fastForward', () => { this._cueOrNextPrev(this.props.prefs.misc.stepForwardDuration); });
-    actionListener.on('fastBackward', () => { this._cueOrNextPrev(-this.props.prefs.misc.stepBackwardDuration); });
+    actionListener.on('fastForward', () => { this._cueOrNextPrev(this.context.prefs.misc.stepForwardDuration); });
+    actionListener.on('fastBackward', () => { this._cueOrNextPrev(-this.context.prefs.misc.stepBackwardDuration); });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     actionListener.on('scrollUp', (fe: any) => {
       fe.domEvent.stopPropagation();
@@ -386,18 +386,18 @@ export default class Viewer extends React.Component<Props, State> {
     actionListener.on('launchBrowser', this._launchBrowser);
     on(this._eventBus, 'action', this._actionListener.routeAction);
 
-    this._logger('register for action on emitter:', this.props.eventBus.debugId);
+    this._logger('register for action on emitter:', this.context.eventBus.debugId);
     on(this._eventBus, 'timeupdate', this._setVideoTime);
     on(this._eventBus, 'releaseMedia', this._releaseMedia);
 
-    this.props.eventBus.setForward(this._eventBus);
+    this.context.eventBus.setForward(this._eventBus);
   }
 
   componentWillUnmount(): void {
     this._logger('close');
     this._clearSlideshow();
     this._actionListener.close();
-    this.props.eventBus.setForward(null);
+    this.context.eventBus.setForward(null);
     this._listenerManager.removeAll();
   }
 
@@ -706,7 +706,7 @@ export default class Viewer extends React.Component<Props, State> {
     }
 
     if (this._slideshow) {
-      const slideshowDuration = this.props.prefs.slideshowDuration;
+      const slideshowDuration = this.context.prefs.slideshowDuration;
       let timeout: number | undefined = (slideshowDuration as Record<string, number>)[type];
       if (!timeout) {
         const baseType = type.split('/')[0];
@@ -796,7 +796,6 @@ export default class Viewer extends React.Component<Props, State> {
               <div className={videoClasses.toString()}>
                 <Player
                   videoState={videoState}
-                  eventBus={this._eventBus}
                 />
               </div>
             </div>
