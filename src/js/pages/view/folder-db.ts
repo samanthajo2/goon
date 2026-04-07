@@ -68,6 +68,13 @@ function folderInfoToDisplayFolderInfo(folder: FolderInfo): DBFolderInfo {
 // but for some reason it seems since to store the data
 // locally.
 export default class FolderDB extends EventEmitter {
+  emit(event: 'updateFiles', folders: DBFoldersByPath): boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  emit(event: string, ...args: any[]): boolean { return super.emit(event, ...args); }
+
+  on(event: 'updateFiles', fn: (folders: DBFoldersByPath) => void): this;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  on(event: string, fn: (...args: any[]) => void): this { return super.on(event, fn); }
 
   _folders: DBFoldersByPath;
   _newFolders: FoldersByPath;

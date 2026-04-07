@@ -25,6 +25,7 @@ import { observer } from 'mobx-react';
 import ActionEvent from '../../lib/action-event';
 import debug from '../../lib/debug';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
+import type { AppEventMap } from './app-event-map';
 import ListenerManager from '../../lib/listener-manager';
 import MediaManagerClient from '../../lib/media-manager-client';
 import ForwardableEvent from '../../lib/forwardable-event';
@@ -93,7 +94,7 @@ type Props = {
   prefs: Preferences;
   winState: WinState;
   rotateMode: number;
-  eventBus: ForwardableEventDispatcher;
+  eventBus: ForwardableEventDispatcher<AppEventMap>;
   setCurrentView: (vpair: VPair) => void;
   actionListener: ActionListener;
   registerVPair: (vpair: VPair) => void;
@@ -111,7 +112,7 @@ type ComponentState = {
 export default class VPair extends React.Component<Props, ComponentState> {
   private _logger: ReturnType<typeof debug>;
   private _downstreamEventBus: ForwardableEventDispatcher;
-  private _eventBus: ForwardableEventDispatcher;
+  private _eventBus: ForwardableEventDispatcher<AppEventMap>;
   private _mediaManager: MediaManagerClient;
   private _viewerState: ObservableViewerState;
   private _imagegridState: ImagegridState;

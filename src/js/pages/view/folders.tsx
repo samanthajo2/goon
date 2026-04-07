@@ -24,6 +24,7 @@ import path from 'path';
 import { getRotatedXY } from '../../lib/rotatehelper';
 import ForwardableEvent from '../../lib/forwardable-event';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
+import type { AppEventMap } from './app-event-map';
 import { cssArray } from '../../lib/css-utils';
 import { Preferences } from '../prefs/default-prefs';
 import { FolderStateRoot, FolderStateFolder } from './folder-state-helper';
@@ -52,7 +53,7 @@ function depthPrefixedFilename(baseFolders: string[], filename: string): string 
 }
 
 type FolderProps = {
-  eventBus: ForwardableEventDispatcher;
+  eventBus: ForwardableEventDispatcher<AppEventMap>;
   folder: FolderStateFolder;
   count: number;
   folderCount: number;
@@ -103,7 +104,7 @@ class Folder extends React.Component<FolderProps> {
 
 type Props = {
   root: FolderStateRoot;
-  eventBus: ForwardableEventDispatcher;
+  eventBus: ForwardableEventDispatcher<AppEventMap>;
   prefs: Preferences;
   show: boolean;
   rotateMode: number;

@@ -26,6 +26,7 @@ import { ContextMenu, MenuItem } from '../../lib/ui/context-menu';
 import debug from '../../lib/debug';
 import ForwardableEvent from '../../lib/forwardable-event';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
+import type { AppEventMap } from './app-event-map';
 import { DBFileInfo } from './folder-db';
 
 const logger = debug('FileContextMenu');
@@ -36,7 +37,7 @@ function showItem(filename: string): void {
 }
 
 type Props = {
-  eventBus: ForwardableEventDispatcher;
+  eventBus: ForwardableEventDispatcher<AppEventMap>;
   file: DBFileInfo;
   rotateMode: number;
 };

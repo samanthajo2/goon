@@ -22,7 +22,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import ForwardableEvent from './forwardable-event';
 import { Action } from './actions';
 
-export default class ActionEvent extends ForwardableEvent {
+export default class ActionEvent extends ForwardableEvent<'action'> {
   action: Action;
 
   constructor(action: Action, opt_domEvent?: Event) {

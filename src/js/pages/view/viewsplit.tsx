@@ -28,6 +28,7 @@ import { ipcRenderer } from 'electron';
 import debug from '../../lib/debug';
 import VPair from './vpair';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
+import type { AppEventMap } from './app-event-map';
 import ActionEvent from '../../lib/action-event';
 import ActionListener from '../../lib/action-listener';
 import { getRotatedXY } from '../../lib/rotatehelper';
@@ -400,7 +401,7 @@ export default class ViewSplit extends React.Component<Props, State> {
   private _vpairs: Record<string, VPair>;
   private _twos: Record<string, Two>;
   private _viewers: IObservableArray<ViewerStateShape>;
-  private _eventBus: ForwardableEventDispatcher;
+  private _eventBus: ForwardableEventDispatcher<AppEventMap>;
   private _actionListener: ActionListener;
   private _saveLayout: CancelableFn;
   private _currentSlider: Two | null = null;

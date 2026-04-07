@@ -19,30 +19,39 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-type ForwardableEvent = {
-  name: string;
-  propagationStopped: boolean;
-  stopPropagation(): void;
-};
+import type ForwardableEvent from './forwardable-event';
 
-export default class ForwardableEventDispatcher {
+// Maps event name → tuple of extra args passed after the ForwardableEvent.
+// Usage: new ForwardableEventDispatcher<MyEventMap>()
+// where MyEventMap = { click: [MouseEvent]; keydown: [KeyboardEvent] }
+export type EventMap = Record<string, unknown[]>;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export default class ForwardableEventDispatcher<T extends EventMap = Record<string, any[]>> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _handlers: Record<string, Array<(event: ForwardableEvent, ...args: any[]) => void>> = {};
-  private _forwarder?: ForwardableEventDispatcher;
-  private _backward?: ForwardableEventDispatcher;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _forwarder?: ForwardableEventDispatcher<any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _backward?: ForwardableEventDispatcher<any>;
   debugId?: string;
 
-  setForward(forward: ForwardableEventDispatcher | null): void {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  setForward(forward: ForwardableEventDispatcher<any> | null): void {
     this._forwarder = forward ?? undefined;
     if (forward) {
       forward._setBackward(this);
     }
   }
 
-  private _setBackward(backward: ForwardableEventDispatcher): void {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _setBackward(backward: ForwardableEventDispatcher<any>): void {
     this._backward = backward;
   }
 
+  on<K extends keyof T & string>(name: K, fn: (event: ForwardableEvent<K>, ...args: T[K]) => void): void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  on(name: string, fn: (event: ForwardableEvent, ...args: any[]) => void): void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   on(name: string, fn: (event: ForwardableEvent, ...args: any[]) => void): void {
     let handlers = this._handlers[name];
@@ -53,6 +62,9 @@ export default class ForwardableEventDispatcher {
     handlers.push(fn);
   }
 
+  removeListener<K extends keyof T & string>(name: K, fn: (event: ForwardableEvent<K>, ...args: T[K]) => void): void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  removeListener(name: string, fn: (event: ForwardableEvent, ...args: any[]) => void): void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   removeListener(name: string, fn: (event: ForwardableEvent, ...args: any[]) => void): void {
     const handlers = this._handlers[name];
@@ -67,6 +79,9 @@ export default class ForwardableEventDispatcher {
     }
   }
 
+  dispatch<K extends keyof T & string>(event: ForwardableEvent<K>, ...args: T[K]): void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  dispatch(event: ForwardableEvent, ...args: any[]): void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   dispatch(forwardableEvent: ForwardableEvent, ...args: any[]): void {
     if (this._forwarder) {

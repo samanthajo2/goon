@@ -45,6 +45,15 @@ type CancelHelper = { cancelled: boolean };
 // Anytime `'pending'` arrives start calling `process`
 // until it returns false.
 export default class FolderFilter extends EventEmitter {
+  emit(event: 'updateFiles', folders: DBFoldersByPath): boolean;
+  emit(event: 'pending'): boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  emit(event: string, ...args: any[]): boolean { return super.emit(event, ...args); }
+
+  on(event: 'updateFiles', fn: (folders: DBFoldersByPath) => void): this;
+  on(event: 'pending', fn: () => void): this;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  on(event: string, fn: (...args: any[]) => void): this { return super.on(event, fn); }
   private _pendingFolders: PendingFolder[];
   private _filter: FilterFn | null;
   private _processTimeMs: number;

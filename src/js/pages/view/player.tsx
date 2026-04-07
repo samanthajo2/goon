@@ -25,13 +25,14 @@ import { observer } from 'mobx-react';
 import ActionEvent from '../../lib/action-event';
 import { TimeUpdateEvent, VideoState } from './viewer-events';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
+import type { AppEventMap } from './app-event-map';
 
 const _pauseIcon = '❚❚';
 const _playIcon = '▶';
 const _padZero = (num: number, size: number): string => num.toString().padStart(size, '0');
 
 type Props = {
-  eventBus: ForwardableEventDispatcher;
+  eventBus: ForwardableEventDispatcher<AppEventMap>;
   videoState: VideoState;
 };
 

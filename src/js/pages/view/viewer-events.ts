@@ -66,7 +66,7 @@ export type ViewerStateHolder = {
   state: ViewerState | null;
 };
 
-export class TimeUpdateEvent extends ForwardableEvent {
+export class TimeUpdateEvent extends ForwardableEvent<'timeupdate'> {
   time: number;
   duration: number;
 

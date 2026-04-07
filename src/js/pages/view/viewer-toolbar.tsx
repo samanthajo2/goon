@@ -29,6 +29,7 @@ import * as filters from '../../lib/filters';
 import { TimeUpdateEvent, ViewerStateHolder, VideoState } from './viewer-events';
 import { CSSArray } from '../../lib/css-utils';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
+import type { AppEventMap } from './app-event-map';
 
 type RangeProps = {
   value: number;
@@ -74,7 +75,7 @@ type QueProps = {
   active: boolean;
   actions: { [key in ActionId]: () => void };
   videoState: VideoState;
-  outEventBus: ForwardableEventDispatcher;
+  outEventBus: ForwardableEventDispatcher<AppEventMap>;
   anyPlaying: boolean;
 };
 
@@ -152,7 +153,7 @@ let viewId = 0;
 
 type Props = {
   actions: { [key in ActionId]: () => void };
-  outEventBus: ForwardableEventDispatcher;
+  outEventBus: ForwardableEventDispatcher<AppEventMap>;
   viewerStateHolder: ViewerStateHolder;
   anyPlaying: boolean;
 };

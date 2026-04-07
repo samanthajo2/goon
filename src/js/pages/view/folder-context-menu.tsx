@@ -25,6 +25,7 @@ import { ContextMenu, MenuItem } from '../../lib/ui/context-menu';
 import debug from '../../lib/debug';
 import ForwardableEvent from '../../lib/forwardable-event';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
+import type { AppEventMap } from './app-event-map';
 import { FolderContextInfo } from './viewer-events';
 
 const logger = debug('FolderContextMenu');
@@ -39,7 +40,7 @@ function showItem(filename: string, archive: boolean | undefined): void {
 }
 
 type Props = {
-  eventBus: ForwardableEventDispatcher;
+  eventBus: ForwardableEventDispatcher<AppEventMap>;
   folder: FolderContextInfo;
   rotateMode: number;
 };

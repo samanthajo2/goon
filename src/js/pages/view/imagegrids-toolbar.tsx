@@ -24,6 +24,7 @@ import { uniqueId } from '../../lib/utils';
 import { actions, ActionId } from '../../lib/actions';
 import debug from '../../lib/debug';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
+import type { AppEventMap } from './app-event-map';
 import { ImagegridStateHolder } from './viewer-events';
 import gridModes, { GridMode } from './grid-modes';
 import ActionEvent from '../../lib/action-event';
@@ -65,7 +66,7 @@ type Props = {
   gridMode: GridMode;
   imagegridStateHolder: ImagegridStateHolder;
   setThumbnailZoom: (zoom: number) => void;
-  outEventBus: ForwardableEventDispatcher;
+  outEventBus: ForwardableEventDispatcher<AppEventMap>;
   filter: string;
   handleUpdateFilter: (value: string) => void;
   filterInputBlurred: () => void;

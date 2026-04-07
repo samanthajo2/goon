@@ -28,6 +28,7 @@ import ListenerManager from '../../lib/listener-manager';
 import debug from '../../lib/debug';
 import ForwardableEvent from '../../lib/forwardable-event';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
+import type { AppEventMap } from './app-event-map';
 import { DBFileInfo } from './folder-db';
 import Thumbnail from './thumbnail';
 import ActionListener from '../../lib/action-listener';
@@ -186,7 +187,7 @@ type ImageGridProps = {
   width: number;
   name: string;
   folder: FolderStateFolder;
-  eventBus: ForwardableEventDispatcher;
+  eventBus: ForwardableEventDispatcher<AppEventMap>;
   options: Options;
   prefs: Preferences;
   gridMode: GridMode;
@@ -289,7 +290,7 @@ type Props = {
   options: Options;
   prefs: Preferences;
   winState: WinState;
-  eventBus: ForwardableEventDispatcher;
+  eventBus: ForwardableEventDispatcher<AppEventMap>;
   rotateMode: number;
   setCurrentView: () => void;
   currentImageIndex: number;

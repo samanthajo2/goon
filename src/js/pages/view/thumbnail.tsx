@@ -24,10 +24,11 @@ import { ipcRenderer } from 'electron';
 import ForwardableEvent from '../../lib/forwardable-event';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
 import gridModes, { ThumbnailProps } from './grid-modes';
+import type { AppEventMap } from './app-event-map';
 
 type Props = ThumbnailProps & {
   count: number;
-  eventBus: ForwardableEventDispatcher;
+  eventBus: ForwardableEventDispatcher<AppEventMap>;
   setCurrentView: () => void;
 };
 

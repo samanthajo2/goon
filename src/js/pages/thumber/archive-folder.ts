@@ -34,6 +34,13 @@ type LocalFsAPI = {
 type ArchiveThumbnailMakerFn = (filepath: string, baseFilename: string) => Promise<FilesByPath>;
 
 export default class ArchiveFolder extends EventEmitter implements BaseFolder {
+  emit(event: 'updateFiles', filename: string, data: ReturnType<ArchiveFolder['getData']>): boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  emit(event: string, ...args: any[]): boolean { return super.emit(event, ...args); }
+
+  on(event: 'updateFiles', fn: (filename: string, data: ReturnType<ArchiveFolder['getData']>) => void): this;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  on(event: string, fn: (...args: any[]) => void): this { return super.on(event, fn); }
   #logger: Logger
   #filename: string;
   #folderData: FolderData;

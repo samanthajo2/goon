@@ -26,6 +26,7 @@ import { ipcRenderer } from 'electron';
 import { observer } from 'mobx-react';
 import ResizeSensor from '../../lib/ui/resize-sensor';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
+import type { AppEventMap } from './app-event-map';
 import ForwardableEvent from '../../lib/forwardable-event';
 import ListenerManager from '../../lib/listener-manager';
 import ActionListener from '../../lib/action-listener';
@@ -240,7 +241,7 @@ type Options = {
 
 type Props = {
   options: Options;
-  eventBus: ForwardableEventDispatcher;
+  eventBus: ForwardableEventDispatcher<AppEventMap>;
   downstreamEventBus: ForwardableEventDispatcher;
   viewerState: ViewerState;
   prefs: Preferences;
@@ -263,7 +264,7 @@ export default class Viewer extends React.Component<Props, State> {
   private _baseRotation: number;
   private _baseScale: [number, number];
   private _listenerManager: ListenerManager;
-  private _eventBus: ForwardableEventDispatcher;
+  private _eventBus: ForwardableEventDispatcher<AppEventMap>;
   private _actionListener!: ActionListener;
   private _currentFilename: string;
   private _currentFileInfo: FileInfo | undefined;

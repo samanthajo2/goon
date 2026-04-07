@@ -19,12 +19,12 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-export default class ForwardableEvent {
-  name: string;
+export default class ForwardableEvent<N extends string = string> {
+  name: N;
   propagationStopped: boolean;
   domEvent?: Event;
 
-  constructor(name: string, domEvent?: Event) {
+  constructor(name: N, domEvent?: Event) {
     this.name = name;
     this.propagationStopped = false;
     this.domEvent = domEvent;

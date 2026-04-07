@@ -59,6 +59,17 @@ type LocalFsAPI = {
 
 // Represents one Folder of thumbnails
 export default class NativeFolder extends EventEmitter implements BaseFolder {
+  emit(event: 'updateFiles', filename: string, data: ReturnType<NativeFolder['getData']>): boolean;
+  emit(event: 'updateFolders', filename: string, folders: FilesByPath): boolean;
+  emit(event: 'updateArchives', filename: string, archives: FilesByPath, archivesThatNeedUpdate: string[]): boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  emit(event: string, ...args: any[]): boolean { return super.emit(event, ...args); }
+
+  on(event: 'updateFiles', fn: (filename: string, data: ReturnType<NativeFolder['getData']>) => void): this;
+  on(event: 'updateFolders', fn: (filename: string, folders: FilesByPath) => void): this;
+  on(event: 'updateArchives', fn: (filename: string, archives: FilesByPath, archivesThatNeedUpdate: string[]) => void): this;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  on(event: string, fn: (...args: any[]) => void): this { return super.on(event, fn); }
   #logger: Logger
   #filename: string;
   #folderData: FolderData;
