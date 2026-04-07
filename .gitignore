@@ -1,13 +1,9 @@
-#directories
 out
-bower_components
 node_modules
 dist
-test-images
 temp
 .git
-#package-lock.json
-#files
+.c?????
 *.tgz
 *.log
 .DS_Store
