@@ -1,0 +1,2 @@
+nested-images.zip and nested-image.rar have the same name intentionally
+to make sure they show up separately.
