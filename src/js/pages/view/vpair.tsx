@@ -20,8 +20,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import { observable, action } from 'mobx';
-import { observer } from 'mobx-react';
 import ActionEvent from '../../lib/action-event';
 import debug from '../../lib/debug';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
@@ -56,13 +54,11 @@ type WinState = {
   sortMode: string;
 };
 
-// MobX observable shape for the viewer/video state
-type ObservableVideoState = VideoState;
-
-type ObservableViewerState = {
+// Plain object shape for viewer state — mutated in-place by Viewer; Viewer calls forceUpdate() after mutations.
+type ViewerStateShape = {
   viewing: boolean;
   mimeType: string;
-  filename: string;
+  filename?: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   fileInfo: any;
   duration: number;
@@ -70,11 +66,11 @@ type ObservableViewerState = {
   stretchMode: string;
   zoom: number;
   slideshow: boolean;
-  videoState: ObservableVideoState;
+  videoState: VideoState;
 };
 
-type InitialViewerState = Partial<ObservableViewerState> & {
-  videoState?: Partial<ObservableVideoState>;
+type InitialViewerState = Partial<ViewerStateShape> & {
+  videoState?: Partial<VideoState>;
 };
 
 type InitialState = {
@@ -99,14 +95,19 @@ type Props = {
   unregisterVPair: (vpair: VPair) => void;
   saveLayout?: () => void;
   root: FolderStateRoot;
+  // Called when the active pane starts or stops viewing an image.
+  // Only fires when this pane is the current view (isCurrentView === true).
+  onViewingChanged?: (viewing: boolean) => void;
 };
 
 type ComponentState = {
   currentImageIndex: number;
   gotoFolderNdx: number;
+  // Mirrors _viewerState.viewing; drives the Viewer ↔ ImageGrids switch in render.
+  // Kept in React state so setState() triggers a re-render when viewing changes.
+  viewing: boolean;
 };
 
-@observer
 export default class VPair extends React.Component<Props, ComponentState> {
   static contextType = AppContext;
   declare context: React.ContextType<typeof AppContext>;
@@ -119,7 +120,8 @@ export default class VPair extends React.Component<Props, ComponentState> {
   private _cachedContextPrefs: React.ContextType<typeof AppContext>['prefs'] | null = null;
   private _cachedContextValue: React.ContextType<typeof AppContext> | null = null;
   private _mediaManager: MediaManagerClient;
-  private _viewerState: ObservableViewerState;
+  // Plain object mutated in-place by Viewer. VPair reads it via getViewerState() for App/ViewSplit queries.
+  private _viewerState: ViewerStateShape;
   private _imagegridState: ImagegridState;
   private _imagegridsScrollTop: number;
   private _imagegridsAnchor: ScrollAnchor | null;
@@ -145,7 +147,7 @@ export default class VPair extends React.Component<Props, ComponentState> {
     } = initialStates;
     const { videoState: initialVideoState = {} } = initialViewerState;
 
-    const videoState: ObservableVideoState = observable({
+    const videoState: VideoState = {
       playing: false,
       time: 0,
       duration: 1,
@@ -156,9 +158,9 @@ export default class VPair extends React.Component<Props, ComponentState> {
       loopEnd: 1,
       currentUrl: '',
       ...initialVideoState,
-    });
+    };
 
-    this._viewerState = observable.object({
+    this._viewerState = {
       viewing: false,
       mimeType: 'image',
       filename: '',
@@ -170,15 +172,16 @@ export default class VPair extends React.Component<Props, ComponentState> {
       slideshow: false,
       ...initialViewerState,
       videoState,
-    } as ObservableViewerState, {}, { deep: false });
+    };
 
-    this._imagegridState = observable.object({
+    this._imagegridState = {
       ...initialImagegridState,
-    } as ImagegridState, {}, { deep: false });
+    } as ImagegridState;
 
     this.state = {
       currentImageIndex: -1,
       gotoFolderNdx: -1,
+      viewing: this._viewerState.viewing,
       ...initialStateValues,
     };
 
@@ -225,7 +228,7 @@ export default class VPair extends React.Component<Props, ComponentState> {
     };
   }
 
-  getViewerState(): ObservableViewerState {
+  getViewerState(): ViewerStateShape {
     return this._viewerState;
   }
 
@@ -241,14 +244,42 @@ export default class VPair extends React.Component<Props, ComponentState> {
     return this._eventBus;
   }
 
-  @action private _startViewingImage = (_event: ForwardableEvent, fileInfo: { type: string; filename?: string }): void => {
+  // Dispatch the current viewerState snapshot to the toolbar event bus so that
+  // ViewerToolbar initialises correctly when this pane becomes the active view.
+  // Called by ViewSplit._setCurrentVPairAndTwo after connecting the downstream bus.
+  notifyToolbarOfCurrentState(): void {
+    if (this._viewerState.viewing) {
+      // Viewer will dispatch 'viewerStateChanged' on mount via componentDidMount.
+      // If Viewer is already mounted (pane was already viewing), trigger it explicitly.
+      this._downstreamEventBus.dispatch(new ForwardableEvent('viewerStateChanged'), {
+        zoom: this._viewerState.zoom,
+        mimeType: this._viewerState.mimeType,
+        viewing: this._viewerState.viewing,
+        filename: this._viewerState.filename,
+        videoState: { ...this._viewerState.videoState },
+      });
+    }
+  }
+
+  private _startViewingImage = (_event: ForwardableEvent, fileInfo: { type: string; filename?: string }): void => {
     this._viewerState.viewing = true;
     this._viewerState.fileInfo = fileInfo;
     this._viewerState.mimeType = fileInfo.type;
+    // setState drives the Viewer ↔ ImageGrids switch in render.
+    this.setState({ viewing: true });
+    // Notify App so it can switch toolbar (ViewerToolbar ↔ ImagegridsToolbar).
+    // Only called for the active pane; inactive panes should not change the toolbar.
+    if (this.props.isCurrentView) {
+      this.props.onViewingChanged?.(true);
+    }
   };
 
-  @action private _stopViewingImage = (): void => {
+  private _stopViewingImage = (): void => {
     this._viewerState.viewing = false;
+    this.setState({ viewing: false });
+    if (this.props.isCurrentView) {
+      this.props.onViewingChanged?.(false);
+    }
   };
 
   private _setCurrentNdx = (_forwardableEvent: ForwardableEvent, ndx: number): void => {
@@ -365,7 +396,7 @@ export default class VPair extends React.Component<Props, ComponentState> {
     return (
       <AppContext.Provider value={this._cachedContextValue!}>
         <div className={classes.toString()} onClick={this._handleClick}>
-          { this._viewerState.viewing ? (
+          { this.state.viewing ? (
             <Viewer
               options={this.props.options}
               downstreamEventBus={this._downstreamEventBus}

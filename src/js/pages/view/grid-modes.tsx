@@ -28,8 +28,8 @@ import { Rect } from '../../lib/rect';
 import { DBFileInfo } from './folder-db';
 import {trashingFiles, subscribeTrashingFiles} from './trashing-state';
 
-// Small self-contained component that subscribes to trashing state changes.
-// Keeping this separate avoids making every Thumbnail an MobX observer.
+// Small self-contained component that subscribes to trashing state changes,
+// keeping this separate avoids per-thumbnail subscriptions.
 class TrashingOverlay extends React.Component<{filename: string}> {
   _unsubscribe?: () => void;
   componentDidMount() {

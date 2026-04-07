@@ -21,14 +21,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import React from 'react';
 import { uniqueId } from '../../lib/utils';
-import { action } from 'mobx';
-import { observer } from 'mobx-react';
 import debug from '../../lib/debug';
 import { actions, ActionId } from '../../lib/actions';
 import * as filters from '../../lib/filters';
-import { TimeUpdateEvent, ViewerStateHolder, VideoState } from './viewer-events';
+import { TimeUpdateEvent, ViewerState, VideoState } from './viewer-events';
 import { CSSArray } from '../../lib/css-utils';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
+import ForwardableEvent from '../../lib/forwardable-event';
 import type { AppEventMap } from './app-event-map';
 
 type RangeProps = {
@@ -79,7 +78,6 @@ type QueProps = {
   anyPlaying: boolean;
 };
 
-@observer
 class Que extends React.Component<QueProps> {
   private _makeButton(actionName: ActionId): React.ReactNode {
     const actionFuncs = this.props.actions;
@@ -99,8 +97,12 @@ class Que extends React.Component<QueProps> {
     );
   };
 
-  @action private _changeVolume = (event: React.ChangeEvent<HTMLInputElement>): void => {
-    this.props.videoState.volume = Number(event.target.value) / Number(event.target.max);
+  private _changeVolume = (event: React.ChangeEvent<HTMLInputElement>): void => {
+    // Dispatch volumeChange event — Viewer handles it and updates video.volume + state.
+    this.props.outEventBus.dispatch(
+      new ForwardableEvent('volumeChange'),
+      Number(event.target.value) / Number(event.target.max),
+    );
   };
 
   render(): React.ReactNode {
@@ -151,17 +153,9 @@ class Que extends React.Component<QueProps> {
 
 let viewId = 0;
 
-type Props = {
-  actions: { [key in ActionId]: () => void };
-  outEventBus: ForwardableEventDispatcher<AppEventMap>;
-  viewerStateHolder: ViewerStateHolder;
-  anyPlaying: boolean;
-};
-
-const DEFAULT_VIEWER_STATE = {
+const DEFAULT_VIEWER_STATE: ViewerState = {
   zoom: 1,
   mimeType: '',
-  time: 0,
   viewing: false,
   videoState: {
     playing: false,
@@ -176,8 +170,19 @@ const DEFAULT_VIEWER_STATE = {
   },
 };
 
-@observer
-export default class ViewerToolbar extends React.Component<Props> {
+type Props = {
+  actions: { [key in ActionId]: () => void };
+  outEventBus: ForwardableEventDispatcher<AppEventMap>;
+  // Receives live viewerState updates via 'viewerStateChanged' events from the active Viewer.
+  inEventBus: ForwardableEventDispatcher<AppEventMap>;
+  anyPlaying: boolean;
+};
+
+type State = {
+  viewerState: ViewerState;
+};
+
+export default class ViewerToolbar extends React.Component<Props, State> {
   private _logger: ReturnType<typeof debug>;
   private _viewId: number;
 
@@ -185,15 +190,28 @@ export default class ViewerToolbar extends React.Component<Props> {
     super(props);
     this._logger = debug('ViewerToolBar');
     this._viewId = ++viewId;
+    this.state = { viewerState: DEFAULT_VIEWER_STATE };
   }
 
-  @action private _changeZoom = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    this._getViewerState().zoom = Number(e.target.value) / 100;
+  componentDidMount(): void {
+    this.props.inEventBus.on('viewerStateChanged', this._handleViewerStateChanged);
+  }
+
+  componentWillUnmount(): void {
+    this.props.inEventBus.removeListener('viewerStateChanged', this._handleViewerStateChanged);
+  }
+
+  private _handleViewerStateChanged = (_event: unknown, viewerState: ViewerState): void => {
+    this.setState({ viewerState });
   };
 
-  private _getViewerState() {
-    return this.props.viewerStateHolder.state ?? DEFAULT_VIEWER_STATE;
-  }
+  private _changeZoom = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    // Dispatch setZoom event — Viewer listens and updates its own state.
+    this.props.outEventBus.dispatch(
+      new ForwardableEvent('setZoom'),
+      Number(e.target.value) / 100,
+    );
+  };
 
   private _makeButton(actionName: ActionId): React.ReactNode {
     const actionFuncs = this.props.actions;
@@ -207,7 +225,7 @@ export default class ViewerToolbar extends React.Component<Props> {
 
   render(): React.ReactNode {
     this._logger('render');
-    const viewerState = this._getViewerState();
+    const { viewerState } = this.state;
     const isVideo = filters.isMimeVideo(viewerState.mimeType) || filters.isAudioExtension(viewerState.mimeType);
     document.title = `view: ${this._viewId}`;
     return (

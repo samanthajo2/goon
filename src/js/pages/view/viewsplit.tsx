@@ -20,8 +20,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import { observable, action, IObservableArray } from 'mobx';
-import { observer } from 'mobx-react';
 import ResizeSensor from '../../lib/ui/resize-sensor';
 import { debounce, CancelableFn } from '../../lib/utils';
 import { ipcRenderer } from 'electron';   
@@ -379,6 +377,8 @@ type Props = {
   startingLayout?: TwoDump;
   setCurrentView: (vs: ViewSplit) => void;
   toolbarEventBus: ForwardableEventDispatcher;
+  // Called when the active pane's viewing state changes (image opened/closed or pane switched).
+  onViewingChanged?: (viewing: boolean) => void;
 };
 
 type State = {
@@ -390,7 +390,6 @@ type State = {
   };
 };
 
-@observer
 export default class ViewSplit extends React.Component<Props, State> {
   private _logger: ReturnType<typeof debug>;
   private _root: Two;
@@ -398,7 +397,7 @@ export default class ViewSplit extends React.Component<Props, State> {
   private _currentView!: VPair;
   private _vpairs: Record<string, VPair>;
   private _twos: Record<string, Two>;
-  private _viewers: IObservableArray<ViewerStateShape>;
+  private _viewers: ViewerStateShape[];
   private _eventBus: ForwardableEventDispatcher<AppEventMap>;
   private _actionListener: ActionListener;
   private _saveLayout: CancelableFn;
@@ -433,7 +432,7 @@ export default class ViewSplit extends React.Component<Props, State> {
       },
     };
 
-    this._viewers = observable([]);
+    this._viewers = [];
 
     this._eventBus = new ForwardableEventDispatcher();
     this._eventBus.debugId = this._logger.getPrefix();
@@ -516,12 +515,12 @@ export default class ViewSplit extends React.Component<Props, State> {
     }));
   }
 
-  @action private _addViewer(viewerState: ViewerStateShape): void {
+  private _addViewer(viewerState: ViewerStateShape): void {
     this._viewers.push(viewerState);
   }
 
-  @action private _removeViewer(viewerState: ViewerStateShape): void {
-    this._viewers.replace(this._viewers.filter(s => s !== viewerState));
+  private _removeViewer(viewerState: ViewerStateShape): void {
+    this._viewers = this._viewers.filter(s => s !== viewerState);
   }
 
   private _registerVPair = (vpair: VPair): void => {
@@ -608,6 +607,10 @@ export default class ViewSplit extends React.Component<Props, State> {
     this.props.setCurrentView(this);
     this._eventBus.setForward(vpair.getEventBus());
     vpair.getDownstreamEventBus().setForward(this.props.toolbarEventBus);
+    // Notify App of the new pane's viewing state so it can switch toolbars.
+    this.props.onViewingChanged?.(vpair.getViewerState().viewing);
+    // Push current viewerState to ViewerToolbar so it renders correctly after pane switch.
+    vpair.notifyToolbarOfCurrentState();
     this._bumpCurrentId();
   }
 
@@ -739,6 +742,7 @@ export default class ViewSplit extends React.Component<Props, State> {
               registerVPair={this._registerVPair}
               unregisterVPair={this._unregisterVPair}
               saveLayout={this._saveLayout}
+              onViewingChanged={this.props.onViewingChanged}
             />
           </div>
         );

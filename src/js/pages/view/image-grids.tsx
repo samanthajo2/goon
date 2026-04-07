@@ -22,7 +22,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import React from 'react';
 import VirtualList, { VirtualListHandle } from '../../lib/ui/virtual-list';
 import ResizeSensor from '../../lib/ui/resize-sensor';
-import { observer } from 'mobx-react';
 import { getRotatedXY } from '../../lib/rotatehelper';
 import ListenerManager from '../../lib/listener-manager';
 import debug from '../../lib/debug';
@@ -290,7 +289,6 @@ type State = {
   height: number;
 };
 
-@observer
 export default class ImageGrids extends React.Component<Props, State> {
   static contextType = AppContext;
   declare context: React.ContextType<typeof AppContext>;

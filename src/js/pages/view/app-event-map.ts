@@ -60,4 +60,13 @@ export type AppEventMap = {
 
   // Misc
   playAll: [];
+
+  // Dispatched by Viewer → downstreamEventBus → toolbarEventBus → ViewerToolbar subscribes.
+  viewerStateChanged: [state: import('./viewer-events').ViewerState];
+
+  // Dispatched by Player/Que to update volume in the active Viewer.
+  volumeChange: [volume: number];
+
+  // Dispatched by ViewerToolbar to set absolute zoom in the active Viewer.
+  setZoom: [zoom: number];
 };

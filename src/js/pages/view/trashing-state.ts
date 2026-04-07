@@ -1,5 +1,5 @@
 // Plain set + lightweight pub/sub so individual overlay components can subscribe
-// without making Thumbnail itself an MobX observer.
+// without per-thumbnail subscriptions.
 export const trashingFiles = new Set<string>();
 
 const listeners = new Set<() => void>();

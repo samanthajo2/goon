@@ -21,9 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import React from 'react';
 import { throttle, debounce } from '../../lib/utils';
-import { autorun, action } from 'mobx';
 import { ipcRenderer } from 'electron';
-import { observer } from 'mobx-react';
 import ResizeSensor from '../../lib/ui/resize-sensor';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
 import ForwardableEvent from '../../lib/forwardable-event';
@@ -38,7 +36,7 @@ import { px, euclideanModulo } from '../../lib/utils';
 import { getOrientationInfo } from '../../lib/rotatehelper';
 import { createImageFromString } from '../../lib/string-image';
 import MediaManagerClient from '../../lib/media-manager-client';
-import { VideoState, TimeUpdateEvent } from './viewer-events';
+import { VideoState, ViewerState, TimeUpdateEvent } from './viewer-events';
 import { MediaResult } from '../../lib/media-manager-types';
 import { AppContext } from './contexts';
 
@@ -114,27 +112,6 @@ function computeTransformAtCenter({ fileInfo, size, containerSize, zoom, rotatio
   const sy = size.height / srcHeight;
   const scale = Math.max(sx, sy) * zoom;
 
-  // If we did nothing, no scale, no translation, it would be here
-  //
-  //     +----+-------+
-  //     |    |       |
-  //     |    |       |
-  //     |    |       |
-  //     +----+       |
-  //     |            |
-  //     +------------+
-  //
-  // After scaling it could be one of these because it scales around the center of the image
-  //
-  //                         +------+
-  //     +------------+      |+-----+------+
-  //     |+--+        |      ||     |      |
-  //     ||  |        |      ||     |      |
-  //     ||  |        |  or  ||     |      |
-  //     |+--+        |      ||     |      |
-  //     |            |      ++-----+      |
-  //     +------------+       +------------+
-  //
   const displayCenterX = containerSize.width / 2;
   const displayCenterY = containerSize.height / 2;
 
@@ -219,7 +196,9 @@ function setTransform(
   style.transform = `${translationPart} ${rotatePart} ${scalePart} ${flipPart}`;
 }
 
-type ViewerState = {
+// Shape of the viewerState prop — created by VPair as a plain object and mutated in-place
+// by Viewer. forceUpdate() after each mutation triggers re-renders of Viewer and its children.
+type ViewerStateShape = {
   viewing: boolean;
   mimeType: string;
   filename?: string;
@@ -241,7 +220,7 @@ type Options = {
 type Props = {
   options: Options;
   downstreamEventBus: ForwardableEventDispatcher;
-  viewerState: ViewerState;
+  viewerState: ViewerStateShape;
   mediaManager: MediaManagerClient;
   setCurrentView: () => void;
   rotateMode: number;
@@ -255,7 +234,6 @@ type State = {
   playerFlash: boolean;
 };
 
-@observer
 export default class Viewer extends React.Component<Props, State> {
   static contextType = AppContext;
   declare context: React.ContextType<typeof AppContext>;
@@ -333,13 +311,13 @@ export default class Viewer extends React.Component<Props, State> {
     this._viewVideo = $<HTMLVideoElement>('.viewer-video')!;
 
     const video = this._viewVideo;
+
+    // Set initial volume from viewerState; subsequent changes come via volumeChange events.
+    video.volume = this.props.viewerState.videoState.volume;
+
     on(video, 'loadeddata', this._handleLoadedData);
     on(video, 'timeupdate', this._handleTimeUpdate);
     on(viewerElem, 'wheel', this._handleWheel);
-
-    autorun(() => {
-      video.volume = this.props.viewerState.videoState.volume;
-    });
 
     on(this._viewImg, 'load', () => {
       this._logger('imageLoad');
@@ -390,7 +368,15 @@ export default class Viewer extends React.Component<Props, State> {
     on(this._eventBus, 'timeupdate', this._setVideoTime);
     on(this._eventBus, 'releaseMedia', this._releaseMedia);
 
+    // Volume and zoom changes dispatched by Player/ViewerToolbar flow down through the
+    // event bus chain to this._eventBus.
+    on(this._eventBus, 'volumeChange', this._handleVolumeChange);
+    on(this._eventBus, 'setZoom', this._handleSetZoom);
+
     this.context.eventBus.setForward(this._eventBus);
+
+    // Send initial viewerState to ViewerToolbar so it renders correctly on first mount.
+    this._dispatchViewerStateChanged();
   }
 
   componentWillUnmount(): void {
@@ -401,10 +387,27 @@ export default class Viewer extends React.Component<Props, State> {
     this._listenerManager.removeAll();
   }
 
-  @action private _setPlaybackRate(rate: number): void {
+  // Dispatch a snapshot of the current viewerState to the downstream toolbar event bus.
+  // ViewerToolbar subscribes to 'viewerStateChanged' on its inEventBus and re-renders.
+  private _dispatchViewerStateChanged(): void {
+    const vs = this.props.viewerState;
+    const snapshot: ViewerState = {
+      zoom: vs.zoom,
+      mimeType: vs.mimeType,
+      viewing: vs.viewing,
+      filename: vs.filename,
+      videoState: { ...vs.videoState },
+    };
+    this.props.downstreamEventBus.dispatch(new ForwardableEvent('viewerStateChanged'), snapshot);
+  }
+
+  private _setPlaybackRate(rate: number): void {
     const video = this._viewVideo;
     video.playbackRate = rate;
     this.props.viewerState.videoState.playbackRate = rate;
+    // No forceUpdate needed — neither Viewer nor Player renders playbackRate.
+    // ViewerToolbar's Que shows the speed icon; it gets updated via dispatchViewerStateChanged.
+    this._dispatchViewerStateChanged();
   }
 
   private _cyclePlaybackSpeed = (): void => {
@@ -414,7 +417,7 @@ export default class Viewer extends React.Component<Props, State> {
     this._setPlaybackRate(speeds[ndx]);
   };
 
-  @action private _handleLoadedData = (): void => {
+  private _handleLoadedData = (): void => {
     const { viewerState } = this.props;
     const videoState = viewerState.videoState;
     const video = this._viewVideo;
@@ -428,7 +431,7 @@ export default class Viewer extends React.Component<Props, State> {
     this._play();
   };
 
-  @action private _updateViewStateAfterMediaLoad(): void {
+  private _updateViewStateAfterMediaLoad(): void {
     const good = !this._pendingFileInfo.bad;
     const fileInfo: FileInfo = good ? this._pendingFileInfo : {
       bad: true,
@@ -446,10 +449,13 @@ export default class Viewer extends React.Component<Props, State> {
     this.props.viewerState.filename = fileInfo.filename;
     this.props.viewerState.mimeType = fileInfo.type;
 
-    this.setState(prevState => ({ id: prevState.id + 1 }));
+    // setState triggers Viewer re-render; also notify ViewerToolbar of updated mimeType/filename.
+    this.setState(prevState => ({ id: prevState.id + 1 }), () => {
+      this._dispatchViewerStateChanged();
+    });
   }
 
-  @action private _handleTimeUpdate = (): void => {
+  private _handleTimeUpdate = (): void => {
     const video = this._viewVideo;
     const videoState = this.props.viewerState.videoState;
     if (videoState.loop === 2) {
@@ -458,6 +464,9 @@ export default class Viewer extends React.Component<Props, State> {
       }
     }
     videoState.time = video.currentTime;
+    // forceUpdate re-renders Viewer (and Player as its child) so the time slider stays live.
+    this.forceUpdate();
+    this._dispatchViewerStateChanged();
   };
 
   private _handleWheel = (event: Event): void => {
@@ -503,20 +512,24 @@ export default class Viewer extends React.Component<Props, State> {
     style.height = px(fileInfo.height);
   }
 
-  @action private _changeStretchMode = (): void => {
+  private _changeStretchMode = (): void => {
     const newModeNdx = (modeNames.indexOf(this.props.viewerState.stretchMode as StretchMode) + 1) % modeNames.length;
     this.props.viewerState.stretchMode = modeNames[newModeNdx];
+    this.forceUpdate();
   };
 
-  @action private _rotate = (): void => {
+  private _rotate = (): void => {
     this.props.viewerState.rotation = (this.props.viewerState.rotation + 1) % 8;
+    this.forceUpdate();
   };
 
-  @action private _zoom(z: number): void {
+  private _zoom(z: number): void {
     this.props.viewerState.zoom += z;
+    this.forceUpdate();
+    this._dispatchViewerStateChanged();
   }
 
-  @action private _loop(): void {
+  private _loop(): void {
     const videoState = this.props.viewerState.videoState;
     if (this._displayElem instanceof HTMLVideoElement) {
       switch (videoState.loop) {
@@ -540,6 +553,8 @@ export default class Viewer extends React.Component<Props, State> {
           break;
       }
     }
+    // No forceUpdate needed — neither Viewer nor Player renders loop/loopStart/loopEnd.
+    // The loop bounds are enforced directly on the video element in _handleTimeUpdate.
   }
 
   private _handleResize = (contentRect: { client: { width: number; height: number } }): void => {
@@ -554,12 +569,30 @@ export default class Viewer extends React.Component<Props, State> {
     }
   };
 
-  @action private _setVideoTime = (event: ForwardableEvent): void => {
+  private _setVideoTime = (event: ForwardableEvent): void => {
     const te = event as TimeUpdateEvent;
     const video = this._viewVideo;
     const videoState = this.props.viewerState.videoState;
     video.currentTime = Math.max(0, Math.min(te.time, video.duration));
     videoState.time = video.currentTime;
+    this.forceUpdate();
+    this._dispatchViewerStateChanged();
+  };
+
+  // Handles 'volumeChange' events dispatched by Player and ViewerToolbar's Que.
+  private _handleVolumeChange = (_event: unknown, volume: number): void => {
+    const videoState = this.props.viewerState.videoState;
+    videoState.volume = volume;
+    this._viewVideo.volume = volume;
+    this.forceUpdate();
+    this._dispatchViewerStateChanged();
+  };
+
+  // Handles 'setZoom' events dispatched by ViewerToolbar's zoom slider.
+  private _handleSetZoom = (_event: unknown, zoom: number): void => {
+    this.props.viewerState.zoom = zoom;
+    this.forceUpdate();
+    this._dispatchViewerStateChanged();
   };
 
   private _loadVideo(url: string): void {
@@ -569,19 +602,23 @@ export default class Viewer extends React.Component<Props, State> {
     video.load();
   }
 
-  @action private _play(): void {
+  private _play(): void {
     const video = this._viewVideo;
     const videoState = this.props.viewerState.videoState;
     video.play();
     video.playbackRate = videoState.playbackRate;
     videoState.playing = true;
+    this.forceUpdate();
+    this._dispatchViewerStateChanged();
   }
 
-  @action private _pause(): void {
+  private _pause(): void {
     const video = this._viewVideo;
     const videoState = this.props.viewerState.videoState;
     video.pause();
     videoState.playing = false;
+    this.forceUpdate();
+    this._dispatchViewerStateChanged();
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -649,17 +686,18 @@ export default class Viewer extends React.Component<Props, State> {
     }
   }
 
-  @action private _hideImage = (): void => {
+  private _hideImage = (): void => {
     this._logger('hideImage');
     this._clearSlideshow();
     this._displayElem = undefined;
+    // Dispatch 'hide' event — VPair handles it and switches back to ImageGrids.
     this._eventBus.dispatch(new ForwardableEvent('hide'));
   };
 
   // Release file handles (video/img src) without closing the viewer.
   // Call this before trashing a file to ensure the OS file handle is freed,
   // particularly on Windows where Chromium holds video files open.
-  @action private _releaseMedia = (): void => {
+  private _releaseMedia = (): void => {
     this._logger('releaseMedia');
     this._pause();
     if (this._viewVideo) {
@@ -677,7 +715,7 @@ export default class Viewer extends React.Component<Props, State> {
     ipcRenderer.invoke('launchBrowser', this.props.viewerState.filename);
   };
 
-  @action private _showNewMedia(
+  private _showNewMedia(
     err: string | null | undefined,
     mediaInfo: MediaResult | undefined,
     fileInfo: FileInfo,

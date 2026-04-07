@@ -20,9 +20,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import { action } from 'mobx';
-import { observer } from 'mobx-react';
 import ActionEvent from '../../lib/action-event';
+import ForwardableEvent from '../../lib/forwardable-event';
 import { TimeUpdateEvent, VideoState } from './viewer-events';
 import { AppContext } from './contexts';
 
@@ -34,7 +33,6 @@ type Props = {
   videoState: VideoState;
 };
 
-@observer
 export default class Player extends React.Component<Props> {
   static contextType = AppContext;
   declare context: React.ContextType<typeof AppContext>;
@@ -49,8 +47,12 @@ export default class Player extends React.Component<Props> {
     this.context.eventBus.dispatch(new ActionEvent({ action: 'togglePlay' }));
   };
 
-  @action private _changeVolume = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    this.props.videoState.volume = Number(e.target.value) / 10000;
+  private _changeVolume = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    // Dispatch volumeChange event — Viewer listens and updates video.volume + viewerState.
+    this.context.eventBus.dispatch(
+      new ForwardableEvent('volumeChange'),
+      Number(e.target.value) / 10000,
+    );
   };
 
   private _getTime(): string {

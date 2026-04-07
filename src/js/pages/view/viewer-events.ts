@@ -21,7 +21,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import ForwardableEvent from '../../lib/forwardable-event';
 
-// MobX observable shape created in viewer.jsx / viewer.tsx
 export type VideoState = {
   time: number;
   duration: number;
@@ -40,7 +39,7 @@ export type FolderContextInfo = {
   archive?: boolean;
 };
 
-// MobX observable state passed from viewer to toolbars
+// State snapshot dispatched by Viewer → ViewerToolbar via 'viewerStateChanged' event.
 export type ViewerState = {
   zoom: number;
   mimeType: string;
@@ -49,9 +48,7 @@ export type ViewerState = {
   videoState: VideoState;
 };
 
-// Per-pane state for the imagegrid, observed by ImagegridsToolbar. Parallels
-// ViewerState/ViewerStateHolder: as the active pane changes, the toolbar reconnects
-// to the new pane's observable state through ImagegridStateHolder. Currently empty —
+// Per-pane state for the imagegrid, held by ImagegridStateHolder. Currently empty —
 // fields should move here from global app state when they become per-pane
 // (e.g. filter, sort mode).
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type

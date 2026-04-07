@@ -22,8 +22,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import { rimraf } from 'rimraf';
 import { ipcRenderer } from 'electron';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { autorun, observable, action } from 'mobx';
-import { observer } from 'mobx-react';
 import { hideMenu, showMenu } from '../../lib/ui/context-menu';
 import ActionEvent from '../../lib/action-event';
 import ActionListener from '../../lib/action-listener';
@@ -56,7 +54,7 @@ import MediaManagerClient from '../../lib/media-manager-client';
 import { Preferences } from '../prefs/default-prefs';
 import { DBFileInfo } from './folder-db';
 import ViewSplit from './viewsplit';
-import { ImagegridStateHolder, ViewerStateHolder } from './viewer-events';
+import { ImagegridStateHolder } from './viewer-events';
 import type { FolderContextInfo } from './viewer-events';
 import { useWinState } from './hooks/use-win-state';
 import { useIPCStreams } from './hooks/use-ipc-streams';
@@ -97,7 +95,7 @@ type Props = {
   };
 };
 
-const App = observer(function App({ options, startState }: Props): React.ReactElement | null {
+function App({ options, startState }: Props): React.ReactElement | null {
   const logger = useRef(debug('App')).current;
 
   // ── Window state (sort mode, grid mode, zoom, rotation, split, UI) ──
@@ -159,9 +157,13 @@ const App = observer(function App({ options, startState }: Props): React.ReactEl
 
   const fileInfoMediaManager = useRef(new MediaManagerClient()).current;
 
-  // MobX observable state for viewer — Step 5 will remove these
-  const imagegridStateHolder = useRef(observable({ state: null }) as unknown as ImagegridStateHolder).current;
-  const viewerStateHolder = useRef(observable({ state: null }) as unknown as ViewerStateHolder).current;
+  // Plain (non-reactive) holder for the active pane's imagegrid state.
+  // ImagegridState has no fields so this is purely for API compatibility with ImagegridsToolbar.
+  const imagegridStateHolder = useRef<ImagegridStateHolder>({ state: null }).current;
+
+  // Whether the active pane is currently showing the viewer (vs the image grid).
+  // Drives ViewerToolbar ↔ ImagegridsToolbar switching.
+  const [isViewing, setIsViewing] = useState(false);
 
   // ── Event buses (stable refs) ──────────────────────────────────────
   const eventBus = useRef(new ForwardableEventDispatcher<AppEventMap>()).current;
@@ -186,15 +188,14 @@ const App = observer(function App({ options, startState }: Props): React.ReactEl
   );
 
   // ── setCurrentView ─────────────────────────────────────────────────
-  // action() is inlined so useCallback can see the deps
   const setCurrentView = useCallback((view: ViewSplit | null) => {
-    action(() => {
-      currentViewRef.current = view;
-      eventBus.setForward(view ? view.getEventBus() : null);
-      imagegridStateHolder.state = view ? view.getImagegridState() : null;
-      viewerStateHolder.state = view ? view.getViewerState() : null;
-    })();
-  }, [eventBus, imagegridStateHolder, viewerStateHolder]);
+    currentViewRef.current = view;
+    eventBus.setForward(view ? view.getEventBus() : null);
+    imagegridStateHolder.state = view ? view.getImagegridState() : null;
+    // isViewing is kept in sync by onViewingChanged (called by VPair/ViewSplit);
+    // here we only sync when the active pane itself changes.
+    setIsViewing(!!(view?.getViewerState()?.viewing));
+  }, [eventBus, imagegridStateHolder]);
 
   // ── Delete helpers ─────────────────────────────────────────────────
   const closeViewerIfShowingFile = useCallback((filename: string) => {
@@ -398,12 +399,8 @@ const App = observer(function App({ options, startState }: Props): React.ReactEl
     };
     window.addEventListener('keydown', handleKeyDown);
 
-    // Toolbar forwarding — depends on viewer state (MobX autorun)
+    // Initial toolbar forwarding — updated reactively in the isViewing useEffect below.
     toolbarEventBus.setForward(imageGridToolbarEventBus);
-    const disposeAutorun = autorun(() => {
-      const viewing = viewerStateHolder.state && viewerStateHolder.state.viewing;
-      toolbarEventBus.setForward(viewing ? viewerToolbarEventBus : imageGridToolbarEventBus);
-    });
 
     setupFullscreen();
 
@@ -411,7 +408,6 @@ const App = observer(function App({ options, startState }: Props): React.ReactEl
       actionListener.close();
       ipcRenderer.removeListener('action', handleIpcAction);
       window.removeEventListener('keydown', handleKeyDown);
-      disposeAutorun();
     };
   // All values used inside (eventBus, actionListener, keyRouter, etc.) are
   // stable refs created once via useRef — they never change between renders,
@@ -426,6 +422,16 @@ const App = observer(function App({ options, startState }: Props): React.ReactEl
       logger('prefs:', JSON.stringify(prefs));
     }
   }, [prefs, prefsReceived, keyRouter, logger]);
+
+  // ── Toolbar forwarding — switch between viewer and imagegrid toolbar ──
+  useEffect(() => {
+    toolbarEventBus.setForward(isViewing ? viewerToolbarEventBus : imageGridToolbarEventBus);
+  }, [isViewing, toolbarEventBus, viewerToolbarEventBus, imageGridToolbarEventBus]);
+
+  // ── Callback for VPair/ViewSplit to notify us when viewing state changes ──
+  const onViewingChanged = useCallback((viewing: boolean) => {
+    setIsViewing(viewing);
+  }, []);
 
   // ── Render helpers ─────────────────────────────────────────────────
   const setThumbnailZoom = useCallback((zoom: number) => {
@@ -452,14 +458,14 @@ const App = observer(function App({ options, startState }: Props): React.ReactEl
     if (!(winState.showUI & 1)) {
       return undefined;
     }
-    if (viewerStateHolder.state?.viewing) {
+    if (isViewing) {
       const view = currentViewRef.current;
       const anyPlaying = view ? view.anyPlaying() : false;
       return (
         <ViewerToolbar
           actions={actionFuncs}
           outEventBus={eventBus}
-          viewerStateHolder={viewerStateHolder}
+          inEventBus={viewerToolbarEventBus}
           anyPlaying={anyPlaying}
         />
       );
@@ -545,6 +551,7 @@ const App = observer(function App({ options, startState }: Props): React.ReactEl
               setCurrentView={setCurrentView}
               winState={winState}
               toolbarEventBus={toolbarEventBus}
+              onViewingChanged={onViewingChanged}
             />
           }
         />
@@ -600,6 +607,6 @@ const App = observer(function App({ options, startState }: Props): React.ReactEl
     </div>
     </AppContext.Provider>
   );
-});
+}
 
 export default App;

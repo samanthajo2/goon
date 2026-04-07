@@ -21,7 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import React from 'react';
 import { render as reactRender } from 'react-dom';
-import { configure } from 'mobx';
+
 import { ipcRenderer } from 'electron';   
 import { getCurrentWindow, Menu, MenuItem } from '@electron/remote';
 import App from './app';
@@ -31,8 +31,6 @@ import '../../lib/title';
 const isDevMode = process.env.NODE_ENV === 'development';
 
 if (isDevMode) {
-  configure({ enforceActions: 'always' });
-
   let rightClickPosition: { x: number; y: number } | null = null;
 
   const menu = new Menu();
