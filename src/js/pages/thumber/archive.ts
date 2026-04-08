@@ -22,12 +22,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import fs from 'node:fs';
 import mime from 'mime-types';
 import * as unzipit from 'unzipit';
-import debug, { Logger } from '../../lib/debug';
+import * as unrarit from 'unrarit';
 import * as filters from '../../lib/filters';
 import * as utils from '../../lib/utils';
-// Defer loading the native libunrar module until it's actually needed so
-// unit tests (which run in Node) don't attempt to execute browser-only
-// code at module import time.
 
 const pfs = fs.promises;
 const s_slashRE = /[/\\]/g;
@@ -98,72 +95,31 @@ async function zipDecompress(filename: string) {
   }
 }
 
-type RarDirectory = {
-  type: 'dir';
-  ls: Record<string, RarEntry>;
-}
+async function rarDecompress(filename: string) {
+  const _files: ArchiveFiles = {};
 
-type RarFile = {
-  type: 'file';
-  fileContent: { buffer: Buffer };
-  fileSize: number;
-  fullFileName: string;
-}
-
-type RarEntry = RarDirectory | RarFile;
-
-function gatherRarFiles(entry: RarEntry, files: ArchiveFiles, logger: Logger) {
-  const type = entry.type;
-  switch (type) {
-    case 'file': {
-      const name = entry.fullFileName;
-      if (!filters.isArchiveFilenameWeCareAbout(name)) {
-        return;
-      }
+  try {
+    const reader = new StatelessFileReader(filename);
+    const {entries: zipFiles} = await unrarit.unrar(reader);
+    const zipNames = Object.keys(zipFiles);
+    // TODO: do I want to support videos?
+    zipNames.filter(filters.isArchiveFilenameWeCareAbout).forEach((name) => {
+      const zipOb = zipFiles[name];
       const type = mime.lookup(name) || '';
-      const content = entry.fileContent.buffer;
-      const blob = async () => new Blob([content.buffer as ArrayBuffer], { type: type, });
-      const safeName = makeSafeName(name);
-      files[safeName] = {
+      const blob = () => zipOb.blob(type);
+      const safeName = makeSafeName(name);  // this is to remove folders (needed?)
+      _files[safeName] = {
         type,
         blob,
-        size: entry.fileSize,
-        // We don't have mtime from this lib so just put in a date that should fail.
-        // The idea is we'll check the archive mtime and if that's changed then
-        // we'll scan all the files inside here.
-        mtime: Date.now(),
+        size: zipOb.size,
+        mtime: zipOb.lastModDate.getTime(),
       };
-      break;
-    }
-    case 'dir': {
-      Object.keys(entry.ls).forEach((name) => {
-        gatherRarFiles(entry.ls[name], files, logger);
-      });
-      break;
-    }
-    default:
-      logger('Unknown type:', type);
-      break;
+    });
+    return _files;
+  } catch (err) {
+    console.warn(err);
+    throw err;
   }
-}
-
-async function rarDecompress(filename: string) {
-  const _logger = debug('RarDecompressor', filename);
-  const _files = {};
-  const data = await pfs.readFile(filename);
-  _logger('unrar:', filename);
-  // Require libunrar lazily. This module assumes a non-Node environment
-  // in some builds; requiring it at module-load time can throw during
-  // unit tests. Load it only when needed.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const readRARContent = require('../../../../app/3rdparty/libunrar-js/libunrar');
-  const rarContent = readRARContent([
-    { name: 'tmp.rar', content: data },
-  ], undefined, (/* ...args */) => {
-    // _logger("process:", ...args);
-  }) as unknown as RarEntry;
-  gatherRarFiles(rarContent, _files, _logger);
-  return _files;
 }
 
 function mightBeZip(buf: Buffer) {
