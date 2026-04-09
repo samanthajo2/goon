@@ -38,7 +38,7 @@
     "startp": "node tools/launch.js production",
     "unit-tests": "mocha --node-option enable-source-maps --import ./test/register-electron-mock.js --recursive out/**/*.test.js",
     "integration-tests": "mocha --node-option enable-source-maps --recursive test/integration/**/*.test.js",
-    "lint": "eslint \"src/**\"",
+    "lint": "eslint . --max-warnings 0",
     "test": "npm run clean && npm run lint && npm run build && npm run unit-tests && npm run integration-tests",
     "pack": "electron-builder --dir",
     "dist": "electron-builder --publish never",

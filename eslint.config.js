@@ -1,15 +1,22 @@
+import { defineConfig } from 'eslint/config';
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import reactPlugin from '@eslint-react/eslint-plugin';
 import importPlugin from 'eslint-plugin-import';
 import globals from 'globals';
 
-export default tseslint.config(
+export default defineConfig([
   {
-    ignores: ['out/*', 'src/3rdparty/*', 'src/js/3rdparty/*', 'src/js/lib/test/mocha.js'],
+    ignores: [
+      'out/*',
+      'app/3rdparty/*',
+      'src/3rdparty/*',
+      'src/js/3rdparty/*',
+      'src/js/lib/test/mocha.js',
+    ],
   },
   js.configs.recommended,
-  tseslint.configs.recommended,
+  ...tseslint.configs.recommended,
   reactPlugin.configs.recommended,
   {
     plugins: {
@@ -23,8 +30,14 @@ export default tseslint.config(
         ...globals.node,
       },
       parserOptions: {
-        project: ['./tsconfig.json'],
         ecmaFeatures: { jsx: true },
+        projectService: {
+          allowDefaultProject: [
+            '*.js',
+            'test/*.js',
+            'test/integration/empty.test.js',
+          ],
+        },
         sourceType: 'module',
         ecmaVersion: 'latest',
       },
@@ -68,4 +81,4 @@ export default tseslint.config(
       'import/no-extraneous-dependencies': 'off',
     },
   },
-);
+]);

@@ -1,6 +1,4 @@
 import * as esbuild from 'esbuild';
-import fs from 'node:fs';
-import path from 'node:path';
 
 const watch = process.argv.includes('--watch');
 
@@ -30,23 +28,6 @@ const buildOptions = {
   logLevel: 'info',
   logOverride: { 'empty-import-meta': 'silent' },
 };
-
-function postProcess() {
-  // The "electron" npm package's CJS exports don't set __esModule.
-  // esbuild wraps default imports with __toESM(require("electron"), 1)
-  // where the ,1 flag means "always set .default = module.exports".
-  //
-  // Without ,1: __toESM checks for __esModule. If absent, it ALSO sets
-  // .default = module.exports. So for "electron" (no __esModule), the
-  // result is the same either way — .default works.
-  //
-  // But the REAL problem is that `import electron from "electron"` in our
-  // source makes esbuild access `import_electron.default.BrowserWindow`.
-  // With __toESM (either flag), .default IS the module, so this works.
-  //
-  // The actual issue was that .cjs files were being loaded as ESM by Node
-  // due to missing .cjs extension — now fixed by outExtension.
-}
 
 if (watch) {
   const ctx = await esbuild.context(buildOptions);
