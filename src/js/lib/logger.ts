@@ -22,10 +22,35 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import chalk from 'chalk';
 
-type HSL ={
-  h: number;  // hue, 0-1
-  s: number;  // saturation, 0-1
-  l: number;  // lightness, 0-1
+type HSL = {
+  h: number;  // hue, 0-360
+  s: number;  // saturation, 0-100
+  l: number;  // lightness, 0-100
+}
+
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  h /= 360;
+  s /= 100;
+  l /= 100;
+  if (s === 0) {
+    const v = Math.round(l * 255);
+    return [v, v, v];
+  }
+  const hue2rgb = (p: number, q: number, t: number): number => {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  return [
+    Math.round(hue2rgb(p, q, h + 1 / 3) * 255),
+    Math.round(hue2rgb(p, q, h) * 255),
+    Math.round(hue2rgb(p, q, h - 1 / 3) * 255),
+  ];
 }
 
 let s_colorNdx = 0;
@@ -59,7 +84,8 @@ function makeBrowserLog(color: HSL, name: string) {
 }
 
 function makeTerminalLog(color: HSL, name: string) {
-  return console.log.bind(console, chalk.hsl(color.h, color.s, color.l)(name));   
+  const [r, g, b] = hslToRgb(color.h, color.s, color.l);
+  return console.log.bind(console, chalk.rgb(r, g, b)(name));
 }
 
 type LogFunc = (...args: any[]) => void;
