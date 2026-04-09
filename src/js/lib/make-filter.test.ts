@@ -22,7 +22,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import { describe, it } from './test/mocha.js';
 import path from 'node:path';
 import { assert } from 'chai';
-import moment from 'moment';
 import { makeFilter } from './make-filter.js';
 
 type TestFileInfo = {
@@ -48,7 +47,7 @@ function prepFiles(files: TestFiles): TestFiles {
     Object.assign(fileInfo, {
       width: (ndx + 1) * 100,
       height: (ndx + 1) * 100 + 50,
-      mtime: moment(`200${ndx}-02-01`).valueOf(),
+      mtime: new Date(`200${ndx}-02-01`).getTime(),
       filename: filename,
       folderName: path.dirname(filename).toLowerCase(),
       baseName: path.basename(filename).toLowerCase(),

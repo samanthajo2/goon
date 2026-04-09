@@ -19,7 +19,6 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import moment from 'moment';
 import {getOrientationInfo} from './rotatehelper.js';
 import { DBFileInfo } from '../pages/view/folder-db.js';
 
@@ -361,14 +360,14 @@ function makeDateFilter(str: string) {
     };
   }
 
-  const date = moment(dateStr, 'YYYY-MM-DD HH:MM:SS');
-  if (!date.isValid()) {
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) {
     return {
       error: `invalid date: ${dateStr}`,
       filter: allPass,
     };
   }
-  const amount = date.valueOf();
+  const amount = date.getTime();
   return {
     filter: (filename: string, fileInfo: DBFileInfo) => expressionFn(fileInfo.mtime, amount),
   };
