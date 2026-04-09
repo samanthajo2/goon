@@ -23,7 +23,7 @@ import React from 'react';
 import { render as reactRender } from 'react-dom';
 
 import { ipcRenderer } from '../../lib/electron-imports.js';
-import { getCurrentWindow, Menu, MenuItem } from '../../lib/electron-renderer-imports.js';
+import * as win from '../../lib/window-commands.js';
 import App from './app.js';
 import '../../lib/stacktrace-log.js';
 import '../../lib/title.js';
@@ -31,26 +31,9 @@ import '../../lib/title.js';
 const isDevMode = process.env.NODE_ENV === 'development';
 
 if (isDevMode) {
-  let rightClickPosition: { x: number; y: number } | null = null;
-
-  const menu = new Menu();
-  menu.append(new MenuItem({
-    label: 'Inspect Element',
-    click: () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (getCurrentWindow().webContents as any).inspectElement(rightClickPosition!.x, rightClickPosition!.y);
-    },
-  }));
-
   window.addEventListener('contextmenu', (e) => {
     e.preventDefault();
-    menu.popup({ window: getCurrentWindow() });
-  }, false);
-
-  window.addEventListener('contextmenu', (e) => {
-    e.preventDefault();
-    rightClickPosition = { x: e.x, y: e.y };
-    menu.popup({ window: getCurrentWindow() });
+    win.inspectElement(e.x, e.y);
   }, false);
 }
 

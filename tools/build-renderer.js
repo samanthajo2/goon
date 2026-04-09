@@ -26,7 +26,7 @@ const buildOptions = {
   // Electron built-in modules — must remain as bare require() at runtime.
   // The npm "electron" package is just a path to the binary; the real API
   // is only available via require("electron") inside the Electron runtime.
-  external: ['electron', '@electron/remote', '@electron/remote/main', 'electron-updater'],
+  external: ['electron', 'electron-updater'],
   logLevel: 'info',
   logOverride: { 'empty-import-meta': 'silent' },
 };

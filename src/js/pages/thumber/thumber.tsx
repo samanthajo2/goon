@@ -19,8 +19,9 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import { BrowserWindow, ipcRenderer } from '../../lib/electron-imports.js';
-import { getCurrentWindow, electronRequire as req, otherWindowIPC, type ChannelStream } from '../../lib/electron-renderer-imports.js';
+import { ipcRenderer } from '../../lib/electron-imports.js';
+import { otherWindowIPC, type ChannelStream } from '../../lib/electron-renderer-imports.js';
+import * as win from '../../lib/window-commands.js';
 import fs from 'graceful-fs';
 import path from 'path';
 import { debounce } from '../../lib/utils.js';
@@ -48,7 +49,7 @@ import '../../lib/title.js';
 
 const isDevMode = process.env.NODE_ENV === 'development';
 
-const {windowTrackerIsAnyWindowFullScreen} = req('./out/js/src/js/lib/remote-helpers.cjs');
+const windowTrackerIsAnyWindowFullScreen = () => win.isAnyWindowFullScreen();
 
 type G = {
   dataDir: string;
@@ -57,7 +58,6 @@ type G = {
   maxWidth: number;
   thumbCtx: CanvasRenderingContext2D;
   visible: boolean;
-  window: BrowserWindow;
   hideTimeoutDuration: number;
   prefs?: Preferences;
   watcherManager: WatcherManager;
@@ -81,7 +81,6 @@ function start(args: ProgOptions) {
     maxWidth: 256,
     thumbCtx: document.querySelector('canvas')!.getContext('2d')!,
     visible: false,
-    window: getCurrentWindow(),
     hideTimeoutDuration: isDevMode ? 5000000000 : 5000,  // 5 seconds
   } as G;
 
@@ -90,7 +89,7 @@ function start(args: ProgOptions) {
   const hide = debounce(() => {
     if (g.visible) {
       g.visible = false;
-      g.window.hide();
+      win.hideWindow();
     }
   }, g.hideTimeoutDuration);
 
@@ -104,7 +103,7 @@ function start(args: ProgOptions) {
   function show() {
     if (!g.visible && g.prefs && g.prefs.misc.showThumber && !windowTrackerIsAnyWindowFullScreen()) {
       g.visible = true;
-      g.window.showInactive();
+      win.showWindowInactive();
     }
     hide();  // works because this is debounced
   }

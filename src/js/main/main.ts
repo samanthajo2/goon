@@ -27,7 +27,6 @@ import debugFn from 'debug';
 import express from 'express';
 import electron, { BrowserWindow, nativeImage, type WebContents } from '../lib/electron-imports.js';
 import { initRelay } from '../lib/window-ipc.js';
-import { electronRemoteMain } from '../lib/electron-main-imports.js';
 
 import {getUpdateCheckDate} from '../lib/update-manager.js';
 import appdata from '../lib/appdata.js';
@@ -44,11 +43,37 @@ import { Rect } from '../lib/rect.js';
 import { WinState } from '../lib/win-state.js';
 import { ProgOptions } from './program-options.js';
 
-import {windowTrackerInit} from '../lib/remote-helpers.cjs';
+import {windowTrackerInit, windowTrackerIsAnyWindowFullScreen} from '../lib/remote-helpers.cjs';
 
 
-electronRemoteMain.initialize();
 initRelay();
+
+// IPC handlers for renderer window operations (replaces @electron/remote getCurrentWindow)
+electron.ipcMain.handle('window:isFullScreen', (e) =>
+  BrowserWindow.fromWebContents(e.sender)?.isFullScreen() ?? false
+);
+electron.ipcMain.on('window:setFullScreen', (e, flag: boolean) => {
+  BrowserWindow.fromWebContents(e.sender)?.setFullScreen(flag);
+});
+electron.ipcMain.on('window:setMenu', (e, menu: null) => {
+  BrowserWindow.fromWebContents(e.sender)?.setMenu(menu);
+});
+electron.ipcMain.on('window:hide', (e) => {
+  BrowserWindow.fromWebContents(e.sender)?.hide();
+});
+electron.ipcMain.on('window:showInactive', (e) => {
+  BrowserWindow.fromWebContents(e.sender)?.showInactive();
+});
+electron.ipcMain.on('window:inspectElement', (e, x: number, y: number) => {
+  e.sender.inspectElement(x, y);
+});
+electron.ipcMain.handle('window:showOpenDialog', async (e, options) => {
+  const win = BrowserWindow.fromWebContents(e.sender);
+  return electron.dialog.showOpenDialog(win!, options);
+});
+electron.ipcMain.on('window:isAnyFullScreen', (e) => {
+  e.returnValue = windowTrackerIsAnyWindowFullScreen();
+});
 
 const debug = debugFn('main');
 const isDevMode = process.env.NODE_ENV === 'development';
@@ -449,7 +474,6 @@ function createWindow(url?: string, options?: WindowOptions) {
       webviewTag: true,
     },
   });
-  electronRemoteMain.enable(window.webContents);
 
   debug('createWindow:', url);
   window.loadURL(url);
@@ -528,8 +552,7 @@ function createOneOfAKindWindow(id: OneOfAKindWindowId, url: string, options: Wi
         webviewTag: true,
       },
     });
-    electronRemoteMain.enable(window.webContents);
-
+  
     if (openDevTools) {
       debug('openDevTools:', url);
       window.webContents.closeDevTools();

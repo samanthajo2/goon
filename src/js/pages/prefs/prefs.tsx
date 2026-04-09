@@ -20,7 +20,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import { ipcRenderer, shell } from '../../lib/electron-imports.js';
-import { dialog, otherWindowIPC } from '../../lib/electron-renderer-imports.js';
+import { otherWindowIPC } from '../../lib/electron-renderer-imports.js';
+import * as win from '../../lib/window-commands.js';
 import React from 'react';
 import fs from 'fs';
 import path from 'path';
@@ -60,7 +61,7 @@ type KeyInfo = {
 };
 
 async function getFolders(): Promise<string[] | undefined> {
-  const { canceled, filePaths } = await dialog.showOpenDialog({
+  const { canceled, filePaths } = await win.showOpenDialog({
     title: 'Select Folder',
     properties: ['openDirectory'],
   });

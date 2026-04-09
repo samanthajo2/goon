@@ -2,7 +2,7 @@
 Copyright 2024 SamanthaJo
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the “Software”), to deal in
+this software and associated documentation files (the "Software"), to deal in
 the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
 the Software, and to permit persons to whom the Software is furnished to do so,
@@ -11,7 +11,7 @@ subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
 FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
@@ -19,7 +19,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 import { ipcRenderer } from './electron-imports.js';
-import { getCurrentWindow, Menu } from './electron-renderer-imports.js';
+import * as win from './window-commands.js';
 
 const isOSX = process.platform === 'darwin';
 
@@ -49,8 +49,7 @@ function checkMenu(e: MouseEvent) {
 function hideMenu(force?: boolean) {
   if (menuShowing || force) {
     menuShowing = false;
-    getCurrentWindow().setMenu(null);
-    Menu.setApplicationMenu(null);
+    win.setMenu(null);
   }
 }
 
@@ -68,29 +67,29 @@ function installFullscreenHandler(force?: boolean) {
   }
 }
 
-function setupFullscreen() {
-  const isFullscreen = getCurrentWindow().isFullScreen();
+async function setupFullscreen() {
+  const isFullscreen = await win.isFullScreen();
   if (isFullscreen) {
     installFullscreenHandler(true);
   }
 }
 
 function enterFullscreen() {
-  getCurrentWindow().setFullScreen(true);
+  win.setFullScreen(true);
   // you can't remove the menus in OSX
   installFullscreenHandler();
 }
 
 function exitFullscreen() {
-  getCurrentWindow().setFullScreen(false);
+  win.setFullScreen(false);
   if (!isOSX) {
     window.removeEventListener('mousemove', checkMenu);
     showMenu();
   }
 }
 
-function toggleFullscreen() {
-  const isFullscreen = getCurrentWindow().isFullScreen();
+async function toggleFullscreen() {
+  const isFullscreen = await win.isFullScreen();
   if (isFullscreen) {
     exitFullscreen();
   } else {

@@ -4,9 +4,6 @@
 
 const electronPackages = new Set([
   'electron',
-  '@electron/remote',
-  '@electron/remote/main',
-  '@electron/remote/main/index.js',
   'electron-updater',
 ]);
 
