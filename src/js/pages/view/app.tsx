@@ -514,7 +514,7 @@ function App({ options, startState }: Props): React.ReactElement | null {
     : s_toolbarModeBottomTable[toolbarPosition];
 
   return (
-    <AppContext.Provider value={{ eventBus, prefs: prefs as Preferences }}>
+    <AppContext value={{ eventBus, prefs: prefs as Preferences }}>
     <div
       style={splitStyle}
       className={`view ${rotateModes[rotateMode].className}`}
@@ -605,7 +605,7 @@ function App({ options, startState }: Props): React.ReactElement | null {
         )}
       </div>
     </div>
-    </AppContext.Provider>
+    </AppContext>
   );
 }
 

@@ -19,7 +19,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import React, { forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import React, { useImperativeHandle, useRef, useState } from 'react';
 
 // VirtualList renders only the items visible in its scroll viewport plus an
 // overscan buffer, maintaining the correct total scroll height with spacer
@@ -59,7 +59,7 @@ function sumHeights(itemHeight: (i: number) => number, endIndex: number): number
   return total;
 }
 
-const VirtualList = forwardRef<VirtualListHandle, VirtualListProps>((props, ref) => {
+function VirtualList(props: VirtualListProps & { ref?: React.Ref<VirtualListHandle> }): React.ReactNode {
   const {
     length,
     itemHeight,
@@ -68,6 +68,7 @@ const VirtualList = forwardRef<VirtualListHandle, VirtualListProps>((props, ref)
     className,
     style,
     onScroll,
+    ref,
   } = props;
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -165,8 +166,6 @@ const VirtualList = forwardRef<VirtualListHandle, VirtualListProps>((props, ref)
       {bottomSpacer > 0 && <div style={{ height: bottomSpacer }} />}
     </div>
   );
-});
-
-VirtualList.displayName = 'VirtualList';
+}
 
 export default VirtualList;

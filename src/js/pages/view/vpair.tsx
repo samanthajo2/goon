@@ -394,7 +394,7 @@ export default class VPair extends React.Component<Props, ComponentState> {
     const classes = new CSSArray('vpair');
     classes.addIf(this.props.isCurrentView, 'active');
     return (
-      <AppContext.Provider value={this._cachedContextValue!}>
+      <AppContext value={this._cachedContextValue!}>
         <div className={classes.toString()} onClick={this._handleClick}>
           { this.state.viewing ? (
             <Viewer
@@ -428,7 +428,7 @@ export default class VPair extends React.Component<Props, ComponentState> {
           <div className="tick">◤</div>
           <div className="spacer"></div>
         </div>
-      </AppContext.Provider>
+      </AppContext>
     );
   }
 }

@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import { render as reactRender } from 'react-dom';
+import { createRoot } from 'react-dom/client';
 import { ipcRenderer } from '../../lib/electron-imports.js';
 import bind from '../../lib/bind.js';
 import debug from '../../lib/debug.js';
@@ -186,9 +186,8 @@ class Update extends React.Component<Record<string, never>, UpdateState> {
 }
 
 ipcRenderer.on('start', (/* event, args */) => {
-  reactRender(
+  createRoot(document.querySelector('.browser')!).render(
     <Update />,
-    document.querySelector('.browser')
   );
 });
 ipcRenderer.send('start');

@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import { render as reactRender } from 'react-dom';
+import { createRoot } from 'react-dom/client';
 import { ipcRenderer } from '../../lib/electron-imports.js';
 import Prefs from './prefs.js';
 import '../../lib/stacktrace-log.js';   
@@ -32,9 +32,8 @@ type StartArgs = {
 };
 
 function start(args: StartArgs): void {
-  reactRender(
+  createRoot(document.querySelector('.browser')!).render(
     <Prefs options={args} />,
-    document.querySelector('.browser')
   );
 }
 

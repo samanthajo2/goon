@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import { render as reactRender } from 'react-dom';
+import { createRoot } from 'react-dom/client';
 
 import { ipcRenderer } from '../../lib/electron-imports.js';
 import * as win from '../../lib/window-commands.js';
@@ -67,9 +67,8 @@ function start(_args: unknown, startState: any): void {
   };
 
   setTimeout(() => {
-    reactRender(
+    createRoot(document.querySelector('.browser')!).render(
       <App options={g} startState={startState} />,
-      document.querySelector('.browser'),
     );
   }, isDevMode ? 1000 : 100);
 }

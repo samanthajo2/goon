@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import { render as reactRender } from 'react-dom';
+import { createRoot } from 'react-dom/client';
 import { ipcRenderer } from '../../lib/electron-imports.js';
 import crypto from 'node:crypto';
 // import stacktraceLog from '../../lib/stacktrace-log.js';  // eslint-disable-line
@@ -44,7 +44,7 @@ class Password extends React.Component<PasswordProps, PasswordState> {
     error: false,
     success: false,
   };
-  private input: React.RefObject<HTMLInputElement>;
+  private input: React.RefObject<HTMLInputElement | null>;
 
   constructor(props: PasswordProps) {
     super(props);
@@ -97,9 +97,8 @@ class Password extends React.Component<PasswordProps, PasswordState> {
 }
 
 ipcRenderer.on('password', (event, password) => {
-  reactRender(
+  createRoot(document.querySelector('.browser')!).render(
     <Password password={password} />,
-    document.querySelector('.browser')
   );
 });
 ipcRenderer.send('getPassword');

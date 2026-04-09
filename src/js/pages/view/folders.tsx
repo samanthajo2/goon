@@ -112,7 +112,7 @@ export default class Folders extends React.Component<Props> {
   static contextType = AppContext;
   declare context: React.ContextType<typeof AppContext>;
 
-  private _filenameToRef = new Map<string, React.RefObject<Folder>>();
+  private _filenameToRef = new Map<string, React.RefObject<Folder | null>>();
   private main!: HTMLDivElement;
 
   constructor(props: Props, context: React.ContextType<typeof AppContext>) {
