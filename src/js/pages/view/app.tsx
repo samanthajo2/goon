@@ -309,6 +309,11 @@ function App({ options, startState }: Props): React.ReactElement | null {
     };
     eventBus.on('refreshFolder', handleRefreshFolder);
 
+    const handleRefreshFolders = () => {
+      thumberStreamRef.current?.send('refreshFolders');
+    };
+    eventBus.on('refreshFolders', handleRefreshFolders);
+
     const handleDeleteFile = (_event: ForwardableEvent, fileInfoArg: DBFileInfo) => {
       pendingDeleteFileInfoRef.current = fileInfoArg;
       setContextFileInfo(fileInfoArg);
@@ -381,6 +386,7 @@ function App({ options, startState }: Props): React.ReactElement | null {
     actionListener.on('toggleFullscreen', toggleFullscreen);
     actionListener.on('newWindow', () => { ipcRenderer.send('openWindow', 'view'); });
     actionListener.on('showHelp', () => { ipcRenderer.send('openWindow', 'help'); });
+    actionListener.on('refreshFolders', () => { eventBus.dispatch(new ForwardableEvent('refreshFolders')); });
 
     // ipcRenderer action routing
     const handleIpcAction = (_event: unknown, actionId: ActionId) => {

@@ -35,6 +35,7 @@ export type AppEventMap = {
 
   // File operations (all bubble up to app.tsx handlers)
   refreshFolder: [folderPath: string];
+  refreshFolders: [];
   deleteFile: [fileInfo: DBFileInfo];
   deleteFolder: [folderInfo: FolderContextInfo];
   copyFile: [fileInfo: DBFileInfo];

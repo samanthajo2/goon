@@ -45,6 +45,7 @@ import createThrottledReaddir from '../../lib/readdir-throttler.js';
 //import stacktraceLog from '../../lib/stacktrace-log.js'; // eslint-disable-line
 import { ProgOptions } from '../../main/program-options.js';
 import { Preferences } from '../prefs/default-prefs.js';
+import { watchVolumes } from '../../lib/volume-watcher.js';
 import '../../lib/title.js';
 
 const isDevMode = process.env.NODE_ENV === 'development';
@@ -194,6 +195,14 @@ function start(args: ProgOptions) {
     g.thumbnailManager.setFolders(utils.removeChildFolders(utils.filterNonExistingDirs(dirs)), isPrefs);
   }
 
+  function refreshFolders() {
+    if (g.prefs) {
+      updatePrefs(g.prefs);
+    }
+  }
+
+  watchVolumes(refreshFolders);
+
   otherWindowIPC.createChannelStream('prefs')
     .then((stream) => {
       g.prefsStream = stream;
@@ -233,6 +242,9 @@ function start(args: ProgOptions) {
     });
     stream.on('refreshFolder', (folderName: string) => {
       g.thumbnailManager.refreshFolder(folderName);
+    });
+    stream.on('refreshFolders', () => {
+      refreshFolders();
     });
     stream.on('trashFile', async (filePath: string) => {
       try {
