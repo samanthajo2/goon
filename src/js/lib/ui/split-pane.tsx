@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React, { useRef, useState } from 'react';
-import { getRotatedXY } from '../rotatehelper';
+import { getRotatedXY } from '../rotatehelper.js';
 
 // Two-pane splitter layout with a draggable divider.
 //

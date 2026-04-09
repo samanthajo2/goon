@@ -21,11 +21,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 /* global VideoFrame */
 
 import path from 'node:path';
-import * as filters from '../../lib/filters';
-import createLogger from '../../lib/debug';
-import { urlFromFilename } from '../../lib/utils';
-import { createImageFromString } from '../../lib/string-image';
-import { MediaElement, MediaLoaderInfo, MediaLoaderFn, MediaMetaData } from './media-loader-def';
+import * as filters from '../../lib/filters.js';
+import createLogger from '../../lib/debug.js';
+import { urlFromFilename } from '../../lib/utils.js';
+import { createImageFromString } from '../../lib/string-image.js';
+import { MediaElement, MediaLoaderInfo, MediaLoaderFn, MediaMetaData } from './media-loader-def.js';
 
 let g_id = 0;
 

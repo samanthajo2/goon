@@ -20,10 +20,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import { useState, useRef, useCallback } from 'react';
-import { ipcRenderer } from 'electron';
-import { debounce } from '../../../lib/utils';
-import type { SortMode } from '../folder-state-helper';
-import type { GridMode } from '../grid-modes';
+import { ipcRenderer } from '../../../lib/electron-imports.js';
+import { debounce } from '../../../lib/utils.js';
+import type { SortMode } from '../folder-state-helper.js';
+import type { GridMode } from '../grid-modes.js';
 
 export type WinState = {
   showUI: number;

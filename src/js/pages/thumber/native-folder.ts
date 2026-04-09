@@ -20,23 +20,23 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import EventEmitter from 'node:events';
-import { arrayIntersection } from '../../lib/utils';
-import bind from '../../lib/bind';
-import * as filters from '../../lib/filters';
-import debug, { Logger } from '../../lib/debug';
-import ListenerManager from '../../lib/listener-manager';
-import {areFilesSame, getDifferentFilenames} from '../../lib/utils';
+import { arrayIntersection } from '../../lib/utils.js';
+import bind from '../../lib/bind.js';
+import * as filters from '../../lib/filters.js';
+import debug, { Logger } from '../../lib/debug.js';
+import ListenerManager from '../../lib/listener-manager.js';
+import {areFilesSame, getDifferentFilenames} from '../../lib/utils.js';
 import {
   getImagesAndVideos,
   getSeparateFilenames,
   deleteThumbnails,
   separateFiles,
-} from './folder-utils';
-import { FilesByPath } from '../../lib/fileinfo';
-import { ThumbnailPageMakerFn } from './folder-thumbnail-maker';
-import FolderData from './folder-data';
-import WatcherConsolidator from './watcher-consolidator';
-import type { BaseFolder } from './base-folder';
+} from './folder-utils.js';
+import { FilesByPath } from '../../lib/fileinfo.js';
+import { ThumbnailPageMakerFn } from './folder-thumbnail-maker.js';
+import FolderData from './folder-data.js';
+import WatcherConsolidator from './watcher-consolidator.js';
+import type { BaseFolder } from './base-folder.js';
 
 function filterFiles(files: FilesByPath) {
   const filteredFiles: FilesByPath = {};

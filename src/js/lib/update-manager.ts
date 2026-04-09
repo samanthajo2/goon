@@ -19,8 +19,8 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import { ipcMain, WebContents } from 'electron';   
-import { autoUpdater } from 'electron-updater';
+import { ipcMain, type WebContents } from './electron-imports.js';
+import { autoUpdater } from './electron-main-imports.js';
 
 let g_webContent: WebContents | undefined;
 let g_checkDate: number | undefined;

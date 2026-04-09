@@ -19,8 +19,8 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import ForwardableEvent from './forwardable-event';
-import { Action } from './actions';
+import ForwardableEvent from './forwardable-event.js';
+import { Action } from './actions.js';
 
 export default class ActionEvent extends ForwardableEvent<'action'> {
   action: Action;

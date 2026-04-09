@@ -20,8 +20,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import moment from 'moment';
-import {getOrientationInfo} from './rotatehelper';
-import { DBFileInfo } from '../pages/view/folder-db';
+import {getOrientationInfo} from './rotatehelper.js';
+import { DBFileInfo } from '../pages/view/folder-db.js';
 
 type FilterTableEntry = {
   fn: (str: string) => { filter: FilterFn, error?: string | undefined };

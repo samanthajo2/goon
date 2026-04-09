@@ -1,6 +1,6 @@
 import ExifReader from 'exifreader'
-import { isImageExtension, isMimeImage, isMimeVideo, isVideoExtension } from './filters';
-import { extractData } from './mp4parse';
+import { isImageExtension, isMimeImage, isMimeVideo, isVideoExtension } from './filters.js';
+import { extractData } from './mp4parse.js';
 
 export async function getMetaData(filename: string) {
   if (isImageExtension(filename)) {

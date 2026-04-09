@@ -20,15 +20,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import { uniqueId } from '../../lib/utils';
-import { actions, ActionId } from '../../lib/actions';
-import debug from '../../lib/debug';
-import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
-import type { AppEventMap } from './app-event-map';
-import { ImagegridStateHolder } from './viewer-events';
-import gridModes, { GridMode } from './grid-modes';
-import ActionEvent from '../../lib/action-event';
-import { sortModes, SortMode } from './folder-state-helper';
+import { uniqueId } from '../../lib/utils.js';
+import { actions, ActionId } from '../../lib/actions.js';
+import debug from '../../lib/debug.js';
+import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher.js';
+import type { AppEventMap } from './app-event-map.js';
+import { ImagegridStateHolder } from './viewer-events.js';
+import gridModes, { GridMode } from './grid-modes.js';
+import ActionEvent from '../../lib/action-event.js';
+import { sortModes, SortMode } from './folder-state-helper.js';
 
 type RangeProps = {
   value: number;

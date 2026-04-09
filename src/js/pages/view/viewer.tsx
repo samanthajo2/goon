@@ -20,25 +20,25 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import { throttle, debounce } from '../../lib/utils';
-import { ipcRenderer } from 'electron';
-import ResizeSensor from '../../lib/ui/resize-sensor';
-import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
-import ForwardableEvent from '../../lib/forwardable-event';
-import ListenerManager from '../../lib/listener-manager';
-import ActionListener from '../../lib/action-listener';
-import * as sizing from '../../lib/sizing';
-import debug from '../../lib/debug';
-import Player from './player';
-import * as filters from '../../lib/filters';
-import { CSSArray } from '../../lib/css-utils';
-import { px, euclideanModulo } from '../../lib/utils';
-import { getOrientationInfo } from '../../lib/rotatehelper';
-import { createImageFromString } from '../../lib/string-image';
-import MediaManagerClient from '../../lib/media-manager-client';
-import { VideoState, ViewerState, TimeUpdateEvent } from './viewer-events';
-import { MediaResult } from '../../lib/media-manager-types';
-import { AppContext } from './contexts';
+import { throttle, debounce } from '../../lib/utils.js';
+import { ipcRenderer } from '../../lib/electron-imports.js';
+import ResizeSensor from '../../lib/ui/resize-sensor.js';
+import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher.js';
+import ForwardableEvent from '../../lib/forwardable-event.js';
+import ListenerManager from '../../lib/listener-manager.js';
+import ActionListener from '../../lib/action-listener.js';
+import * as sizing from '../../lib/sizing.js';
+import debug from '../../lib/debug.js';
+import Player from './player.js';
+import * as filters from '../../lib/filters.js';
+import { CSSArray } from '../../lib/css-utils.js';
+import { px, euclideanModulo } from '../../lib/utils.js';
+import { getOrientationInfo } from '../../lib/rotatehelper.js';
+import { createImageFromString } from '../../lib/string-image.js';
+import MediaManagerClient from '../../lib/media-manager-client.js';
+import { VideoState, ViewerState, TimeUpdateEvent } from './viewer-events.js';
+import { MediaResult } from '../../lib/media-manager-types.js';
+import { AppContext } from './contexts.js';
 
 let s_viewerCount = 0;
 

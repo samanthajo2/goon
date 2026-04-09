@@ -21,13 +21,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import React from 'react';
 import { render as reactRender } from 'react-dom';
-import { ipcRenderer } from 'electron';   
-import bind from '../../lib/bind';
-import debug from '../../lib/debug';
+import { ipcRenderer } from '../../lib/electron-imports.js';
+import bind from '../../lib/bind.js';
+import debug from '../../lib/debug.js';
 import '../../lib/stacktrace-log.js';   
-import '../../lib/title';
-import Modal from '../../lib/ui/modal';
-import ListenerManager from '../../lib/listener-manager';
+import '../../lib/title.js';
+import Modal from '../../lib/ui/modal.js';
+import ListenerManager from '../../lib/listener-manager.js';
 
 type StateKey = 'idle' | 'requested' | 'checking' | 'downloading' | 'error' | 'noUpdate' | 'readyToUpdate' | 'quitting';
 

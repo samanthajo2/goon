@@ -20,19 +20,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import ResizeSensor from '../../lib/ui/resize-sensor';
-import { debounce, CancelableFn } from '../../lib/utils';
-import { ipcRenderer } from 'electron';   
-import debug from '../../lib/debug';
-import VPair from './vpair';
-import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
-import type { AppEventMap } from './app-event-map';
-import ActionEvent from '../../lib/action-event';
-import ActionListener from '../../lib/action-listener';
-import { getRotatedXY } from '../../lib/rotatehelper';
-import { px } from '../../lib/utils';
-import { FolderStateRoot } from './folder-state-helper';
-import { GridMode } from './grid-modes';
+import ResizeSensor from '../../lib/ui/resize-sensor.js';
+import { debounce, CancelableFn } from '../../lib/utils.js';
+import { ipcRenderer } from '../../lib/electron-imports.js';
+import debug from '../../lib/debug.js';
+import VPair from './vpair.js';
+import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher.js';
+import type { AppEventMap } from './app-event-map.js';
+import ActionEvent from '../../lib/action-event.js';
+import ActionListener from '../../lib/action-listener.js';
+import { getRotatedXY } from '../../lib/rotatehelper.js';
+import { px } from '../../lib/utils.js';
+import { FolderStateRoot } from './folder-state-helper.js';
+import { GridMode } from './grid-modes.js';
 
 /* global Yoga */
 

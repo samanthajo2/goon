@@ -20,10 +20,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import EventEmitter from 'node:events';
-import { throttle, isEmpty } from '../../lib/utils';
+import { throttle, isEmpty } from '../../lib/utils.js';
 import path from 'node:path';
-import { FileInfo, FilesByPath } from '../../lib/fileinfo';
-import { FolderInfo, FoldersByPath } from '../../lib/folderinfo';
+import { FileInfo, FilesByPath } from '../../lib/fileinfo.js';
+import { FolderInfo, FoldersByPath } from '../../lib/folderinfo.js';
 
 export type DBFileInfo = FileInfo & {
   filename: string;

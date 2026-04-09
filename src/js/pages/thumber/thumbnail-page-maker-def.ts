@@ -1,5 +1,5 @@
 
-import { FilesByPath } from '../../lib/fileinfo';
+import { FilesByPath } from '../../lib/fileinfo.js';
 
 export type MakeThumbnailPagesFn = (
   baseFilename: string,

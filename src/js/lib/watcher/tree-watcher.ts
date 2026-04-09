@@ -27,11 +27,11 @@ SOFTWARE.
 
 import EventEmitter from 'node:events';
 import path from 'node:path';
-import { throttle, CancelableFn } from '../utils';
-import debug from '../debug';
-import WinTreeWatcher from './win-tree-watcher';
-import ChokidarTreeWatcher from './chokidar-tree-watcher';
-import FileChangeType, { RawFileChange } from './file-change-types';
+import { throttle, CancelableFn } from '../utils.js';
+import debug from '../debug.js';
+import WinTreeWatcher from './win-tree-watcher.js';
+import ChokidarTreeWatcher from './chokidar-tree-watcher.js';
+import FileChangeType, { RawFileChange } from './file-change-types.js';
 
 type RawWatcher = WinTreeWatcher | ChokidarTreeWatcher;
 

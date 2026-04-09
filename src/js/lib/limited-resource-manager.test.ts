@@ -20,11 +20,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 
-import { describe, it } from './test/mocha';
+import { describe, it } from './test/mocha.js';
 import { assert } from 'chai';
-import createLimitedResourceManager from './limited-resource-manager';
-import type { LimitedResourceManager } from './limited-resource-manager';
-import wait from './wait';
+import createLimitedResourceManager from './limited-resource-manager.js';
+import type { LimitedResourceManager } from './limited-resource-manager.js';
+import wait from './wait.js';
 
 describe('limitedResourceManager', () => {
   class TestResource {

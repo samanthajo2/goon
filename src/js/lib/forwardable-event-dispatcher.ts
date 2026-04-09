@@ -19,7 +19,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import type ForwardableEvent from './forwardable-event';
+import type ForwardableEvent from './forwardable-event.js';
 
 // Maps event name → tuple of extra args passed after the ForwardableEvent.
 // Usage: new ForwardableEventDispatcher<MyEventMap>()

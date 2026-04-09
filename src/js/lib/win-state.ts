@@ -1,5 +1,5 @@
-import { SortMode } from '../pages/view/folder-state-helper';
-import { GridMode } from '../pages/view/grid-modes';
+import { SortMode } from '../pages/view/folder-state-helper.js';
+import { GridMode } from '../pages/view/grid-modes.js';
 
 // State of main UI inside of window (the side bar vs the VPairs but not the splits in the VPairs)
 // This is saved in the window state and restored when the window is opened

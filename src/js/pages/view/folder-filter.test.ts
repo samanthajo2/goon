@@ -1,7 +1,7 @@
 import { assert } from 'chai';
-import FolderFilter from './folder-filter';
-import { DBFileInfo, DBFoldersByPath } from './folder-db';
-import { FolderStatus } from '../../lib/folderinfo';
+import FolderFilter from './folder-filter.js';
+import { DBFileInfo, DBFoldersByPath } from './folder-db.js';
+import { FolderStatus } from '../../lib/folderinfo.js';
 
 const STATUS: FolderStatus = { checking: false, scanning: false, scannedTime: 0 };
 

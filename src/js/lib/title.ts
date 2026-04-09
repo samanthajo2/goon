@@ -19,9 +19,9 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import { version, name } from '../../../package.json';
+import pkg from '../../../package.json' with { type: 'json' };
 
 window.addEventListener('load', () => {
-  document.title = `${name} : ${document.title} : ${version}`;
+  document.title = `${pkg.name} : ${document.title} : ${pkg.version}`;
 });
 

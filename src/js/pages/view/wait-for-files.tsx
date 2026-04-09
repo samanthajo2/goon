@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import Modal from '../../lib/ui/modal';
+import Modal from '../../lib/ui/modal.js';
 
 const WaitForFiles = (props: { onClick: () => void }) => (
   <Modal>

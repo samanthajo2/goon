@@ -21,11 +21,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import EventEmitter from 'node:events';
 import path from 'node:path';
-import ListenerManager from './listener-manager';
-import debug, { Logger } from './debug';
-import bind from './bind';
-import ResettableTimeout from './resettable-timeout';
-import { FolderWatcherInterface } from './watcher/folder-watcher';
+import ListenerManager from './listener-manager.js';
+import debug, { Logger } from './debug.js';
+import bind from './bind.js';
+import ResettableTimeout from './resettable-timeout.js';
+import { FolderWatcherInterface } from './watcher/folder-watcher.js';
 
 type Stats = {
   size: number;

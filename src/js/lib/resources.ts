@@ -23,7 +23,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 
 const baseResourcesPaths: string[] = [
-  path.join(__dirname, '..', '..', '..', '..', '..', 'app'),
+  path.join(typeof __dirname !== 'undefined' ? __dirname : import.meta.dirname, '..', '..', '..', '..', '..', 'app'),
 ];
 console.log(baseResourcesPaths[0]);
 if (process.resourcesPath) {

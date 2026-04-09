@@ -22,11 +22,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import React from 'react';
 import { render as reactRender } from 'react-dom';
 
-import { ipcRenderer } from 'electron';   
-import { getCurrentWindow, Menu, MenuItem } from '@electron/remote';
-import App from './app';
-import '../../lib/stacktrace-log';
-import '../../lib/title';
+import { ipcRenderer } from '../../lib/electron-imports.js';
+import { getCurrentWindow, Menu, MenuItem } from '../../lib/electron-renderer-imports.js';
+import App from './app.js';
+import '../../lib/stacktrace-log.js';
+import '../../lib/title.js';
 
 const isDevMode = process.env.NODE_ENV === 'development';
 

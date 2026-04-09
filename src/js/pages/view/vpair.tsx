@@ -20,23 +20,23 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import ActionEvent from '../../lib/action-event';
-import debug from '../../lib/debug';
-import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
-import type { AppEventMap } from './app-event-map';
-import ListenerManager from '../../lib/listener-manager';
-import MediaManagerClient from '../../lib/media-manager-client';
-import ForwardableEvent from '../../lib/forwardable-event';
-import ImageGrids from './image-grids';
-import Viewer from './viewer';
-import { CSSArray } from '../../lib/css-utils';
-import { euclideanModulo } from '../../lib/utils';
-import ActionListener from '../../lib/action-listener';
-import { FolderStateRoot } from './folder-state-helper';
-import { AppContext } from './contexts';
-import { ScrollAnchor } from './image-grids';
-import { VideoState, ImagegridState } from './viewer-events';
-import { GridMode } from './grid-modes';
+import ActionEvent from '../../lib/action-event.js';
+import debug from '../../lib/debug.js';
+import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher.js';
+import type { AppEventMap } from './app-event-map.js';
+import ListenerManager from '../../lib/listener-manager.js';
+import MediaManagerClient from '../../lib/media-manager-client.js';
+import ForwardableEvent from '../../lib/forwardable-event.js';
+import ImageGrids from './image-grids.js';
+import Viewer from './viewer.js';
+import { CSSArray } from '../../lib/css-utils.js';
+import { euclideanModulo } from '../../lib/utils.js';
+import ActionListener from '../../lib/action-listener.js';
+import { FolderStateRoot } from './folder-state-helper.js';
+import { AppContext } from './contexts.js';
+import { ScrollAnchor } from './image-grids.js';
+import { VideoState, ImagegridState } from './viewer-events.js';
+import { GridMode } from './grid-modes.js';
 
 let g_vpairCount = 0;
 
@@ -365,7 +365,7 @@ export default class VPair extends React.Component<Props, ComponentState> {
     this._setCurrentView();
   };
 
-  private _handleActions = (event: import('../../lib/action-event').default, ...args: unknown[]): void => {
+  private _handleActions = (event: import('../../lib/action-event.js').default, ...args: unknown[]): void => {
     this.props.actionListener.routeAction(event, ...args);
   };
 

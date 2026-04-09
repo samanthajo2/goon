@@ -20,10 +20,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import { useState, useRef, useCallback } from 'react';
-import { makeFilter } from '../../../lib/make-filter';
-import { Preferences } from '../../prefs/default-prefs';
-import type { FilterFn } from '../folder-filter';
-import type { DBFileInfo } from '../folder-db';
+import { makeFilter } from '../../../lib/make-filter.js';
+import { Preferences } from '../../prefs/default-prefs.js';
+import type { FilterFn } from '../folder-filter.js';
+import type { DBFileInfo } from '../folder-db.js';
 
 const passAll: FilterFn = () => true;
 

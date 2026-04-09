@@ -7,13 +7,10 @@
   <body>
     <div class="browser"></div>
   </body>
-  <script type="module">
-  </script>
-  <script type="module">
-const Yoga = require('./3rdparty/Yoga.bundle.js');
-window.Yoga = Yoga;
+  <script src="./3rdparty/Yoga.bundle.js"></script>
+  <script>
 window.Yconfig = Yoga.Config.create();
 window.Ynode = Yoga.Node.create(window.Yconfig);
-    require('../out/js/src/js/pages/view/view');
   </script>
+  <script>require("../out/renderer/view.cjs");</script>
 </html>

@@ -20,13 +20,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import EventEmitter from 'node:events';
-import { debounce } from '../../lib/utils';
+import { debounce } from '../../lib/utils.js';
 
-import bind from '../../lib/bind';
-import debug, { Logger } from '../../lib/debug';
-import SimpleFolderWatcher from '../../lib/simple-folder-watcher';
-import ListenerManager from '../../lib/listener-manager';
-import { FolderWatcherInterface } from '../../lib/watcher/folder-watcher';
+import bind from '../../lib/bind.js';
+import debug, { Logger } from '../../lib/debug.js';
+import SimpleFolderWatcher from '../../lib/simple-folder-watcher.js';
+import ListenerManager from '../../lib/listener-manager.js';
+import { FolderWatcherInterface } from '../../lib/watcher/folder-watcher.js';
 
 const s_sendDebounceDuration = 1000;
 

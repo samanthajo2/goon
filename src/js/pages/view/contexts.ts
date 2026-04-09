@@ -20,9 +20,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import { createContext } from 'react';
-import type ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
-import type { AppEventMap } from './app-event-map';
-import type { Preferences } from '../prefs/default-prefs';
+import type ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher.js';
+import type { AppEventMap } from './app-event-map.js';
+import type { Preferences } from '../prefs/default-prefs.js';
 
 export type AppContextValue = {
   // The event bus for the current subtree. app.tsx provides the root bus;

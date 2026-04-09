@@ -19,10 +19,10 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import { describe, it } from './test/mocha';
+import { describe, it } from './test/mocha.js';
 import { assert } from 'chai';
 import EventEmitter from 'node:events';
-import ListenerManager from './listener-manager';
+import ListenerManager from './listener-manager.js';
 
 describe('ListenerManager', () => {
   describe('on / EventEmitter', () => {

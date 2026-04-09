@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import Modal from './modal';
+import Modal from './modal.js';
 
 interface OkayCancelProps {
   okay?: string;

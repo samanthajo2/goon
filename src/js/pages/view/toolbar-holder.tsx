@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import {cssArray} from '../../lib/css-utils';
+import {cssArray} from '../../lib/css-utils.js';
 
 export default function ToolbarHolder(props: React.PropsWithChildren<{ bottom: boolean }>) {
   const classes = cssArray('toolbar-holder').addIf(props.bottom, 'order2').toString();

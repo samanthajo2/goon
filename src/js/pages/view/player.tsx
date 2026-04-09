@@ -20,10 +20,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import ActionEvent from '../../lib/action-event';
-import ForwardableEvent from '../../lib/forwardable-event';
-import { TimeUpdateEvent, VideoState } from './viewer-events';
-import { AppContext } from './contexts';
+import ActionEvent from '../../lib/action-event.js';
+import ForwardableEvent from '../../lib/forwardable-event.js';
+import { TimeUpdateEvent, VideoState } from './viewer-events.js';
+import { AppContext } from './contexts.js';
 
 const _pauseIcon = '❚❚';
 const _playIcon = '▶';

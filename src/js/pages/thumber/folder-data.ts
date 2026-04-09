@@ -19,10 +19,10 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import debug, { Logger } from '../../lib/debug';
-import bind from '../../lib/bind';
-import { createBasename, debounce, isDeepEqual } from '../../lib/utils';
-import { FileInfo } from '../../lib/fileinfo';
+import debug, { Logger } from '../../lib/debug.js';
+import bind from '../../lib/bind.js';
+import { createBasename, debounce, isDeepEqual } from '../../lib/utils.js';
+import { FileInfo } from '../../lib/fileinfo.js';
 
 const s_saveDebounceDuration = 2000;
 const s_folderVersion = 6;

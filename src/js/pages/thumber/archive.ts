@@ -20,11 +20,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import mime from 'mime-types';
 import * as unzipit from 'unzipit';
 import * as unrarit from 'unrarit';
-import * as filters from '../../lib/filters';
-import * as utils from '../../lib/utils';
+import * as filters from '../../lib/filters.js';
+import * as utils from '../../lib/utils.js';
+
+// In ESM (main process / tests), create a require function; in CJS (renderer bundle), use the global.
+const _require = typeof require !== 'undefined' ? require : createRequire(import.meta.url);
 
 const pfs = fs.promises;
 const s_slashRE = /[/\\]/g;
@@ -33,7 +37,7 @@ function makeSafeName(name: string): string {
 }
 
 unzipit.setOptions({
-  workerURL: utils.urlFromFilename(require.resolve('unzipit/dist/unzipit-worker.js')),
+  workerURL: utils.urlFromFilename(_require.resolve('unzipit/dist/unzipit-worker.js')),
   numWorkers: 2,
 });
 

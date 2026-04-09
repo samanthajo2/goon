@@ -1,5 +1,5 @@
 import React, { useState, useRef, useLayoutEffect, useEffect } from 'react';
-import { px } from '../utils';
+import { px } from '../utils.js';
 
 type MenuSettings = {
   position: { x: number; y: number };

@@ -19,9 +19,9 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import { FilesByPath } from '../../lib/fileinfo';
-import * as filters from '../../lib/filters';
-import {filenameFromUrl, getObjectsByKeys} from '../../lib/utils';
+import { FilesByPath } from '../../lib/fileinfo.js';
+import * as filters from '../../lib/filters.js';
+import {filenameFromUrl, getObjectsByKeys} from '../../lib/utils.js';
 
 function getImagesAndVideos(files: FilesByPath): FilesByPath {
   const filenames = Object.keys(files);

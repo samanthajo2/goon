@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import EventEmitter from 'node:events';
-import { FilesByPath } from '../../lib/fileinfo';
+import { FilesByPath } from '../../lib/fileinfo.js';
 
 export type SeparateFilenames = {
   imagesAndVideos: string[];

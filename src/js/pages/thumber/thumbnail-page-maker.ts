@@ -19,18 +19,18 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import createLogger from '../../lib/debug';
-import { FilesByPath } from '../../lib/fileinfo';
+import createLogger from '../../lib/debug.js';
+import { FilesByPath } from '../../lib/fileinfo.js';
 import {
   filenameFromUrl,
   getDifferentFilenames,
   getObjectsByKeys,
   urlFromFilename,
   range,
-} from '../../lib/utils';
-import {separateFilesByPages} from './folder-utils';
-import { ImageInfo } from './thumbnail-maker';
-import { MakeThumbnailPagesFn } from './thumbnail-page-maker-def';
+} from '../../lib/utils.js';
+import {separateFilesByPages} from './folder-utils.js';
+import { ImageInfo } from './thumbnail-maker.js';
+import { MakeThumbnailPagesFn } from './thumbnail-page-maker-def.js';
 
 // Given an old and new hash of Object.<string, FileInfo> of
 // image and video files makes pages of thumbnails (.png files)

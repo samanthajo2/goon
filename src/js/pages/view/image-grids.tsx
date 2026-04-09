@@ -20,21 +20,21 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import VirtualList, { VirtualListHandle } from '../../lib/ui/virtual-list';
-import ResizeSensor from '../../lib/ui/resize-sensor';
-import { getRotatedXY } from '../../lib/rotatehelper';
-import ListenerManager from '../../lib/listener-manager';
-import debug from '../../lib/debug';
-import ForwardableEvent from '../../lib/forwardable-event';
-import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
-import { DBFileInfo } from './folder-db';
-import Thumbnail from './thumbnail';
-import ActionListener from '../../lib/action-listener';
-import { px } from '../../lib/utils';
-import gridModes, { GridMode } from './grid-modes';
-import { setRAF } from '../../lib/wait';
-import { FolderStateRoot, FolderStateFolder, SortInfo } from './folder-state-helper';
-import { AppContext } from './contexts';
+import VirtualList, { VirtualListHandle } from '../../lib/ui/virtual-list.js';
+import ResizeSensor from '../../lib/ui/resize-sensor.js';
+import { getRotatedXY } from '../../lib/rotatehelper.js';
+import ListenerManager from '../../lib/listener-manager.js';
+import debug from '../../lib/debug.js';
+import ForwardableEvent from '../../lib/forwardable-event.js';
+import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher.js';
+import { DBFileInfo } from './folder-db.js';
+import Thumbnail from './thumbnail.js';
+import ActionListener from '../../lib/action-listener.js';
+import { px } from '../../lib/utils.js';
+import gridModes, { GridMode } from './grid-modes.js';
+import { setRAF } from '../../lib/wait.js';
+import { FolderStateRoot, FolderStateFolder, SortInfo } from './folder-state-helper.js';
+import { AppContext } from './contexts.js';
 
 let g_imageGridsRenderCount = 0;
 let g_renderCount = 0;

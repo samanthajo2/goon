@@ -20,12 +20,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import path from 'node:path';
-import otherWindowIPC from 'other-window-ipc';
-import debug from '../../lib/debug';
-import * as archive from './archive';
-import type { ArchiveFiles } from './archive';
-import bind from '../../lib/bind';
-import type { MediaServerStream, MediaManagerChannel } from '../../lib/media-manager-types';
+import { otherWindowIPC } from '../../lib/electron-renderer-imports.js';
+import debug from '../../lib/debug.js';
+import * as archive from './archive.js';
+import type { ArchiveFiles } from './archive.js';
+import bind from '../../lib/bind.js';
+import type { MediaServerStream, MediaManagerChannel } from '../../lib/media-manager-types.js';
 
 type PendingRequest = {
   requestId: number;

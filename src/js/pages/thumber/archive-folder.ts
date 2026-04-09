@@ -20,11 +20,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import EventEmitter from 'node:events';
-import debug, { Logger } from '../../lib/debug';
-import {getImagesAndVideos, getSeparateFilenames, deleteThumbnails} from './folder-utils';
-import FolderData from './folder-data';
-import { FilesByPath } from '../../lib/fileinfo';
-import type { BaseFolder } from './base-folder';
+import debug, { Logger } from '../../lib/debug.js';
+import {getImagesAndVideos, getSeparateFilenames, deleteThumbnails} from './folder-utils.js';
+import FolderData from './folder-data.js';
+import { FilesByPath } from '../../lib/fileinfo.js';
+import type { BaseFolder } from './base-folder.js';
 
 type LocalFsAPI = {
   unlinkSync: (filename: string) => void;

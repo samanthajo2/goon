@@ -21,9 +21,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import EventEmitter from 'node:events';
 import sinon from 'sinon';
-import { describe, it, beforeEach } from '../../lib/test/mocha';
+import { describe, it, beforeEach } from '../../lib/test/mocha.js';
 import { assert } from 'chai';
-import ThumbnailManager from './thumbnail-manager';
+import ThumbnailManager from './thumbnail-manager.js';
 
 describe('ThumbnailManager', () => {
   let manager: ThumbnailManager;

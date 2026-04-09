@@ -19,10 +19,10 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import { describe, it } from '../../lib/test/mocha';
+import { describe, it } from '../../lib/test/mocha.js';
 import { assert } from 'chai';
-import { FolderStateHelper, FolderStateFolder } from './folder-state-helper';
-import type { FoldersByPath } from '../../lib/folderinfo';
+import { FolderStateHelper, FolderStateFolder } from './folder-state-helper.js';
+import type { FoldersByPath } from '../../lib/folderinfo.js';
 
 // The tests use partial objects (e.g. `{}` for files, partial status) that the
 // real types don't accept. We cast via this helper so call sites stay readable.

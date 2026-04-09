@@ -26,9 +26,9 @@ SOFTWARE.
 */
 
 import chokidar from 'chokidar';
-import debug from '../debug';
-import FileChangeType, { FileChangeTypeValue, RawFileChange } from './file-change-types';
-import ListenerManager from '../listener-manager';
+import debug from '../debug.js';
+import FileChangeType, { FileChangeTypeValue, RawFileChange } from './file-change-types.js';
+import ListenerManager from '../listener-manager.js';
 
 function alwaysTrue(): boolean {
   return true;

@@ -20,10 +20,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import { ipcRenderer } from 'electron';
-import ForwardableEvent from '../../lib/forwardable-event';
-import gridModes, { ThumbnailProps } from './grid-modes';
-import { AppContext } from './contexts';
+import { ipcRenderer } from '../../lib/electron-imports.js';
+import ForwardableEvent from '../../lib/forwardable-event.js';
+import gridModes, { ThumbnailProps } from './grid-modes.js';
+import { AppContext } from './contexts.js';
 
 type Props = ThumbnailProps & {
   count: number;

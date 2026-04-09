@@ -21,11 +21,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import React from 'react';
 import path from 'path';
-import { getRotatedXY } from '../../lib/rotatehelper';
-import ForwardableEvent from '../../lib/forwardable-event';
-import { cssArray } from '../../lib/css-utils';
-import { FolderStateRoot, FolderStateFolder } from './folder-state-helper';
-import { AppContext } from './contexts';
+import { getRotatedXY } from '../../lib/rotatehelper.js';
+import ForwardableEvent from '../../lib/forwardable-event.js';
+import { cssArray } from '../../lib/css-utils.js';
+import { FolderStateRoot, FolderStateFolder } from './folder-state-helper.js';
+import { AppContext } from './contexts.js';
 
 const s_depthCache: Record<number, string> = {};
 

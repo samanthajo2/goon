@@ -20,12 +20,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import { ipcRenderer } from 'electron';
-import { ContextMenu, MenuItem } from '../../lib/ui/context-menu';
-import debug from '../../lib/debug';
-import ForwardableEvent from '../../lib/forwardable-event';
-import { FolderContextInfo } from './viewer-events';
-import { AppContext } from './contexts';
+import { ipcRenderer } from '../../lib/electron-imports.js';
+import { ContextMenu, MenuItem } from '../../lib/ui/context-menu.js';
+import debug from '../../lib/debug.js';
+import ForwardableEvent from '../../lib/forwardable-event.js';
+import { FolderContextInfo } from './viewer-events.js';
+import { AppContext } from './contexts.js';
 
 const logger = debug('FolderContextMenu');
 

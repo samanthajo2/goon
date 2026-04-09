@@ -20,9 +20,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import EventEmitter from 'node:events';
-import { performance } from '../../lib/perf';
-import { DBFileInfo, DBFolderInfo, DBFoldersByPath } from './folder-db';
-import { FolderStatus } from '../../lib/folderinfo';
+import { performance } from '../../lib/perf.js';
+import { DBFileInfo, DBFolderInfo, DBFoldersByPath } from './folder-db.js';
+import { FolderStatus } from '../../lib/folderinfo.js';
 
 export type FilterFn = (filename: string, fileInfo: DBFileInfo) => boolean;
 

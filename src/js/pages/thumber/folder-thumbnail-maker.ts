@@ -20,10 +20,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import mime from 'mime-types';
-import { FilesByPath } from '../../lib/fileinfo';
-import { cloneDeep } from '../../lib/utils';
-import { LimitedResourceManager } from '../../lib/limited-resource-manager';
-import { MakeThumbnailPagesFn } from './thumbnail-page-maker-def';
+import { FilesByPath } from '../../lib/fileinfo.js';
+import { cloneDeep } from '../../lib/utils.js';
+import { LimitedResourceManager } from '../../lib/limited-resource-manager.js';
+import { MakeThumbnailPagesFn } from './thumbnail-page-maker-def.js';
 
 export type ThumbnailPageMakerFn = (
   oldImagesAndVideos: FilesByPath,

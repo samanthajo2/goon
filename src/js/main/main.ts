@@ -23,35 +23,32 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { Server } from 'http'
 import { Command } from 'commander';
-import electron, { BrowserWindow, Rectangle, WebContents } from 'electron';  // eslint-disable-line
-import 'other-window-ipc';
 import debugFn from 'debug';
 import express from 'express';
+import electron, { BrowserWindow, nativeImage, type WebContents } from '../lib/electron-imports.js';
+import { initRelay } from '../lib/window-ipc.js';
+import { electronRemoteMain } from '../lib/electron-main-imports.js';
 
-import * as electronRemoteMain from '@electron/remote/main';
-
-import {getUpdateCheckDate} from '../lib/update-manager';
-import appdata from '../lib/appdata';
-import * as utils from '../lib/utils';
-import { getFreePort } from '../lib/get-free-port';
-import {loadPrefs, Preferences} from '../pages/prefs/default-prefs';
+import {getUpdateCheckDate} from '../lib/update-manager.js';
+import appdata from '../lib/appdata.js';
+import * as utils from '../lib/utils.js';
+import { getFreePort } from '../lib/get-free-port.js';
+import {loadPrefs, Preferences} from '../pages/prefs/default-prefs.js';
 import {
   isTitlebarOnAtLeastOneDisplay,
   putWindowOnNearestDisplay,
-} from '../lib/window-restore-helper';
-import listCacheFiles from './list-cache-files';
-import compareFoldersToCache from './compare-folders-to-cache';
-import { Rect } from '../lib/rect';
-import { WinState } from '../lib/win-state';
-import { ProgOptions } from './program-options';
+} from '../lib/window-restore-helper.js';
+import listCacheFiles from './list-cache-files.js';
+import compareFoldersToCache from './compare-folders-to-cache.js';
+import { Rect } from '../lib/rect.js';
+import { WinState } from '../lib/win-state.js';
+import { ProgOptions } from './program-options.js';
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const {windowTrackerInit} = require('../lib/remote-helpers');
+import {windowTrackerInit} from '../lib/remote-helpers.cjs';
 
-const {nativeImage} = electron;
 
 electronRemoteMain.initialize();
-// import {windowTrackerInit} from '../../../src/js/lib/remote-helpers';
+initRelay();
 
 const debug = debugFn('main');
 const isDevMode = process.env.NODE_ENV === 'development';
@@ -256,7 +253,7 @@ const staticOptions = {
 
 function setupFolderRouter() {
   router = express.Router();
-  router.use('/out', express.static(path.join(`${__dirname}/../../../out`), staticOptions));
+  router.use('/out', express.static(path.join(`${import.meta.dirname}/../../../out`), staticOptions));
   router.use('/user-data-dir', express.static(args.userDataDir, staticOptions));
   const isPrefs = !args._.length;
   const dirs = isPrefs ? prefs.folders : args._;
@@ -429,7 +426,7 @@ type WindowOptions = {
 };
 
 function createWindow(url?: string, options?: WindowOptions) {
-  url = url || `file://${__dirname}/../../../../../app/index.html`;
+  url = url || `file://${import.meta.dirname}/../../../../../app/index.html`;
   if (isDevMode) {
     url = `${url}?react_perf`;
   }
@@ -541,7 +538,7 @@ function createOneOfAKindWindow(id: OneOfAKindWindowId, url: string, options: Wi
     }
 
     debug('createOneOfAKindWindow:', url);
-    window.loadURL(`file://${__dirname}/../../../../../${url}`);
+    window.loadURL(`file://${import.meta.dirname}/../../../../../${url}`);
 
     catchNavigation(window);
 

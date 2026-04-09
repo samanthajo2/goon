@@ -22,10 +22,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import EventEmitter from 'node:events';
 import path from 'node:path';
 import sinon from 'sinon';
-import { describe, it } from './test/mocha';
+import { describe, it } from './test/mocha.js';
 import { assert } from 'chai';
-import SimpleFolderWatcher from './simple-folder-watcher';
-import wait from './wait';
+import SimpleFolderWatcher from './simple-folder-watcher.js';
+import wait from './wait.js';
 
 const TEST_DIR = '/testdir';
 

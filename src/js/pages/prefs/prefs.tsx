@@ -19,27 +19,25 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import { ipcRenderer } from 'electron';   
-import { dialog } from '@electron/remote';
+import { ipcRenderer, shell } from '../../lib/electron-imports.js';
+import { dialog, otherWindowIPC } from '../../lib/electron-renderer-imports.js';
 import React from 'react';
 import fs from 'fs';
 import path from 'path';
 import keycode from 'keycode';
-import otherWindowIPC from 'other-window-ipc';
-import '../../lib/stacktrace-log.js';  
-import bind from '../../lib/bind';
-import { shell } from 'electron';   
-import debug from '../../lib/debug';
-import ListenerManager from '../../lib/listener-manager';
-import { eventToKeyInfo, keyInfoToId, keyInfoToString } from '../../lib/keyrouter';
-import Modal from '../../lib/ui/modal';
-import { actions, ActionId } from '../../lib/actions';
-import { loadPrefs, Preferences, KeyConfig, ToolbarPosition } from './default-prefs';
-import { CSSArray } from '../../lib/css-utils';
-import Checkbox from '../../lib/ui/checkbox';
-import Range from '../../lib/ui/range';
-import LivePasswordEditor from '../../lib/ui/live-password-editor';
-import { readUTF8FileSync, debounce, cloneDeep, CancelableFn } from '../../lib/utils';
+import '../../lib/stacktrace-log.js';
+import bind from '../../lib/bind.js';
+import debug from '../../lib/debug.js';
+import ListenerManager from '../../lib/listener-manager.js';
+import { eventToKeyInfo, keyInfoToId, keyInfoToString } from '../../lib/keyrouter.js';
+import Modal from '../../lib/ui/modal.js';
+import { actions, ActionId } from '../../lib/actions.js';
+import { loadPrefs, Preferences, KeyConfig, ToolbarPosition } from './default-prefs.js';
+import { CSSArray } from '../../lib/css-utils.js';
+import Checkbox from '../../lib/ui/checkbox.js';
+import Range from '../../lib/ui/range.js';
+import LivePasswordEditor from '../../lib/ui/live-password-editor.js';
+import { readUTF8FileSync, debounce, cloneDeep, CancelableFn } from '../../lib/utils.js';
 
 type PrefsOptions = {
   userDataDir: string;

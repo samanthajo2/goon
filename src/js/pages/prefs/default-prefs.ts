@@ -20,8 +20,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import hjson from 'hjson';
-import { ActionId } from '../../lib/actions';
-import { cloneDeep } from '../../lib/utils';
+import { ActionId } from '../../lib/actions.js';
+import { cloneDeep } from '../../lib/utils.js';
 
 export type KeyConfig = {
   keyCode: number,

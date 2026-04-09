@@ -21,8 +21,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import React, { useEffect, useRef, useState } from 'react';
 import crypto from 'crypto';
-import { hashPassword } from '../password-utils';
-import Modal from './modal';
+import { hashPassword } from '../password-utils.js';
+import Modal from './modal.js';
 
 interface PasswordInputProps {
   setPassword: (password: string) => void;

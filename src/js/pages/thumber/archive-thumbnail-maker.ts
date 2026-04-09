@@ -20,12 +20,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import path from 'node:path';
-import debug from '../../lib/debug';
-import createParallelResourceManager from '../../lib/parallel-resource-manager';
-import * as archive from './archive';
-import { LimitedResourceManager } from '../../lib/limited-resource-manager';
-import { MakeThumbnailPagesFn } from './thumbnail-page-maker-def';
-import { FileInfo, FilesByPath } from '../../lib/fileinfo';
+import debug from '../../lib/debug.js';
+import createParallelResourceManager from '../../lib/parallel-resource-manager.js';
+import * as archive from './archive.js';
+import { LimitedResourceManager } from '../../lib/limited-resource-manager.js';
+import { MakeThumbnailPagesFn } from './thumbnail-page-maker-def.js';
+import { FileInfo, FilesByPath } from '../../lib/fileinfo.js';
 
 const decompressorManager = createParallelResourceManager(2);
 const logger = debug('ArchiveThumbnailMaker');

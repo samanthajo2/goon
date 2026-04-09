@@ -20,15 +20,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import { uniqueId } from '../../lib/utils';
-import debug from '../../lib/debug';
-import { actions, ActionId } from '../../lib/actions';
-import * as filters from '../../lib/filters';
-import { TimeUpdateEvent, ViewerState, VideoState } from './viewer-events';
-import { CSSArray } from '../../lib/css-utils';
-import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher';
-import ForwardableEvent from '../../lib/forwardable-event';
-import type { AppEventMap } from './app-event-map';
+import { uniqueId } from '../../lib/utils.js';
+import debug from '../../lib/debug.js';
+import { actions, ActionId } from '../../lib/actions.js';
+import * as filters from '../../lib/filters.js';
+import { TimeUpdateEvent, ViewerState, VideoState } from './viewer-events.js';
+import { CSSArray } from '../../lib/css-utils.js';
+import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher.js';
+import ForwardableEvent from '../../lib/forwardable-event.js';
+import type { AppEventMap } from './app-event-map.js';
 
 type RangeProps = {
   value: number;

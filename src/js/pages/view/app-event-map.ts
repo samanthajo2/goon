@@ -19,8 +19,8 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import type { DBFileInfo } from './folder-db';
-import type { FolderContextInfo } from './viewer-events';
+import type { DBFileInfo } from './folder-db.js';
+import type { FolderContextInfo } from './viewer-events.js';
 
 // Extra args (beyond the leading ForwardableEvent) for each event name.
 // ActionEvent and TimeUpdateEvent carry their payload on the event object
@@ -62,7 +62,7 @@ export type AppEventMap = {
   playAll: [];
 
   // Dispatched by Viewer → downstreamEventBus → toolbarEventBus → ViewerToolbar subscribes.
-  viewerStateChanged: [state: import('./viewer-events').ViewerState];
+  viewerStateChanged: [state: import('./viewer-events.js').ViewerState];
 
   // Dispatched by Player/Que to update volume in the active Viewer.
   volumeChange: [volume: number];

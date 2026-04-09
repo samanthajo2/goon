@@ -18,7 +18,7 @@ export default tseslint.config(
     languageOptions: {
       globals: {
         ...globals.browser,
-        ...globals.commonjs,
+        ...globals.nodeBuiltin,
         ...globals.es2015,
         ...globals.node,
       },
@@ -34,8 +34,10 @@ export default tseslint.config(
     },
     rules: {
       'import/extensions': ['error', 'ignorePackages', {
-        js: 'never',
+        js: 'always',
+        cjs: 'always',
         ts: 'never',
+        cts: 'never',
         jsx: 'never',
         tsx: 'never',
       }],

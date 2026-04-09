@@ -19,8 +19,8 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import bind from './bind';
-import debug from './debug';
+import bind from './bind.js';
+import debug from './debug.js';
 
 let resetTimeoutId = 0;
 

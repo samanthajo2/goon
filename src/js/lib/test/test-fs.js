@@ -22,8 +22,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import temp from 'temp';   
 import fs from 'node:fs';
 import path from 'node:path';
-import debug from '../debug';
-import * as testCleanup from './test-cleanup';
+import debug from '../debug.js';
+import * as testCleanup from './test-cleanup.js';
 
 // we can add other functions later
 export default class TestFS {

@@ -19,10 +19,10 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import { describe, it, beforeEach } from '../../lib/test/mocha';
+import { describe, it, beforeEach } from '../../lib/test/mocha.js';
 import { assert } from 'chai';
-import FolderDB from './folder-db';
-import type { FoldersByPath } from '../../lib/folderinfo';
+import FolderDB from './folder-db.js';
+import type { FoldersByPath } from '../../lib/folderinfo.js';
 
 describe('FolderDB', () => {
   let db: FolderDB;

@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import EventEmitter from 'node:events';
-import type ActionEvent from './action-event';
+import type ActionEvent from './action-event.js';
 
 // Routes ActionEvents to per-action-id listeners.
 // Usage:

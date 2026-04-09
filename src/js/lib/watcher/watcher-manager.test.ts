@@ -23,11 +23,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  
 
 import path from 'node:path';
-import { describe, it, beforeEach, afterEach } from '../test/mocha';
+import { describe, it, beforeEach, afterEach } from '../test/mocha.js';
 import { assert } from 'chai';
-import WatcherManager, { FolderWatcher } from './watcher-manager';
-import TestFS from '../test/test-fs';
-import { emitSpy } from '../test/test-utils';
+import WatcherManager, { FolderWatcher } from './watcher-manager.js';
+import TestFS from '../test/test-fs.js';
+import { emitSpy } from '../test/test-utils.js';
 
 // TestFS dynamically proxies the underlying fs methods at construction time.
 type TestFSWithMethods = TestFS & {

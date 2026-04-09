@@ -19,37 +19,36 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import {BrowserWindow, ipcRenderer} from 'electron';  
-import {getCurrentWindow, require as req} from '@electron/remote';
-import otherWindowIPC, { ChannelStream } from 'other-window-ipc';
+import { BrowserWindow, ipcRenderer } from '../../lib/electron-imports.js';
+import { getCurrentWindow, electronRequire as req, otherWindowIPC, type ChannelStream } from '../../lib/electron-renderer-imports.js';
 import fs from 'graceful-fs';
 import path from 'path';
-import { debounce } from '../../lib/utils';
+import { debounce } from '../../lib/utils.js';
 
-import createLimitedResourceManager, { LimitedResourceManager } from '../../lib/limited-resource-manager';
-import createMediaLoader from './media-loader';
-import createThumbnailMaker from './thumbnail-maker';
-import createThumbnailPageMaker from './thumbnail-page-maker';
-import ThumbnailManager from './thumbnail-manager';
-import ThumbnailRenderer from './thumbnail-renderer';
-import NativeFolder from './native-folder';
-import ArchiveFolder from './archive-folder';
-import appdata from '../../lib/appdata';
-import debug from '../../lib/debug';
-import * as sizing from '../../lib/sizing';
-import * as utils from '../../lib/utils';
-import MediaManagerServer from './media-manager-server';
-import ImageLoader from './image-loader';
-import WatcherManager from '../../lib/watcher/watcher-manager';
-import createThrottledReaddir from '../../lib/readdir-throttler';
-//import stacktraceLog from '../../lib/stacktrace-log'; // eslint-disable-line
-import { ProgOptions } from '../../main/program-options';
-import { Preferences } from '../prefs/default-prefs';
-import '../../lib/title';
+import createLimitedResourceManager, { LimitedResourceManager } from '../../lib/limited-resource-manager.js';
+import createMediaLoader from './media-loader.js';
+import createThumbnailMaker from './thumbnail-maker.js';
+import createThumbnailPageMaker from './thumbnail-page-maker.js';
+import ThumbnailManager from './thumbnail-manager.js';
+import ThumbnailRenderer from './thumbnail-renderer.js';
+import NativeFolder from './native-folder.js';
+import ArchiveFolder from './archive-folder.js';
+import appdata from '../../lib/appdata.js';
+import debug from '../../lib/debug.js';
+import * as sizing from '../../lib/sizing.js';
+import * as utils from '../../lib/utils.js';
+import MediaManagerServer from './media-manager-server.js';
+import ImageLoader from './image-loader.js';
+import WatcherManager from '../../lib/watcher/watcher-manager.js';
+import createThrottledReaddir from '../../lib/readdir-throttler.js';
+//import stacktraceLog from '../../lib/stacktrace-log.js'; // eslint-disable-line
+import { ProgOptions } from '../../main/program-options.js';
+import { Preferences } from '../prefs/default-prefs.js';
+import '../../lib/title.js';
 
 const isDevMode = process.env.NODE_ENV === 'development';
 
-const {windowTrackerIsAnyWindowFullScreen} = req('./out/js/src/js/lib/remote-helpers');
+const {windowTrackerIsAnyWindowFullScreen} = req('./out/js/src/js/lib/remote-helpers.cjs');
 
 type G = {
   dataDir: string;

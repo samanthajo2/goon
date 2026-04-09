@@ -4,7 +4,7 @@ import {
   addTrashingFile,
   removeTrashingFile,
   subscribeTrashingFiles,
-} from './trashing-state';
+} from './trashing-state.js';
 
 function clearState(): void {
   trashingFiles.clear();

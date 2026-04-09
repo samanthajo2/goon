@@ -21,10 +21,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { describe, it } from './mocha';
+import { describe, it } from './mocha.js';
 import { assert } from 'chai';
-import TestFS from './test-fs';
-import { makePublicPromise } from './test-utils';
+import TestFS from './test-fs.js';
+import { makePublicPromise } from './test-utils.js';
 
 // TestFS dynamically proxies the underlying fs methods at construction time.
 // TypeScript can't infer them from the JS class, so we cast to a helper type

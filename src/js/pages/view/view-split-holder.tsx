@@ -20,8 +20,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import debug from '../../lib/debug';
-import ViewSplit from './viewsplit';
+import debug from '../../lib/debug.js';
+import ViewSplit from './viewsplit.js';
 
 const logger = debug('ViewSplitHolder');
 

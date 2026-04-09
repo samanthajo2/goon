@@ -21,12 +21,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import path from 'node:path';
 import EventEmitter from 'node:events';
-import { throttle, arrayDifference, CancelableFn } from '../utils';
-import bind from '../bind';
-import debug from '../debug';
-import ListenerManager from '../listener-manager';
-import { removeChildFolders } from '../utils';
-import TreeWatcher from './tree-watcher';
+import { throttle, arrayDifference, CancelableFn } from '../utils.js';
+import bind from '../bind.js';
+import debug from '../debug.js';
+import ListenerManager from '../listener-manager.js';
+import { removeChildFolders } from '../utils.js';
+import TreeWatcher from './tree-watcher.js';
 
 // Manages multiple Tree Watchers
 //

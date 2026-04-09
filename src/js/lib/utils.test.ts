@@ -19,10 +19,10 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import { describe, it } from './test/mocha';
+import { describe, it } from './test/mocha.js';
 import path from 'node:path';
 import { assert } from 'chai';
-import * as utils from './utils';
+import * as utils from './utils.js';
 
 function prepPaths(paths: string[]): string[] {
   return paths.map((name) => path.normalize(path.resolve(name)));

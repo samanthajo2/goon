@@ -21,11 +21,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import path from 'node:path';
 import fs from 'node:fs';
-import {sync as readDirTreeSync} from '../lib/readdirtree';
-import FolderData from '../pages/thumber/folder-data';
-import * as utils from '../lib/utils';
-import * as filters from '../lib/filters';
-import {separateFiles} from '../pages/thumber/folder-utils';
+import {sync as readDirTreeSync} from '../lib/readdirtree.js';
+import FolderData from '../pages/thumber/folder-data.js';
+import * as utils from '../lib/utils.js';
+import * as filters from '../lib/filters.js';
+import {separateFiles} from '../pages/thumber/folder-utils.js';
 
 let lastLineLength = 0;
 function logLine(...args: string[]) {

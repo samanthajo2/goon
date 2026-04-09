@@ -20,12 +20,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { ChannelStream } from 'other-window-ipc';
-import { throttle } from '../../../lib/utils';
-import FolderDB, { DBFoldersByPath } from '../folder-db';
-import FolderFilter from '../folder-filter';
-import type { FilterFn } from '../folder-filter';
-import { FolderStateHelper, FolderStateRoot, SortMode } from '../folder-state-helper';
+import type { ChannelStream } from '../../../lib/electron-renderer-imports.js';
+import { throttle } from '../../../lib/utils.js';
+import FolderDB, { DBFoldersByPath } from '../folder-db.js';
+import FolderFilter from '../folder-filter.js';
+import type { FilterFn } from '../folder-filter.js';
+import { FolderStateHelper, FolderStateRoot, SortMode } from '../folder-state-helper.js';
 
 export function useFolderPipeline({
   thumberStream,

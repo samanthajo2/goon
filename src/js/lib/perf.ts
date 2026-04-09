@@ -20,11 +20,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 // perf_hooks is only available in the main process; renderer uses window.performance
-type PerfHooks = { performance: Performance };
-const _perfHooks = process.type !== 'renderer' ? (require('perf_hooks') as PerfHooks) : null;  // eslint-disable-line @typescript-eslint/no-require-imports
+import { performance as nodePerformance } from 'node:perf_hooks';
 const performance: Performance = (process.type === 'renderer')
   ? window.performance
-  : _perfHooks!.performance;
+  : nodePerformance as unknown as Performance;
 
 export {
   performance,

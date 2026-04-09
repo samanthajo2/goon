@@ -21,10 +21,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import EventEmitter from 'node:events';
 import sinon from 'sinon';
-import { describe, it } from '../../lib/test/mocha';
+import { describe, it } from '../../lib/test/mocha.js';
 import { assert } from 'chai';
-import NativeFolder from './native-folder';
-import wait from './../../lib/wait';
+import NativeFolder from './native-folder.js';
+import wait from './../../lib/wait.js';
 
 describe('NativeFolder', () => {
   type FolderFiles = Record<string, { type?: string; isDirectory?: boolean; thumbnail?: { url: string } }>;

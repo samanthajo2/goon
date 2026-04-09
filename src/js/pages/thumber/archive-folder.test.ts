@@ -20,10 +20,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import sinon from 'sinon';
-import { describe, it, afterEach } from '../../lib/test/mocha';
+import { describe, it, afterEach } from '../../lib/test/mocha.js';
 import { assert } from 'chai';
-import ArchiveFolder from './archive-folder';
-import wait from './../../lib/wait';
+import ArchiveFolder from './archive-folder.js';
+import wait from './../../lib/wait.js';
 
 describe('ArchiveFolder', () => {
   afterEach(() => {

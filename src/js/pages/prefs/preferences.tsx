@@ -21,10 +21,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import React from 'react';
 import { render as reactRender } from 'react-dom';
-import { ipcRenderer } from 'electron';   
-import Prefs from './prefs';
+import { ipcRenderer } from '../../lib/electron-imports.js';
+import Prefs from './prefs.js';
 import '../../lib/stacktrace-log.js';   
-import '../../lib/title';
+import '../../lib/title.js';
 
 type StartArgs = {
   userDataDir: string;

@@ -21,9 +21,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import sinon from 'sinon';
 import { assert } from 'chai';
-import createThumbnailPageMaker from './thumbnail-page-maker';
-import bind from '../../lib/bind';
-import { getDifferentFilenames, getObjectsByKeys } from '../../lib/utils';
+import createThumbnailPageMaker from './thumbnail-page-maker.js';
+import bind from '../../lib/bind.js';
+import { getDifferentFilenames, getObjectsByKeys } from '../../lib/utils.js';
 
 // I'm not actually sure what to test here.
 //
@@ -47,7 +47,7 @@ import { getDifferentFilenames, getObjectsByKeys } from '../../lib/utils';
 // same, changed, and added should all get drawn. Same's source should
 // be the page wherea added and changed source should be original.
 // Could check that
-import { describe, it } from '../../lib/test/mocha';
+import { describe, it } from '../../lib/test/mocha.js';
 
 type ThumbnailInfo = {
   x: number;

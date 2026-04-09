@@ -65,20 +65,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import EventEmitter from 'node:events';
 import path from 'node:path';
-import { throttle, arrayDifference } from '../../lib/utils';
-import bind from '../../lib/bind';
-import debug from '../../lib/debug';
-import NativeFolder from './native-folder';
-import ArchiveFolder from './archive-folder';
-import type { BaseFolder } from './base-folder';
-import createThumbnailsForFolder, { ThumbnailPageMakerFn } from './folder-thumbnail-maker';
-import createThumbnailsForArchive from './archive-thumbnail-maker';
-import WatcherConsolidator from './watcher-consolidator';
-import FolderData from './folder-data';
-import { FilesByPath } from '../../lib/fileinfo';
-import { LimitedResourceManager } from '../../lib/limited-resource-manager';
-import { MakeThumbnailPagesFn } from './thumbnail-page-maker-def';
-import { FolderWatcherInterface } from '../../lib/watcher/folder-watcher';
+import { throttle, arrayDifference } from '../../lib/utils.js';
+import bind from '../../lib/bind.js';
+import debug from '../../lib/debug.js';
+import NativeFolder from './native-folder.js';
+import ArchiveFolder from './archive-folder.js';
+import type { BaseFolder } from './base-folder.js';
+import createThumbnailsForFolder, { ThumbnailPageMakerFn } from './folder-thumbnail-maker.js';
+import createThumbnailsForArchive from './archive-thumbnail-maker.js';
+import WatcherConsolidator from './watcher-consolidator.js';
+import FolderData from './folder-data.js';
+import { FilesByPath } from '../../lib/fileinfo.js';
+import { LimitedResourceManager } from '../../lib/limited-resource-manager.js';
+import { MakeThumbnailPagesFn } from './thumbnail-page-maker-def.js';
+import { FolderWatcherInterface } from '../../lib/watcher/folder-watcher.js';
 
 function arrayInANotB<T>(a: T[], b: T[]) {
   return a.filter((elem) => b.indexOf(elem) < 0);

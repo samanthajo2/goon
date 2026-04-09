@@ -1,6 +1,6 @@
 import React from 'react';
-import Modal from '../../lib/ui/modal';
-import { cssArray } from '../../lib/css-utils';
+import Modal from '../../lib/ui/modal.js';
+import { cssArray } from '../../lib/css-utils.js';
 
 /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
 function JSONArray({ value }: { value: any[] }) {

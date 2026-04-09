@@ -19,10 +19,10 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import { describe, it } from '../../lib/test/mocha';
+import { describe, it } from '../../lib/test/mocha.js';
 import { assert } from 'chai';
-import { findAnchorThumbnail, computeThumbScrollTop } from './image-grids';
-import type { GridMode } from './grid-modes';
+import { findAnchorThumbnail, computeThumbScrollTop } from './image-grids.js';
+import type { GridMode } from './grid-modes.js';
 
 // The pixel height of a folder's header bar (must match g_folderHeaderHeight in image-grids.tsx)
 const HEADER = 30;

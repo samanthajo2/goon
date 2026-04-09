@@ -19,16 +19,16 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import otherWindowIPC from 'other-window-ipc';
-import debug from './debug';
-import bind from './bind';
-import { urlFromFilename } from './utils';
+import { otherWindowIPC } from './electron-renderer-imports.js';
+import debug from './debug.js';
+import bind from './bind.js';
+import { urlFromFilename } from './utils.js';
 import type {
   MediaRequest,
   MediaBlobInfo,
   MediaCallback,
   MediaClientStream,
-} from './media-manager-types';
+} from './media-manager-types.js';
 
 // Keeps track of which images/videos can be displayed.
 // For local files it always returns immediately with a file:// URL.

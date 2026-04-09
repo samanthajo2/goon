@@ -19,8 +19,8 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import createParallelResourceManager from './parallel-resource-manager';
-import wait from './wait';
+import createParallelResourceManager from './parallel-resource-manager.js';
+import wait from './wait.js';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ReaddirCallback = (err: NodeJS.ErrnoException | null | undefined, fileList?: any[]) => void;

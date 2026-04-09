@@ -21,13 +21,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import React from 'react';
 import { render as reactRender } from 'react-dom';
-import {ipcRenderer} from 'electron';   
+import { ipcRenderer } from '../../lib/electron-imports.js';
 import crypto from 'node:crypto';
 // import stacktraceLog from '../../lib/stacktrace-log.js';  // eslint-disable-line
-import '../../lib/title';
-import {cssArray} from '../../lib/css-utils';
-import {checkPassword} from '../../lib/password-utils';
-import Modal from '../../lib/ui/modal';
+import '../../lib/title.js';
+import {cssArray} from '../../lib/css-utils.js';
+import {checkPassword} from '../../lib/password-utils.js';
+import Modal from '../../lib/ui/modal.js';
 
 // const isDevMode = process.env.NODE_ENV === 'development';
 interface PasswordState {

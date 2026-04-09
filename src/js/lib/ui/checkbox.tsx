@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React, { useState } from 'react';
-import { uniqueId } from '../utils';
+import { uniqueId } from '../utils.js';
 
 interface CheckboxProps {
   checked: boolean;

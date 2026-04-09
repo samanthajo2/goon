@@ -20,8 +20,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import { useState, useEffect, useRef } from 'react';
-import otherWindowIPC, { ChannelStream } from 'other-window-ipc';
-import { Preferences } from '../../prefs/default-prefs';
+import { otherWindowIPC, type ChannelStream } from '../../../lib/electron-renderer-imports.js';
+import { Preferences } from '../../prefs/default-prefs.js';
 
 function reload(): void {
   console.log('queue reload');

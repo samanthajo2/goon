@@ -21,12 +21,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import React from 'react';
 import path from 'node:path';
-import {px} from '../../lib/utils';
-import {cssArray} from '../../lib/css-utils';
-import KeyHelper from '../../lib/key-helper';
-import { Rect } from '../../lib/rect';
-import { DBFileInfo } from './folder-db';
-import {trashingFiles, subscribeTrashingFiles} from './trashing-state';
+import {px} from '../../lib/utils.js';
+import {cssArray} from '../../lib/css-utils.js';
+import KeyHelper from '../../lib/key-helper.js';
+import { Rect } from '../../lib/rect.js';
+import { DBFileInfo } from './folder-db.js';
+import {trashingFiles, subscribeTrashingFiles} from './trashing-state.js';
 
 // Small self-contained component that subscribes to trashing state changes,
 // keeping this separate avoids per-thumbnail subscriptions.

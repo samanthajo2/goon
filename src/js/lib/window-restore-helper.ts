@@ -19,8 +19,8 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import electron, { Rectangle } from 'electron';   
-import * as rect from './rect';
+import electron, { type Rectangle } from './electron-imports.js';
+import * as rect from './rect.js';
 
 type Rect = rect.Rect | Rectangle;
 

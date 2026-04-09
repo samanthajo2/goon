@@ -19,10 +19,10 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import { describe, it } from './test/mocha';
+import { describe, it } from './test/mocha.js';
 import { assert } from 'chai';
-import * as r from './rect';
-import type { Rect } from './rect';
+import * as r from './rect.js';
+import type { Rect } from './rect.js';
 
 describe('rect', () => {
   it('right', () => {

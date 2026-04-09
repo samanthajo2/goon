@@ -2,9 +2,9 @@
   "extends": "@tsconfig/recommended/tsconfig.json",
   "compilerOptions": {
     "target": "ESNext",
-    "module": "commonjs",
+    "module": "nodenext",
     "outDir": "out/js",
-    "moduleResolution": "node",
+    "moduleResolution": "nodenext",
     "declaration": true,
     "typeRoots": [
       "./node_modules/@types",
@@ -22,7 +22,7 @@
     "src/**/*.jsx",
     "src/**/*.tsx",
     "tools/**/*.js",
-    "tools/**/*.mjs",
+    "tools/**/*.js",
   ],
   "exclude": [
     "app/**/*",

@@ -29,10 +29,10 @@ SOFTWARE.
 
 import cp from 'child_process';
 import path from 'node:path';
-import debug from '../debug';
-import LineDecoder from '../line-decoder';
-import FileChangeType, { FileChangeTypeValue, RawFileChange } from './file-change-types';
-import { getResourcePath } from '../resources';
+import debug from '../debug.js';
+import LineDecoder from '../line-decoder.js';
+import FileChangeType, { FileChangeTypeValue, RawFileChange } from './file-change-types.js';
+import { getResourcePath } from '../resources.js';
 
 function alwaysTrue(): boolean {
   return true;

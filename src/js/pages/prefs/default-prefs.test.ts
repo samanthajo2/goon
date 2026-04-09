@@ -19,10 +19,10 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import { describe, it } from '../../lib/test/mocha';
+import { describe, it } from '../../lib/test/mocha.js';
 import { assert } from 'chai';
-import { defaultPrefs, getPrefs } from './default-prefs';
-import type { Preferences } from './default-prefs';
+import { defaultPrefs, getPrefs } from './default-prefs.js';
+import type { Preferences } from './default-prefs.js';
 
 describe('default-prefs', () => {
   it('returns defaults', () => {

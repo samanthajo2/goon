@@ -20,10 +20,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import path from 'node:path';
-import debug from '../../lib/debug';
-import KeyHelper from '../../lib/key-helper';
-import { FoldersByPath, FolderStatus } from '../../lib/folderinfo';
-import { FileInfo, FilesByPath } from '../../lib/fileinfo';
+import debug from '../../lib/debug.js';
+import KeyHelper from '../../lib/key-helper.js';
+import { FoldersByPath, FolderStatus } from '../../lib/folderinfo.js';
+import { FileInfo, FilesByPath } from '../../lib/fileinfo.js';
 
 const log = debug('FolderStateHelper');
 

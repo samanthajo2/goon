@@ -20,10 +20,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 
-import { describe, it } from './test/mocha';
+import { describe, it } from './test/mocha.js';
 import { assert } from 'chai';
-import createParallelResourceManager from './parallel-resource-manager';
-import wait from './wait';
+import createParallelResourceManager from './parallel-resource-manager.js';
+import wait from './wait.js';
 
 describe('parallelResourceManager', () => {
   it('manages 1', async () => {
