@@ -250,6 +250,7 @@ export default class Viewer extends React.Component<Props, State> {
   private _viewerElem!: HTMLDivElement;
   private _viewImg!: HTMLImageElement;
   private _viewVideo!: HTMLVideoElement;
+  private _brokenImg!: HTMLImageElement;
   private _displayElem: HTMLImageElement | HTMLVideoElement | undefined;
   private _slideshow: boolean;
   private _slideshowId: ReturnType<typeof setTimeout> | undefined;
@@ -309,6 +310,7 @@ export default class Viewer extends React.Component<Props, State> {
     const $ = viewerElem.parentElement!.querySelector.bind(viewerElem.parentElement!);
     this._viewImg = $<HTMLImageElement>('.viewer-img')!;
     this._viewVideo = $<HTMLVideoElement>('.viewer-video')!;
+    this._brokenImg = $<HTMLImageElement>('.viewer-broken')!;
 
     const video = this._viewVideo;
 
@@ -321,7 +323,22 @@ export default class Viewer extends React.Component<Props, State> {
 
     on(this._viewImg, 'load', () => {
       this._logger('imageLoad');
+      this._brokenImg.style.display = 'none';
       this._displayElem = this._viewImg;
+      this._updateViewStateAfterMediaLoad();
+    });
+
+    on(this._viewImg, 'error', () => {
+      this._logger('imageError');
+      this._brokenImg.style.display = 'inline-block';
+      this._displayElem = this._brokenImg;
+      this._updateViewStateAfterMediaLoad();
+    });
+
+    on(video, 'error', () => {
+      this._logger('videoError');
+      this._brokenImg.style.display = 'inline-block';
+      this._displayElem = this._brokenImg;
       this._updateViewStateAfterMediaLoad();
     });
 
@@ -421,6 +438,7 @@ export default class Viewer extends React.Component<Props, State> {
     const { viewerState } = this.props;
     const videoState = viewerState.videoState;
     const video = this._viewVideo;
+    this._brokenImg.style.display = 'none';
     this._displayElem = video;
     videoState.duration = video.duration;
     if (videoState.loop === 2 && videoState.currentUrl === video.src) {
@@ -724,6 +742,11 @@ export default class Viewer extends React.Component<Props, State> {
     const { url, type } = good && mediaInfo ? mediaInfo : { url: 'images/bad.png', type: 'image/png' };
     this._pendingFileInfo = fileInfo;
 
+    // Reset error state — allow render() to control visibility via React styles
+    this._viewImg.style.display = '';
+    this._viewVideo.style.display = '';
+    this._brokenImg.style.display = 'none';
+
     if (filters.isMimeVideo(type) || filters.isMimeAudio(type)) {
       const videoState = this.props.viewerState.videoState;
       // we need this because we'll compare url to video.src and when applied to video src
@@ -816,6 +839,7 @@ export default class Viewer extends React.Component<Props, State> {
               <div className="viewer-content" onContextMenu={this._handleContextMenu}>
                 <img style={imageStyle} className="viewer-img" draggable={false} alt="" />
                 <video style={videoStyle} className="viewer-video" autoPlay loop draggable={false}></video>
+                <img style={{ display: 'none' }} className="viewer-broken" src="images/broken.svg" draggable={false} alt="failed to load" />
               </div>
               <div className={infoClasses.toString()}>{filename}</div>
               <div className="prev" onClick={this._gotoPrev}><img src="images/prev.svg" /></div>
