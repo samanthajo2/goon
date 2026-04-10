@@ -50,6 +50,16 @@ import '../../lib/title.js';
 
 const isDevMode = process.env.NODE_ENV === 'development';
 
+// Prevent the thumber process from crashing when a volume disappears.
+// Filesystem operations on vanished paths throw errors that bubble up as
+// unhandled exceptions/rejections.
+process.on('uncaughtException', (err) => {
+  console.error('thumber uncaughtException:', err);
+});
+process.on('unhandledRejection', (err) => {
+  console.error('thumber unhandledRejection:', err);
+});
+
 const windowTrackerIsAnyWindowFullScreen = () => win.isAnyWindowFullScreen();
 
 type G = {

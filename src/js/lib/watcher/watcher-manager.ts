@@ -93,6 +93,9 @@ class TreeWatcherDispatcher {
     on(treeWatcher, 'create', this._makeEventForwarder('create'));
     on(treeWatcher, 'change', this._makeEventForwarder('change'));
     on(treeWatcher, 'remove', this._makeEventForwarder('remove'));
+    on(treeWatcher, 'error', (err: unknown) => {
+      this._logger.error('watcher error:', err);
+    });
     this._started = false;
     this._treeWatcher = treeWatcher;
     this._folderWatchers = [];

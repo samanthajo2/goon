@@ -96,6 +96,7 @@ export default class TreeWatcher extends EventEmitter {
 
   private _onError(e: unknown): void {
     this._logger.error(e);
+    this.emit('error', e);
   }
 
   close(): Promise<void> | void {
