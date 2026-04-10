@@ -67,7 +67,7 @@ const actions = {
   newWindow:          { hint: 'new window',      icon: 'images/buttons/???.svg',             desc: 'open a new window', },
   playAll:            { hint: 'play all',        icon: 'images/buttons/play-all.svg',        desc: 'play/pause all videos', },
   launchBrowser:      { hint: 'launch browser',  icon: 'images/buttons/browser.svg',         desc: 'launch browser', },
-  refreshFolders:     { hint: 'refresh',         icon: 'images/buttons/noop.svg',            desc: 'rescan folders for new/removed volumes', },
+  refreshFolders:     { hint: 'refresh',         icon: 'images/buttons/refresh.svg',         desc: 'rescan folders for new/removed volumes', },
 } as const;
 
 export type ActionId = keyof typeof actions;
