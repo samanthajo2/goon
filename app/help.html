@@ -418,42 +418,9 @@ examples
         Comparison operators only work with <span class="quote">width:</span>, <span class="quote">height:</span>,
         <span class="quote">aspect:</span>, <span class="quote">size:</span>, and <span class="quote">date:</span>.
       </p>
-      <h1>Adding Folders in a Big Collection</h1>
-      <p>
-        Goon is alpha software. Scanning can take a long time
-        and use too much memory. One way around this is to add subfolders.
-        For example maybe you have 1000 images in a folder called 'Newts'
-        and another 1000 in a folder called 'Nebulas' and both of those
-        folders in are a parent folder called 'N' something like
-      </p>
-      <div class="code">
-   N
-   |
-   +--Newts
-   |
-   +--Nebulas
-      </div>
-      <p>
-        In preferences you could add folder 'N' and all 2000 files would be
-        scanned. Or you could add separately first folder 'Newts' then 
-        later at some other time folder `Nebulas` and get effectively the
-        same result but only scanning half of your images at a time.
-      </p>
-      <p>
-        If later you want to add folder 'N' and remove folders 'Newts'
-        and 'Nebulas' it's important to add 'N' *before* removing
-        the other two folders. The moment you remove a folder all
-        thumbnails below will be removed if they are not covered
-        in some other way. By adding 'N' before removing the subfolders
-        Goon can keep using your already scanned thumbnails.
-      </p>
-      <p>Note: really large collections can be hard to navigate. Hopefully
-        the planned organizing features will help. Until then see below
-        for other options.</p>
       <h1>Launching from the Command Line</h1>
       <p>You can launch Goon from the command line and pass
-        in one or more folders to view. This is one simple way to
-        pair down your collection.
+        in one or more folders to view. 
       </p>
       <p>
         Example:
@@ -466,44 +433,11 @@ examples
       </p>
       <h1>Bugs and Workarounds</h1>
       <div data-platform="darwin">
-        <h2>Adding network folders on MacOS</h2>
-        <p>
-          There is apparently a bug in Electron that prevents
-          browsing the contents of network shares. Until that
-          bug is fixed you'll need to add network shares by
-          manually editing your <a href="#preferences">preferences</a> file.
-        </p>
-        <p>
-          Inside you should see a folder's entry something like this if you have no folders
-        </p>
-        <div class="code">
-  "folders": [],
-        </div>
-        <p>
-          Or something like this if multiple folders exist
-        </p>
-        <div class="code">
-  "folders": [
-    "some/path/to/a/folder",
-    "some/path/to/another/folder"
-  ],
-        </div>
-        <p>To add a network share add a folder path on its own line surrounded by double quotes</p>
-        <div class="code">
-  "folders": [
-    "path/to/network/share/folder",
-    "some/path/to/a/folder",
-    "some/path/to/another/folder"
-  ],
-        </div>
-        <p>
-          Save the file and re-start Goon.
-        </p>
         <h2>Refreshing Network Shares</h2>
         <p>
           Watching for changes on local hard drive generally works but
           watching for change on remote or network storages is often
-          problematic. If Goon scans all your folders each time
+          problematic. Goon scans all your folders each time
           you run it so if Goon does not notice your changes live
           try quitting and starting it again.
         </p>
