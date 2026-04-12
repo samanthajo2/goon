@@ -181,11 +181,15 @@ export default class SimpleFolderWatcher extends EventEmitter {
         this._scanning = false;
         return;
       }
+      if (statErr) {
+        this._logger('stat error:', statErr.message);
+      }
       // Fast path: directory mtime unchanged — use cached entries, skip readdir + per-file stats
       if (!statErr &&
           cachedDirMtime !== undefined &&
           dirStats.mtimeMs === cachedDirMtime &&
           initialEntries) {
+        this._logger('fast path (cached mtime match)');
         this._scanning = false;
         initialEntries.forEach((entryInfo, fileName) => {
           if (this._closed) {
@@ -207,6 +211,7 @@ export default class SimpleFolderWatcher extends EventEmitter {
         return;
       }
       // Slow path: full readdir + per-file stat
+      this._logger('slow path (readdir + stat)');
       // Save the dir mtime so we can persist it after the scan completes
       const currentDirMtime = statErr ? undefined : dirStats.mtimeMs;
       this._fs.readdir(this._filePath, (err, fileNames) => {
