@@ -4,7 +4,7 @@ TODO
 High Priority
 ================================================================================
 
-* [ ] Switch to typescript
+* [X] Switch to typescript
 
     Coming back to this code it's difficult to see what to change and where info is.
     Switching to TypeScript should help if we require types.
@@ -108,7 +108,7 @@ High Priority
     to change priorities and remove requests. IIRC that's not
     there now. Well, the queue is but the rest is not.
 
-* [ ] Use File at a time Rar lib
+* [X] Use File at a time Rar lib
 
     current rar lib has to unrar entire rar before we get any data.
     This makes viewing slow
@@ -120,7 +120,7 @@ High Priority
     
 * [X] Fix delete on network
 
-* [ ] Allow saving current collection of panes, zoom, speed, loops,
+* [X] Allow saving current collection of panes, zoom, speed, loops,
 * [ ] When sizing window keep left column same size (unless it won't fit)
 * [ ] Be able to move picture larger than screen
 * [ ] Save loops per video
@@ -130,11 +130,13 @@ High Priority
     what image, slideshow on or off, video playing or not
     at which speed, which zoom, which stretch mode, which
     rotation, which loop settings.
-* [ ] fix image flash. Issue is src and other settings happen separately?
+* [X] fix image flash. Issue is src and other settings happen separately?
 
 * [ ] Support VR through WebVR
 
-    run a webserver from goon
+    run a webserver from goon - unfortunately, electron doesn't ship with WebXR
+    support and worse, Chrome's PC based WebXR support is not great. Further,
+    experiments with 8k videos make it clear it's not up to it the task.
 
     * [ ] Display in A-Frame (or other WebVR)
 
@@ -350,8 +352,6 @@ High Priority
     is deleted AND delete it from the internal DB immediately
     assuming the delete succeeds
 
-* [ ] Look into switching to Axosoft/nsfw from chokidar
-
 * [ ] fix scanning speed
 
     for some reason scanning gets extremely slow. Electron seems
@@ -379,7 +379,9 @@ High Priority
     I'm pretty sure this just means the size of items passed
     to react-list are slightly off.
 
-* [ ] profile scroll (as in fix the jank)
+* [X] profile scroll (as in fix the jank)
+
+  This was fixed, as were other issue.
 
 * [ ] Make up,down,left,right in ImageGrid navigate grid
 
@@ -429,7 +431,7 @@ High Priority
 * [ ] fix archive filename encoding
 
     archive internal filenames may not be utf-8. Maybe some
-    library exists to guess the encoding
+    library exists to guess the encoding - not sure I care.
 
 * [ ] use different icon for rotate image vs rotate UI
 
