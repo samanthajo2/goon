@@ -817,6 +817,8 @@ div::-webkit-scrollbar-corner {
     height: 100vh;
     font-size: large;
     background: #222;
+    max-width: 800px;
+    margin: 0 auto;
 
     &>fieldset {
         height: 100%;

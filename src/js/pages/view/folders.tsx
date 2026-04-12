@@ -39,19 +39,56 @@ function depthPrefix(depth: number): string {
   return prefix;
 }
 
-function depthPrefixedFilename(baseFolders: string[], filename: string): string {
-  for (const baseFolder of baseFolders) {
-    if (filename.startsWith(baseFolder)) {
-      filename = filename.substring(path.dirname(baseFolder).length + (baseFolder.startsWith('\\\\') ? 0 : 1));
-      break;
+// Compute display names that collapse empty parent folders.
+// E.g. if "animals" has files and "animals/dogs/shepherds" has files
+// but "animals/dogs" does NOT, we display "dogs/shepherds" indented under "animals".
+function computeIndentedNames(baseFolders: string[], folders: FolderStateFolder[]): string[] {
+  const visiblePaths = new Set(folders.map(f => f.filename));
+
+  // For each folder, find the base that was stripped and compute the depth offset
+  const baseDir = (filename: string): string => {
+    for (const baseFolder of baseFolders) {
+      if (filename.startsWith(baseFolder)) {
+        return path.dirname(baseFolder);
+      }
     }
-  }
-  const depth = filename.split(/\\|\//).length;
-  return `${depthPrefix(depth - 1)}${path.basename(filename)}`;
+    return '';
+  };
+
+  return folders.map(folder => {
+    const base = baseDir(folder.filename);
+
+    // Walk up from folder to base, collecting parent paths
+    const parents: string[] = [];
+    let p = path.dirname(folder.filename);
+    while (p.length > base.length) {
+      parents.unshift(p);
+      p = path.dirname(p);
+    }
+
+    // Find the deepest visible ancestor
+    let ancestorIdx = -1;
+    for (let i = 0; i < parents.length; i++) {
+      if (visiblePaths.has(parents[i])) {
+        ancestorIdx = i;
+      }
+    }
+
+    // Build display name from the path after the deepest visible ancestor
+    const startPath = ancestorIdx >= 0 ? parents[ancestorIdx] : base;
+    let relative = folder.filename.substring(startPath.length);
+    // Strip leading separator
+    if (relative.startsWith(path.sep) || relative.startsWith('/')) {
+      relative = relative.substring(1);
+    }
+    const indent = ancestorIdx + 1;
+    return `${depthPrefix(indent)}${relative}`;
+  });
 }
 
 type FolderProps = {
   folder: FolderStateFolder;
+  displayName: string;
   count: number;
   folderCount: number;
   numFiles: number;
@@ -81,10 +118,7 @@ class Folder extends React.Component<FolderProps> {
 
   render(): React.ReactNode {
     const { folder } = this.props;
-    const { prefs } = this.context;
-    const name = prefs.misc.indentByFolderDepth
-      ? depthPrefixedFilename(prefs.folders, folder.filename)
-      : folder.name;
+    const name = this.props.displayName;
     const classes = cssArray(
       'folder',
       folder.scanning ? 'scanning' : undefined,
@@ -144,6 +178,10 @@ export default class Folders extends React.Component<Props> {
 
   private renderFolder(root: FolderStateRoot): React.ReactNode[] {
     this._filenameToRef.clear();
+    const { prefs } = this.context;
+    const displayNames = prefs.misc.indentByFolderDepth
+      ? computeIndentedNames(prefs.folders, root.folders)
+      : root.folders.map(f => f.name);
     return root.folders.map((folder, ndx) => {
       const id = `folder-${folder.filename}`;
       const numFiles = folder.files.length;
@@ -154,6 +192,7 @@ export default class Folders extends React.Component<Props> {
           key={id}
           ref={ref}
           folder={folder}
+          displayName={displayNames[ndx]}
           numFiles={numFiles}
           count={ndx}
           folderCount={ndx}
