@@ -256,6 +256,9 @@ function start(args: ProgOptions) {
     stream.on('refreshFolders', () => {
       refreshFolders();
     });
+    stream.on('removeFile', (filePath: string) => {
+      g.thumbnailManager.removeFile(filePath);
+    });
     stream.on('trashFile', async (filePath: string) => {
       try {
         await ipcRenderer.invoke('trashItem', filePath);

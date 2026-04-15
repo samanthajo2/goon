@@ -223,7 +223,10 @@ function App({ options, startState }: Props): React.ReactElement | null {
       removeTrashingFile(filename);
       return;
     }
-    thumberStream.send('trashFile', filename);
+    // Give the browser a frame to release the file handle after clearing img/video src
+    setTimeout(() => {
+      thumberStream.send('trashFile', filename);
+    }, 100);
   }, [contextFileInfo, thumberStream, closeViewerIfShowingFile]);
 
   const deleteFolder = useCallback(async () => {
@@ -249,11 +252,14 @@ function App({ options, startState }: Props): React.ReactElement | null {
         logger(e);
       }
     } else {
-      ipcRenderer.invoke('deleteFile', forceDeleteFilename).catch((err: unknown) => {
+      try {
+        await ipcRenderer.invoke('deleteFile', forceDeleteFilename);
+        thumberStream?.send('removeFile', forceDeleteFilename);
+      } catch (err) {
         logger(err);
-      });
+      }
     }
-  }, [forceDeleteFilename, forceDeleteIsFolder, logger]);
+  }, [forceDeleteFilename, forceDeleteIsFolder, thumberStream, logger]);
 
   // ── Stable refs for callbacks that reference mutable state ────────
   // (declared before the one-time useEffect so lint can see they're defined)
