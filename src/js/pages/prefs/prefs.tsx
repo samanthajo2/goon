@@ -335,6 +335,8 @@ export default class Prefs extends React.Component<PrefsProps, PrefsState> {
       '_deleteKey',
       '_setPassword',
       '_changeToolbarPosition',
+      '_browseExternalViewer',
+      '_clearExternalViewer',
     );
     this._ipc = otherWindowIPC.createChannel('prefs');
     this._ipc.on('connect', this._addStream);
@@ -596,6 +598,26 @@ export default class Prefs extends React.Component<PrefsProps, PrefsState> {
     this._updateState(mod);
   }
 
+  async _browseExternalViewer(): Promise<void> {
+    const { canceled, filePaths } = await win.showOpenDialog({
+      title: 'Select External Viewer Executable',
+      properties: ['openFile'],
+    });
+    if (!canceled && filePaths.length) {
+      const prefs = this.state.prefs;
+      const mod = { prefs: cloneDeep(prefs) };
+      mod.prefs.misc.externalViewerPath = filePaths[0];
+      this._updateState(mod);
+    }
+  }
+
+  _clearExternalViewer(): void {
+    const prefs = this.state.prefs;
+    const mod = { prefs: cloneDeep(prefs) };
+    mod.prefs.misc.externalViewerPath = '';
+    this._updateState(mod);
+  }
+
   render(): React.ReactNode {
     const prefs = this.state.prefs;
     return (
@@ -643,6 +665,16 @@ export default class Prefs extends React.Component<PrefsProps, PrefsState> {
               {this._makeCheckbox('misc', 'promptOnDeleteFolder', 'Prompt before deleting a folder')}
               {this._makeCheckbox('misc', 'enableWeb', 'Turn on local web server')}
               <EnumSelector desc="Toolbar Position" items={s_toolbarPositionModes} item={prefs.misc.toolbarPosition} onChange={this._changeToolbarPosition} />
+              <div className="external-viewer-path">
+                <div>External Viewer</div>
+                <div>
+                  <pre>{prefs.misc.externalViewerPath || '(none)'}</pre>
+                  <button type="button" onClick={this._browseExternalViewer}>Browse</button>
+                  {prefs.misc.externalViewerPath && (
+                    <button type="button" onClick={this._clearExternalViewer}>Clear</button>
+                  )}
+                </div>
+              </div>
             </div>
           </fieldset>
           <fieldset>

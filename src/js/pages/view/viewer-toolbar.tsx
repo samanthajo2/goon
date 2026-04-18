@@ -176,6 +176,7 @@ type Props = {
   // Receives live viewerState updates via 'viewerStateChanged' events from the active Viewer.
   inEventBus: ForwardableEventDispatcher<AppEventMap>;
   anyPlaying: boolean;
+  externalViewerAvailable: boolean;
 };
 
 type State = {
@@ -252,6 +253,11 @@ export default class ViewerToolbar extends React.Component<Props, State> {
           outEventBus={this.props.outEventBus}
           anyPlaying={this.props.anyPlaying}
         />
+        {this.props.externalViewerAvailable && (
+          <div className="button-group">
+            {this._makeButton('launchExternalViewer')}
+          </div>
+        )}
         <div className="button-group">
           {this._makeButton('toggleSlideshow')}
           {this._makeButton('splitVertical')}

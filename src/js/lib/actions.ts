@@ -67,6 +67,7 @@ const actions = {
   newWindow:          { hint: 'new window',      icon: 'images/buttons/???.svg',             desc: 'open a new window', },
   playAll:            { hint: 'play all',        icon: 'images/buttons/play-all.svg',        desc: 'play/pause all videos', },
   launchBrowser:      { hint: 'launch browser',  icon: 'images/buttons/browser.svg',         desc: 'launch browser', },
+  launchExternalViewer: { hint: 'external viewer', icon: 'images/buttons/vr.svg',            desc: 'open in external viewer', },
   refreshFolders:     { hint: 'refresh',         icon: 'images/buttons/refresh.svg',         desc: 'rescan folders for new/removed volumes', },
 } as const;
 

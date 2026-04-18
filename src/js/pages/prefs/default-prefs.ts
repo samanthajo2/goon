@@ -57,6 +57,7 @@ export type Preferences = {
     // oops!
     enableRendevous: boolean,
     showEmpty: boolean,
+    externalViewerPath: string,
   },
   slideshowDuration: {
     image: number,
@@ -94,6 +95,7 @@ const defaultPrefs: Preferences = {
     enableWeb: false,
     enableRendevous: true,
     showEmpty: false,
+    externalViewerPath: '',
   },
   slideshowDuration: {
     'image': 5,

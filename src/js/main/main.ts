@@ -21,6 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import path from 'node:path';
 import fs from 'node:fs';
+import { spawn } from 'node:child_process';
 import { Server } from 'http'
 import { Command } from 'commander';
 import debugFn from 'debug';
@@ -270,6 +271,17 @@ ipcMain.handle('launchBrowser', async(_event, path: string) => {
   url.searchParams.set('url', path);
   console.log(url.toString());
   await shell.openExternal(url.toString());
+});
+ipcMain.handle('launchExternalViewer', async (_event: unknown, exePath: string, filePath: string) => {
+  spawn(exePath, [filePath], { detached: true, stdio: 'ignore' }).unref();
+});
+ipcMain.handle('checkFileExists', async (_event: unknown, filePath: string) => {
+  try {
+    await fs.promises.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
 });
 
 const staticOptions = {

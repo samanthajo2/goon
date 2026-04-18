@@ -120,6 +120,7 @@ function App({ options, startState }: Props): React.ReactElement | null {
   }, []);
 
   const { thumberStream, prefs, prefsReceived } = useIPCStreams({ onTrashFailed: handleTrashFailed });
+  const [externalViewerAvailable, setExternalViewerAvailable] = useState(false);
 
   // ── Filter state ───────────────────────────────────────────────────
   const {
@@ -435,6 +436,18 @@ function App({ options, startState }: Props): React.ReactElement | null {
     }
   }, [prefs, prefsReceived, keyRouter, logger]);
 
+  // ── Check external viewer availability when path pref changes ────────
+  useEffect(() => {
+    const exePath = prefs.misc?.externalViewerPath ?? '';
+    if (!exePath) {
+      setExternalViewerAvailable(false);
+      return;
+    }
+    ipcRenderer.invoke('checkFileExists', exePath).then((exists: boolean) => {
+      setExternalViewerAvailable(exists);
+    });
+  }, [prefs.misc?.externalViewerPath]);
+
   // ── Toolbar forwarding — switch between viewer and imagegrid toolbar ──
   useEffect(() => {
     toolbarEventBus.setForward(isViewing ? viewerToolbarEventBus : imageGridToolbarEventBus);
@@ -479,6 +492,7 @@ function App({ options, startState }: Props): React.ReactElement | null {
           outEventBus={eventBus}
           inEventBus={viewerToolbarEventBus}
           anyPlaying={anyPlaying}
+          externalViewerAvailable={externalViewerAvailable}
         />
       );
     }

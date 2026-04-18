@@ -379,6 +379,7 @@ export default class Viewer extends React.Component<Props, State> {
     actionListener.on('rotate', (fe: any) => { fe.stopPropagation(); this._rotate(); });
     actionListener.on('changeStretchMode', () => { this._changeStretchMode(); });
     actionListener.on('launchBrowser', this._launchBrowser);
+    actionListener.on('launchExternalViewer', this._launchExternalViewer);
     on(this._eventBus, 'action', this._actionListener.routeAction);
 
     this._logger('register for action on emitter:', this.context.eventBus.debugId);
@@ -731,6 +732,10 @@ export default class Viewer extends React.Component<Props, State> {
 
   private _launchBrowser = (): void => {
     ipcRenderer.invoke('launchBrowser', this.props.viewerState.filename);
+  };
+
+  private _launchExternalViewer = (): void => {
+    ipcRenderer.invoke('launchExternalViewer', this.context.prefs.misc.externalViewerPath, this.props.viewerState.filename);
   };
 
   private _showNewMedia(
