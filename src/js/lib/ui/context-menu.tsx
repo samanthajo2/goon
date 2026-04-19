@@ -1,4 +1,4 @@
-import React, { useState, useRef, useLayoutEffect, useEffect } from 'react';
+import React, { useState, useRef, useLayoutEffect, useEffect, useSyncExternalStore } from 'react';
 import { px } from '../utils.js';
 
 type MenuSettings = {
@@ -7,43 +7,56 @@ type MenuSettings = {
   id: string;
 };
 
-const settings: MenuSettings = {
+// External store so showMenu/hideMenu (called from event handlers outside React)
+// trigger re-renders in ContextMenu components.
+let currentSettings: MenuSettings = {
   position: { x: 0, y: 0 },
   rotateMode: 0,
   id: '',
 };
+const listeners = new Set<() => void>();
+function notify() {
+  for (const fn of listeners) fn();
+}
 
 export function showMenu(newSettings: Partial<MenuSettings>): void {
-  Object.assign(settings, newSettings);
+  currentSettings = { ...currentSettings, ...newSettings };
+  notify();
 }
 
 export function hideMenu(): void {
-  settings.id = '';
+  if (currentSettings.id !== '') {
+    currentSettings = { ...currentSettings, id: '' };
+    notify();
+  }
+}
+
+function useMenuSettings(): MenuSettings {
+  return useSyncExternalStore(
+    (cb) => { listeners.add(cb); return () => { listeners.delete(cb); }; },
+    () => currentSettings,
+  );
 }
 
 interface ContextMenuProps {
   id: string;
   children: React.ReactNode;
-  rotateMode?: number;  // passed by callers for context; not used by this component directly
+  rotateMode?: number;
 }
 
-// Note: only re-renders when `id` changes (parent passes a new id to trigger open/close).
 export function ContextMenu({ id, children }: ContextMenuProps): React.ReactElement | null {
-  // eslint-disable-next-line @eslint-react/use-state -- forceUpdate toggle, not real state
-  const [, forceUpdate] = useState(false);
+  const settings = useMenuSettings();
   const [adjustedPos, setAdjustedPos] = useState<{ x: number; y: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const position = settings.position;
   const visible = id === settings.id;
+  const position = settings.position;
 
   useLayoutEffect(() => {
     if (!visible || !menuRef.current) return;
-    // eslint-disable-next-line @eslint-react/set-state-in-effect
-    setAdjustedPos(null);
+    setAdjustedPos(null); // eslint-disable-line @eslint-react/set-state-in-effect
     const { width, height } = menuRef.current.getBoundingClientRect();
-    // eslint-disable-next-line @eslint-react/set-state-in-effect
-    setAdjustedPos({
+    setAdjustedPos({ // eslint-disable-line @eslint-react/set-state-in-effect
       x: Math.min(position.x, window.innerWidth - width),
       y: Math.min(position.y, window.innerHeight - height),
     });
@@ -54,7 +67,6 @@ export function ContextMenu({ id, children }: ContextMenuProps): React.ReactElem
     const onMouseDown = (e: MouseEvent): void => {
       if (!menuRef.current?.contains(e.target as Node)) {
         hideMenu();
-        forceUpdate(s => !s);
       }
     };
     document.addEventListener('mousedown', onMouseDown);
@@ -86,8 +98,12 @@ interface MenuItemProps {
 }
 
 export function MenuItem({ children, onClick }: MenuItemProps): React.ReactElement {
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>): void => {
+    hideMenu();
+    onClick?.(e);
+  };
   return (
-    <div className="react-contextmenu-item" onClick={onClick}>
+    <div className="react-contextmenu-item" onClick={handleClick}>
       {children}
     </div>
   );

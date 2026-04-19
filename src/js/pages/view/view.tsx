@@ -23,19 +23,11 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { ipcRenderer } from '../../lib/electron-imports.js';
-import * as win from '../../lib/window-commands.js';
 import App from './app.js';
 import '../../lib/stacktrace-log.js';
 import '../../lib/title.js';
 
 const isDevMode = process.env.NODE_ENV === 'development';
-
-if (isDevMode) {
-  window.addEventListener('contextmenu', (e) => {
-    e.preventDefault();
-    win.inspectElement(e.x, e.y);
-  }, false);
-}
 
 // we can print this value to see if code is getting executed on the same frame
 (window as Window & typeof globalThis & { frameCountNumber: number; frameCount: string }).frameCountNumber = 0;

@@ -440,7 +440,7 @@ function App({ options, startState }: Props): React.ReactElement | null {
   useEffect(() => {
     const exePath = prefs.misc?.externalViewerPath ?? '';
     if (!exePath) {
-      setExternalViewerAvailable(false);
+      setExternalViewerAvailable(false); // eslint-disable-line @eslint-react/set-state-in-effect
       return;
     }
     ipcRenderer.invoke('checkFileExists', exePath).then((exists: boolean) => {
