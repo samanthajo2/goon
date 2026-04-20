@@ -115,10 +115,10 @@ class Two {
     return this.children.length ? null : this;
   }
 
-  layout(width: number, height: number): Two[] {
+  layout(width: number, height: number, gapless?: boolean): Two[] {
     const config = Yoga.Config.create();
     const twos: Two[] = [];
-    const root = this._makeNode(config, twos);
+    const root = this._makeNode(config, twos, gapless);
     root.setWidth(width);
     root.setHeight(height);
     root.calculateLayout(Yoga.UNDEFINED, Yoga.UNDEFINED, Yoga.DIRECTION_LTR);
@@ -141,7 +141,7 @@ class Two {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private _makeNode(config: any, twos: Two[]): any {
+  private _makeNode(config: any, twos: Two[], gapless?: boolean): any {
     const node = Yoga.Node.create(config);
     node.setFlexGrow(1);
     node.setFlexBasis(1);
@@ -150,7 +150,7 @@ class Two {
     const child0 = this.children[0];
     const child1 = this.children[1];
     if (child0) {
-      const childNode = child0._makeNode(config, twos);
+      const childNode = child0._makeNode(config, twos, gapless);
       childNode.setFlexGrow(0);
       childNode.setFlexBasis(`${this.sliderPercent * 100}%`);
       node.insertChild(childNode, 0);
@@ -161,11 +161,11 @@ class Two {
       assert(child0 && child1);
       const sliderNode = Yoga.Node.create(config);
       sliderNode.setFlexGrow(0);
-      sliderNode.setFlexBasis(sliderSize);
+      sliderNode.setFlexBasis(gapless ? 0 : sliderSize);
       node.insertChild(sliderNode, 1);
     }
     if (child1) {
-      node.insertChild(child1._makeNode(config, twos), needSlider ? 2 : 1);
+      node.insertChild(child1._makeNode(config, twos, gapless), needSlider ? 2 : 1);
     }
     return node;
   }
@@ -374,6 +374,7 @@ type Props = {
   options: Options;
   winState: WinState;
   rotateMode: number;
+  gaplessDividers?: boolean;
   startingLayout?: TwoDump;
   setCurrentView: (vs: ViewSplit) => void;
   toolbarEventBus: ForwardableEventDispatcher;
@@ -708,7 +709,8 @@ export default class ViewSplit extends React.Component<Props, State> {
     const width = this.state.dimensions.width;
     const height = this.state.dimensions.height;
     this._logger('Render:', 'width:', width, 'height:', height);
-    const twos = this._root.layout(width, height);
+    const gapless = this.props.gaplessDividers;
+    const twos = this._root.layout(width, height, gapless);
     this._twos = {};
     const views = twos.map((two) => {
       this._twos[two.id] = two;
@@ -749,17 +751,18 @@ export default class ViewSplit extends React.Component<Props, State> {
       } else {
         const rot90 = (this.props.rotateMode % 2) !== 0;
         const horizontal = two.splitType === Two.HORIZONTAL;
+        const offset = gapless ? Math.floor(sliderSize / 2) : 0;
         const style: React.CSSProperties = horizontal ? {
           position: 'absolute',
           width: px(bounds.width),
           height: px(sliderSize),
           left: px(bounds.left),
-          top: px(two.sliderPos),
+          top: px(two.sliderPos - offset),
         } : {
           position: 'absolute',
           width: px(sliderSize),
           height: px(bounds.height),
-          left: px(two.sliderPos),
+          left: px(two.sliderPos - offset),
           top: px(bounds.top),
         };
         const sliderCursorHorizontal = horizontal ? !rot90 : rot90;
@@ -779,6 +782,7 @@ export default class ViewSplit extends React.Component<Props, State> {
         {({ measureRef }) => (
           <div
             style={{ position: 'relative', width: '100%', height: '100%' }}
+            className={gapless ? 'gapless-dividers' : undefined}
             ref={measureRef}
           >
             {views}

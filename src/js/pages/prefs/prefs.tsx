@@ -653,6 +653,7 @@ export default class Prefs extends React.Component<PrefsProps, PrefsState> {
             <div>
               {this._makeCheckbox('misc', 'fullPathOnSeparator', 'Show full folder paths')}
               {this._makeCheckbox('misc', 'indentByFolderDepth', 'Indent folders by depth')}
+              {this._makeCheckbox('misc', 'gaplessDividers', 'Gapless dividers between views')}
               {this._makeCheckbox('misc', 'showEmpty', 'Show empty folders (hack, refresh view)')}
               {this._makeCheckbox('misc', 'scanContinuously', 'Continuously watch for changes')}
               {this._makeCheckbox('misc', 'showThumber', 'Show Thumbnails as they are made')}

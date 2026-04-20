@@ -715,6 +715,10 @@ div::-webkit-scrollbar-corner {
 .split-slider-vertical {
     cursor: col-resize;
 }
+.gapless-dividers .split-slider {
+    background-color: transparent;
+    z-index: 1;
+}
 
 /* ---- mime types ---- */
 

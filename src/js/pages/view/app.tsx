@@ -573,6 +573,7 @@ function App({ options, startState }: Props): React.ReactElement | null {
               root={root}
               options={options}
               rotateMode={rotateMode}
+              gaplessDividers={prefs.misc?.gaplessDividers}
               startingLayout={startState?.layout as never}
               setCurrentView={setCurrentView}
               winState={winState}
