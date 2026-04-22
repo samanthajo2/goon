@@ -34,33 +34,286 @@ import { px } from '../../lib/utils.js';
 import { FolderStateRoot } from './folder-state-helper.js';
 import { GridMode } from './grid-modes.js';
 
-/* global Yoga */
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const assert = (condition: unknown, ...msg: any[]): void => console.assert(Boolean(condition), ...msg);
-const sliderSize = 5;
-const splitMinSize = 10;
+const SLIDER_SIZE = 5;
+const MIN_SIZE_FRAC = 0.02;
 
 const dummyEvent = {
   preventDefault: () => {},
   stopPropagation: () => {},
 };
 
-function clamp(v: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, v));
+// ── Container/Leaf tree model ──────────────────────────────────────
+
+type Direction = 'h' | 'v';
+
+let g_nextId = 0;
+function nextId(): string {
+  return `pane-${++g_nextId}`;
 }
 
-function fudge(v: number): number {
-  return Math.round(v);
+class Leaf {
+  readonly id: string;
+  initialState?: unknown;
+  parent: Container | null = null;
+
+  constructor(id?: string, initialState?: unknown) {
+    this.id = id ?? nextId();
+    this.initialState = initialState;
+  }
 }
 
-type TwoBounds = {
-  left: number;
-  top: number;
+type Node = Leaf | Container;
+
+class Container {
+  direction: Direction;
+  children: Node[];
+  sizes: number[];
+  parent: Container | null = null;
+
+  constructor(direction: Direction, children: Node[], sizes: number[]) {
+    this.direction = direction;
+    this.children = children;
+    this.sizes = sizes;
+    for (const child of children) {
+      child.parent = this;
+    }
+  }
+}
+
+function isLeaf(node: Node): node is Leaf {
+  return node instanceof Leaf;
+}
+
+// ── Collect all leaves ─────────────────────────────────────────────
+
+function allLeaves(node: Node): Leaf[] {
+  if (isLeaf(node)) return [node];
+  const result: Leaf[] = [];
+  for (const child of node.children) {
+    result.push(...allLeaves(child));
+  }
+  return result;
+}
+
+function findLeaf(root: Node, id: string): Leaf | null {
+  if (isLeaf(root)) return root.id === id ? root : null;
+  for (const child of root.children) {
+    const found = findLeaf(child, id);
+    if (found) return found;
+  }
+  return null;
+}
+
+// ── Layout ─────────────────────────────────────────────────────────
+
+type PixelRect = { left: number; top: number; width: number; height: number };
+
+type DividerInfo = {
+  id: string;
+  container: Container;
+  childIndex: number;
+  orientation: Direction;
+  x: number;
+  y: number;
   width: number;
   height: number;
 };
 
+type LayoutResult = {
+  leaves: Map<string, PixelRect>;
+  dividers: DividerInfo[];
+};
+
+let g_divId = 0;
+
+function computeLayout(
+  node: Node,
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+  gapless: boolean,
+): LayoutResult {
+  const leaves = new Map<string, PixelRect>();
+  const dividers: DividerInfo[] = [];
+
+  function walk(n: Node, l: number, t: number, w: number, h: number): void {
+    if (isLeaf(n)) {
+      leaves.set(n.id, { left: l, top: t, width: w, height: h });
+      return;
+    }
+    const dir = n.direction;
+    const totalSize = dir === 'h' ? w : h;
+    const numDividers = n.children.length - 1;
+    const dividerSpace = gapless ? 0 : SLIDER_SIZE;
+    const availableForChildren = totalSize - numDividers * dividerSpace;
+
+    let offset = 0;
+    for (let i = 0; i < n.children.length; i++) {
+      const childSize = Math.round(availableForChildren * n.sizes[i]);
+      if (dir === 'h') {
+        walk(n.children[i], l + offset, t, childSize, h);
+      } else {
+        walk(n.children[i], l, t + offset, w, childSize);
+      }
+      offset += childSize;
+
+      if (i < n.children.length - 1) {
+        if (dir === 'h') {
+          dividers.push({
+            id: `div-${g_divId++}`,
+            container: n,
+            childIndex: i,
+            orientation: 'h',
+            x: l + offset,
+            y: t,
+            width: dividerSpace || SLIDER_SIZE,
+            height: h,
+          });
+        } else {
+          dividers.push({
+            id: `div-${g_divId++}`,
+            container: n,
+            childIndex: i,
+            orientation: 'v',
+            x: l,
+            y: t + offset,
+            width: w,
+            height: dividerSpace || SLIDER_SIZE,
+          });
+        }
+        offset += dividerSpace;
+      }
+    }
+  }
+
+  walk(node, left, top, width, height);
+  return { leaves, dividers };
+}
+
+// ── Operations ─────────────────────────────────────────────────────
+
+function splitLeaf(leaf: Leaf, direction: Direction, newSecond: boolean): Leaf {
+  const parent = leaf.parent;
+  const newLeaf = new Leaf();
+
+  if (parent && parent.direction === direction) {
+    // Same direction — insert sibling into existing container
+    const ndx = parent.children.indexOf(leaf);
+    const halfSize = parent.sizes[ndx] / 2;
+    parent.sizes[ndx] = halfSize;
+    const insertNdx = newSecond ? ndx + 1 : ndx;
+    newLeaf.parent = parent;
+    parent.children.splice(insertNdx, 0, newLeaf);
+    parent.sizes.splice(insertNdx, 0, halfSize);
+  } else {
+    // Different direction — wrap leaf in a new container
+    const newContainer = new Container(
+      direction,
+      newSecond ? [leaf, newLeaf] : [newLeaf, leaf],
+      [0.5, 0.5],
+    );
+    if (parent) {
+      const ndx = parent.children.indexOf(leaf);
+      parent.children[ndx] = newContainer;
+      newContainer.parent = parent;
+    }
+    leaf.parent = newContainer;
+    newLeaf.parent = newContainer;
+  }
+  return newLeaf;
+}
+
+function deleteLeaf(root: Node, leaf: Leaf): { root: Node; neighborLeaf: Leaf } {
+  const parent = leaf.parent;
+  if (!parent) return { root, neighborLeaf: leaf };
+
+  const ndx = parent.children.indexOf(leaf);
+  const neighborNdx = ndx < parent.children.length - 1 ? ndx + 1 : ndx - 1;
+  const neighborNode = parent.children[neighborNdx];
+
+  // Give space to neighbor then remove
+  // neighborNdx may shift after splice if ndx < neighborNdx
+  const neighborSize = parent.sizes[neighborNdx] + parent.sizes[ndx];
+  parent.children.splice(ndx, 1);
+  parent.sizes.splice(ndx, 1);
+  // Find where the neighbor ended up after the splice
+  const newNeighborNdx = parent.children.indexOf(neighborNode);
+  parent.sizes[newNeighborNdx] = neighborSize;
+
+  // Collapse container if only one child remains
+  let newRoot = root;
+  if (parent.children.length === 1) {
+    const onlyChild = parent.children[0];
+    const grandparent = parent.parent;
+    if (grandparent) {
+      const pNdx = grandparent.children.indexOf(parent);
+      const parentSize = grandparent.sizes[pNdx];
+      // If the only child is a container with the same direction as grandparent, flatten
+      if (!isLeaf(onlyChild) && onlyChild.direction === grandparent.direction) {
+        grandparent.children.splice(pNdx, 1, ...onlyChild.children);
+        grandparent.sizes.splice(pNdx, 1, ...onlyChild.sizes.map(s => s * parentSize));
+        for (const c of onlyChild.children) c.parent = grandparent;
+      } else {
+        grandparent.children[pNdx] = onlyChild;
+        grandparent.sizes[pNdx] = parentSize;
+        onlyChild.parent = grandparent;
+      }
+    } else {
+      onlyChild.parent = null;
+      newRoot = onlyChild;
+    }
+  }
+
+  // Find the first leaf in the neighbor subtree
+  let result: Node = neighborNode;
+  while (!isLeaf(result)) result = result.children[0];
+  return { root: newRoot, neighborLeaf: result };
+}
+
+// ── Divider drag ───────────────────────────────────────────────────
+
+function dragDivider(divider: DividerInfo, deltaPx: number, totalPx: number): boolean {
+  const container = divider.container;
+  const i = divider.childIndex;
+  const deltaFrac = deltaPx / totalPx;
+
+  const newA = container.sizes[i] + deltaFrac;
+  const newB = container.sizes[i + 1] - deltaFrac;
+  if (newA < MIN_SIZE_FRAC || newB < MIN_SIZE_FRAC) return false;
+
+  container.sizes[i] = newA;
+  container.sizes[i + 1] = newB;
+  return true;
+}
+
+// ── Navigation ─────────────────────────────────────────────────────
+
+function getNextLeaf(root: Node, currentId: string): Leaf {
+  const leaves = allLeaves(root);
+  const ndx = leaves.findIndex(l => l.id === currentId);
+  return leaves[(ndx + 1) % leaves.length];
+}
+
+function getPrevLeaf(root: Node, currentId: string): Leaf {
+  const leaves = allLeaves(root);
+  const ndx = leaves.findIndex(l => l.id === currentId);
+  return leaves[(ndx - 1 + leaves.length) % leaves.length];
+}
+
+// ── Serialization ──────────────────────────────────────────────────
+
+type LayoutDump = {
+  type: 'leaf';
+  initialState?: unknown;
+} | {
+  type: 'container';
+  direction: Direction;
+  sizes: number[];
+  children: LayoutDump[];
+};
+
+// Old format for backward compatibility
 type TwoDump = {
   splitType: number;
   sliderPercent: number;
@@ -68,288 +321,74 @@ type TwoDump = {
   initialState?: unknown;
 };
 
-let g_twoCount = 0;
-
-class Two {
-  static NONE = 0;
-  static HORIZONTAL = 1;
-  static VERTICAL = 2;
-
-  static createId(): string {
-    return `two-${++g_twoCount}`;
-  }
-
-  splitType: number;
-  id: string;
-  children: Two[];
-  parent?: Two;
-  sliderPos: number;
-  sliderPercent: number;
-  bounds: TwoBounds;
-  initialState?: unknown;
-
-  constructor(id?: string) {
-    this.splitType = Two.NONE;
-    this.id = id || Two.createId();
-    this.children = [];
-    this.sliderPos = 0;
-    this.sliderPercent = 0;
-    this.bounds = { left: 0, top: 0, width: 1, height: 1 };
-  }
-
-  restore(data: TwoDump, twos: Record<string, Two>): Two | null {
-    let active: Two | null = null;
-    this.splitType = data.splitType;
-    this.sliderPercent = data.sliderPercent;
-    if (data.initialState !== undefined) {
-      this.initialState = data.initialState;
-    }
-    this.children = data.children.map((child) => {
-      const two = new Two();
-      twos[two.id] = two;
-      const maybe = two.restore(child, twos);
-      active = active || maybe;
-      two._setParent(this);
-      return two;
-    });
-    return this.children.length ? null : this;
-  }
-
-  layout(width: number, height: number, gapless?: boolean): Two[] {
-    const config = Yoga.Config.create();
-    const twos: Two[] = [];
-    const root = this._makeNode(config, twos, gapless);
-    root.setWidth(width);
-    root.setHeight(height);
-    root.calculateLayout(Yoga.UNDEFINED, Yoga.UNDEFINED, Yoga.DIRECTION_LTR);
-    this._applyLayout(root, 0, 0);
-    root.freeRecursive();
-    config.free();
-    return twos;
-  }
-
-  dump(): TwoDump {
-    const result: TwoDump = {
-      splitType: this.splitType,
-      sliderPercent: this.sliderPercent,
-      children: this.children.map((child) => child.dump()),
-    };
-    if (this.initialState !== undefined) {
-      result.initialState = this.initialState;
+function dumpNode(node: Node): LayoutDump {
+  if (isLeaf(node)) {
+    const result: LayoutDump = { type: 'leaf' };
+    if (node.initialState !== undefined) {
+      (result as { type: 'leaf'; initialState?: unknown }).initialState = node.initialState;
     }
     return result;
   }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private _makeNode(config: any, twos: Two[], gapless?: boolean): any {
-    const node = Yoga.Node.create(config);
-    node.setFlexGrow(1);
-    node.setFlexBasis(1);
-    node.setFlexDirection(this.splitType === Two.HORIZONTAL ? Yoga.FLEX_DIRECTION_COLUMN : Yoga.FLEX_DIRECTION_ROW);
-    assert(this.children.length === 0 || this.children.length === 2);
-    const child0 = this.children[0];
-    const child1 = this.children[1];
-    if (child0) {
-      const childNode = child0._makeNode(config, twos, gapless);
-      childNode.setFlexGrow(0);
-      childNode.setFlexBasis(`${this.sliderPercent * 100}%`);
-      node.insertChild(childNode, 0);
-    }
-    twos.push(this);
-    const needSlider = this.splitType !== Two.NONE;
-    if (needSlider) {
-      assert(child0 && child1);
-      const sliderNode = Yoga.Node.create(config);
-      sliderNode.setFlexGrow(0);
-      sliderNode.setFlexBasis(gapless ? 0 : sliderSize);
-      node.insertChild(sliderNode, 1);
-    }
-    if (child1) {
-      node.insertChild(child1._makeNode(config, twos, gapless), needSlider ? 2 : 1);
-    }
-    return node;
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private _applyLayout(node: any, xOff: number, yOff: number): void {
-    const x = xOff + node.getComputedLeft();
-    const y = yOff + node.getComputedTop();
-    this.bounds.left = x;
-    this.bounds.top = y;
-    this.bounds.width = node.getComputedWidth();
-    this.bounds.height = node.getComputedHeight();
-    assert(this.children.length === 0 || this.children.length === 2);
-    const child0 = this.children[0];
-    const child1 = this.children[1];
-    if (child0) {
-      child0._applyLayout(node.getChild(0), x, y);
-    }
-    const needSlider = this.splitType !== Two.NONE;
-    if (needSlider) {
-      const sliderNode = node.getChild(1);
-      const sx = x + sliderNode.getComputedLeft();
-      const sy = y + sliderNode.getComputedTop();
-      this.sliderPos = this.splitType === Two.HORIZONTAL ? sy : sx;
-    }
-    if (child1) {
-      child1._applyLayout(node.getChild(needSlider ? 2 : 1), x, y);
-    }
-  }
-
-  private _removeChild(child: Two): void {
-    const ndx = this.children.indexOf(child);
-    assert(ndx >= 0, 'it is our child');
-    this.children.splice(ndx, 1);
-  }
-
-  private _addChild(child: Two): void {
-    assert(this.children.length < 2, 'less than 2 children');
-    this.children.push(child);
-  }
-
-  private _setParent(parent: Two | null): void {
-    if (this.parent) {
-      this.parent._removeChild(this);
-    }
-    this.parent = parent ?? undefined;
-    if (parent) {
-      parent._addChild(this);
-    }
-  }
-
-  getRightMost(): Two {
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    let current: Two = this;
-    while (current.children.length) {
-      current = current.children[current.children.length - 1];
-    }
-    return current;
-  }
-
-  getLeftMost(): Two {
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    let current: Two = this;
-    while (current.children.length) {
-      current = current.children[0];
-    }
-    return current;
-  }
-
-  getPrev(): Two {
-    const parent = this.parent;
-    if (!parent) {
-      return this.getRightMost();
-    }
-    if (parent.children.length === 2 && parent.children[1] === this) {
-      return parent.children[0].getRightMost();
-    }
-    return parent.getPrev();
-  }
-
-  getNext(): Two {
-    const parent = this.parent;
-    if (!parent) {
-      return this.getLeftMost();
-    }
-    if (parent.children.length === 2 && parent.children[0] === this) {
-      return parent.children[1].getLeftMost();
-    }
-    return parent.getNext();
-  }
-
-  split(splitType: number, newSecond: boolean): Two {
-    assert(this.splitType === Two.NONE, 'not already split');
-    assert(this.children.length === 0, 'we have no children');
-    const clone = new Two(this.id);
-    this.id = Two.createId();
-    this.splitType = splitType;
-    this.sliderPercent = .5;
-    if (!newSecond) {
-      clone._setParent(this);
-    }
-    const newSibling = new Two();
-    newSibling._setParent(this);
-    if (newSecond) {
-      clone._setParent(this);
-    }
-    return newSibling;
-  }
-
-  delete(): Two {
-    assert(this.parent, 'we have a parent');
-    assert(this.children.length === 0, 'we have no children');
-    const parent = this.parent!;
-    this._setParent(null);
-    assert(parent.children.length === 1, 'there is one sibling');
-    const sibling = parent.children[0];
-    parent.id = sibling.id;
-    parent.splitType = sibling.splitType;
-    parent.sliderPos = sibling.sliderPos;
-    parent.sliderPercent = sibling.sliderPercent;
-    sibling._setParent(null);
-    sibling.children.slice().forEach((child) => {
-      child._setParent(parent);
-    });
-    let node = parent;
-    while (node.children.length) {
-      node = node.children[0];
-    }
-    return node;
-  }
-
-  slide(dx: number, dy: number): boolean {
-    assert(this.children.length === 2, 'we have 2 children');
-    assert(this.splitType !== Two.NONE, 'split type set');
-    const horizontal = this.splitType === Two.HORIZONTAL;
-    const delta = horizontal ? dy : dx;
-    const size = this._getBoundsSize();
-    const oldSliderPos = fudge(size * this.sliderPercent);
-    const newSliderPos = clamp(oldSliderPos + (delta | 0), splitMinSize, size - splitMinSize);
-    const changed = oldSliderPos !== newSliderPos;
-    if (changed) {
-      this.sliderPercent = clamp(newSliderPos / size, 0, 1);
-      this._slideFirstChildSlider(size, delta, true);
-      this._slideSecondChildSlider(size, delta, true);
-    }
-    return changed;
-  }
-
-  private _slideFirstChildSlider(newSize: number, delta: number, keepFirstSize: boolean): void {
-    if (this.children.length === 2) {
-      const newFirstSize = fudge(newSize * this.sliderPercent);
-      this.children[0]._slideSliderForNewSize(newFirstSize, delta, this.splitType, keepFirstSize);
-    }
-  }
-
-  private _slideSecondChildSlider(newSize: number, delta: number, keepFirstSize: boolean): void {
-    if (this.children.length === 2) {
-      const newFirstSize = fudge(newSize * this.sliderPercent);
-      const newSecondSize = newSize - newFirstSize - sliderSize;
-      this.children[1]._slideSliderForNewSize(newSecondSize, delta, this.splitType, !keepFirstSize);
-    }
-  }
-
-  private _slideSliderForNewSize(newSize: number, delta: number, parentSplitType: number, keepFirstSize: boolean): void {
-    if (this.children.length !== 2 || this.splitType !== parentSplitType) {
-      return;
-    }
-    if (keepFirstSize) {
-      const oldSliderPos = fudge(this._getBoundsSize() * this.sliderPercent);
-      const newSliderPos = oldSliderPos;
-      this.sliderPercent = newSliderPos / newSize;
-      this._slideSecondChildSlider(newSize, delta, false);
-    } else {
-      const oldSliderPos = fudge(this._getBoundsSize() * this.sliderPercent);
-      const newSliderPos = oldSliderPos - delta;
-      this.sliderPercent = newSliderPos / newSize;
-      this._slideFirstChildSlider(newSize, delta, false);
-    }
-  }
-
-  private _getBoundsSize(): number {
-    return this.splitType === Two.HORIZONTAL ? this.bounds.height : this.bounds.width;
-  }
+  return {
+    type: 'container',
+    direction: node.direction,
+    sizes: node.sizes.slice(),
+    children: node.children.map(dumpNode),
+  };
 }
+
+function restoreNode(dump: LayoutDump): Node {
+  if (dump.type === 'leaf') {
+    return new Leaf(undefined, dump.initialState);
+  }
+  const children = dump.children.map(restoreNode);
+  return new Container(dump.direction, children, dump.sizes.slice());
+}
+
+// Detect and restore old TwoDump format
+function isOldFormat(dump: unknown): dump is TwoDump {
+  return dump !== null && typeof dump === 'object' && 'splitType' in (dump as TwoDump);
+}
+
+function restoreFromOldDump(dump: TwoDump): Node {
+  if (dump.splitType === 0 || dump.children.length === 0) {
+    return new Leaf(undefined, dump.initialState);
+  }
+  const direction: Direction = dump.splitType === 1 ? 'v' : 'h';
+  const child0 = restoreFromOldDump(dump.children[0]);
+  const child1 = restoreFromOldDump(dump.children[1]);
+
+  // Flatten children with same direction
+  const children: Node[] = [];
+  const sizes: number[] = [];
+  const p = dump.sliderPercent;
+
+  if (!isLeaf(child0) && child0.direction === direction) {
+    children.push(...child0.children);
+    sizes.push(...child0.sizes.map(s => s * p));
+  } else {
+    children.push(child0);
+    sizes.push(p);
+  }
+
+  if (!isLeaf(child1) && child1.direction === direction) {
+    children.push(...child1.children);
+    sizes.push(...child1.sizes.map(s => s * (1 - p)));
+  } else {
+    children.push(child1);
+    sizes.push(1 - p);
+  }
+
+  return new Container(direction, children, sizes);
+}
+
+function restoreLayout(dump: unknown): Node {
+  if (!dump || typeof dump !== 'object') return new Leaf();
+  if (isOldFormat(dump)) return restoreFromOldDump(dump);
+  return restoreNode(dump as LayoutDump);
+}
+
+// ── ViewSplit component ────────────────────────────────────────────
 
 type Options = {
   columnWidth: number;
@@ -375,10 +414,9 @@ type Props = {
   winState: WinState;
   rotateMode: number;
   gaplessDividers?: boolean;
-  startingLayout?: TwoDump;
+  startingLayout?: unknown;
   setCurrentView: (vs: ViewSplit) => void;
   toolbarEventBus: ForwardableEventDispatcher;
-  // Called when the active pane's viewing state changes (image opened/closed or pane switched).
   onViewingChanged?: (viewing: boolean) => void;
 };
 
@@ -393,16 +431,16 @@ type State = {
 
 export default class ViewSplit extends React.Component<Props, State> {
   private _logger: ReturnType<typeof debug>;
-  private _root: Two;
-  private _currentTwo: Two;
+  private _treeRoot: Node;
+  private _currentLeafId: string;
   private _currentView!: VPair;
   private _vpairs: Record<string, VPair>;
-  private _twos: Record<string, Two>;
   private _viewers: ViewerStateShape[];
   private _eventBus: ForwardableEventDispatcher<AppEventMap>;
   private _actionListener: ActionListener;
   private _saveLayout: CancelableFn;
-  private _currentSlider: Two | null = null;
+  private _currentDivider: DividerInfo | null = null;
+  private _lastDividers: DividerInfo[] = [];
   private _sliderMouseHandlersInstalled = false;
   private _lastX = 0;
   private _lastY = 0;
@@ -410,27 +448,21 @@ export default class ViewSplit extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props);
     this._logger = debug('ViewSplit');
-    this._logger('ctor');
 
     this._saveLayout = debounce(this._doSaveLayout.bind(this), 500);
 
-    const two = new Two();
-    this._root = two;
-    this._currentTwo = two;
-    this._vpairs = {};
-    this._twos = {};
+    this._treeRoot = props.startingLayout
+      ? restoreLayout(props.startingLayout)
+      : new Leaf();
 
-    if (props.startingLayout) {
-      this._currentTwo = this._root.restore(props.startingLayout, this._twos) ?? two;
-    }
+    const leaves = allLeaves(this._treeRoot);
+    this._currentLeafId = leaves[0].id;
+    this._vpairs = {};
 
     this.state = {
-      treeVersion: 0,   
-      currentId: 0,     
-      dimensions: {
-        width: -1,
-        height: -1,
-      },
+      treeVersion: 0,
+      currentId: 0,
+      dimensions: { width: -1, height: -1 },
     };
 
     this._viewers = [];
@@ -451,7 +483,11 @@ export default class ViewSplit extends React.Component<Props, State> {
   }
 
   componentDidMount(): void {
-    this.props.setCurrentView(this);
+    // Only notify parent if we have a current view (VPairs may not be
+    // rendered yet if dimensions haven't been measured).
+    if (this._currentView) {
+      this.props.setCurrentView(this);
+    }
   }
 
   componentWillUnmount(): void {
@@ -484,23 +520,17 @@ export default class ViewSplit extends React.Component<Props, State> {
   }
 
   private _doSaveLayout(): void {
-    for (const [twoId, vpair] of Object.entries(this._vpairs)) {
-      const two = this._twos[twoId];
-      if (two) {
-        two.initialState = vpair.getState();
-      }
+    for (const leaf of allLeaves(this._treeRoot)) {
+      const vpair = this._vpairs[leaf.id];
+      if (vpair) leaf.initialState = vpair.getState();
     }
-    ipcRenderer.send('saveSplitLayout', this._root.dump());
+    ipcRenderer.send('saveSplitLayout', dumpNode(this._treeRoot));
   }
 
   private _handleResize = (contentRect: { client: { width: number; height: number } }): void => {
-    const width = contentRect.client.width;
-    const height = contentRect.client.height;
-    this._logger('old dim:', `${this.state.dimensions.width}x${this.state.dimensions.height}`, 'new dim:', `${width}x${height}`);
+    const { width, height } = contentRect.client;
     if (this.state.dimensions.width !== width || this.state.dimensions.height !== height) {
-      this.setState({
-        dimensions: { width, height },
-      });
+      this.setState({ dimensions: { width, height } });
     }
   };
 
@@ -511,127 +541,109 @@ export default class ViewSplit extends React.Component<Props, State> {
 
   private _bumpTreeVersion(): void {
     this._saveLayout();
-    this.setState((prevState) => ({
-      treeVersion: prevState.treeVersion + 1,
-    }));
-  }
-
-  private _addViewer(viewerState: ViewerStateShape): void {
-    this._viewers.push(viewerState);
-  }
-
-  private _removeViewer(viewerState: ViewerStateShape): void {
-    this._viewers = this._viewers.filter(s => s !== viewerState);
+    this.setState((s) => ({ treeVersion: s.treeVersion + 1 }));
   }
 
   private _registerVPair = (vpair: VPair): void => {
     this._vpairs[vpair.props.twoId] = vpair;
-    this._addViewer(vpair.getViewerState());
+    this._viewers.push(vpair.getViewerState());
+    if (vpair.props.twoId === this._currentLeafId) {
+      this._currentView = vpair;
+      this._eventBus.setForward(vpair.getEventBus());
+      vpair.getDownstreamEventBus().setForward(this.props.toolbarEventBus);
+      this.props.setCurrentView(this);
+    }
   };
 
   private _unregisterVPair = (vpair: VPair): void => {
-    this._removeViewer(vpair.getViewerState());
+    this._viewers = this._viewers.filter(s => s !== vpair.getViewerState());
     delete this._vpairs[vpair.props.twoId];
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private _splitHorizontalImpl(forwardableEvent: any, newOnRight: boolean): void {
-    forwardableEvent.stopPropagation();
-    const stateOfViewBeingSplit = this.getActiveViewState();
-    const two = this._currentTwo.split(Two.HORIZONTAL, newOnRight);
-    two.initialState = stateOfViewBeingSplit;
+  private _getCurrentLeaf(): Leaf | null {
+    return findLeaf(this._treeRoot, this._currentLeafId);
+  }
+
+  private _findRoot(): Node {
+    let r: Node = this._treeRoot;
+    while (r.parent) r = r.parent;
+    return r;
+  }
+
+  // ── Split ──────────────────────────────────────────────────────
+
+  private _doSplit(direction: Direction, newSecond: boolean): void {
+    const leaf = this._getCurrentLeaf();
+    if (!leaf) return;
+    const state = this.getActiveViewState();
+    const newLeaf = splitLeaf(leaf, direction, newSecond);
+    newLeaf.initialState = state;
+    this._treeRoot = this._findRoot();
     this._bumpTreeVersion();
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private _splitHorizontal = (forwardableEvent: any): void => {
-    this._splitHorizontalImpl(forwardableEvent, false);
-  };
+  private _splitHorizontal = (fe: any): void => { fe.stopPropagation(); this._doSplit('v', false); };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _splitHorizontalAlt = (fe: any): void => { fe.stopPropagation(); this._doSplit('v', true); };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _splitVertical = (fe: any): void => { fe.stopPropagation(); this._doSplit('h', false); };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _splitVerticalAlt = (fe: any): void => { fe.stopPropagation(); this._doSplit('h', true); };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private _splitHorizontalAlt = (forwardableEvent: any): void => {
-    this._splitHorizontalImpl(forwardableEvent, true);
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private _splitVerticalImpl(forwardableEvent: any, newOnBottom: boolean): void {
-    forwardableEvent.stopPropagation();
-    const stateOfViewBeingSplit = this.getActiveViewState();
-    const two = this._currentTwo.split(Two.VERTICAL, newOnBottom);
-    two.initialState = stateOfViewBeingSplit;
+  private _deletePane = (fe: any): void => {
+    fe.stopPropagation();
+    const leaf = this._getCurrentLeaf();
+    if (!leaf || allLeaves(this._treeRoot).length <= 1) return;
+    const { root, neighborLeaf } = deleteLeaf(this._treeRoot, leaf);
+    this._treeRoot = root;
+    this._currentLeafId = neighborLeaf.id;
     this._bumpTreeVersion();
-  }
+    setTimeout(() => {
+      if (this._vpairs[neighborLeaf.id]) {
+        this._setCurrentVPairById(neighborLeaf.id);
+      }
+    }, 0);
+  };
+
+  // ── Navigation ─────────────────────────────────────────────────
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private _splitVertical = (forwardableEvent: any): void => {
-    this._splitVerticalImpl(forwardableEvent, false);
+  private _activateNextView = (fe: any): void => {
+    fe.stopPropagation();
+    this._setCurrentVPairById(getNextLeaf(this._treeRoot, this._currentLeafId).id);
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private _splitVerticalAlt = (forwardableEvent: any): void => {
-    this._splitVerticalImpl(forwardableEvent, true);
+  private _activatePrevView = (fe: any): void => {
+    fe.stopPropagation();
+    this._setCurrentVPairById(getPrevLeaf(this._treeRoot, this._currentLeafId).id);
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private _deletePane = (forwardableEvent: any): void => {
-    forwardableEvent.stopPropagation();
-    this._deleteCurrentPane();
-  };
-
-  private _deleteCurrentPane(): void {
-    if (this._currentTwo !== this._root) {
-      this._setCurrentViewFromTwo(this._currentTwo.delete());
-      this._bumpTreeVersion();
-    }
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private _activateNextView = (forwardableEvent: any): void => {
-    forwardableEvent.stopPropagation();
-    const next = this._currentTwo.getNext();
-    this._setCurrentViewFromTwo(next);
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private _activatePrevView = (forwardableEvent: any): void => {
-    forwardableEvent.stopPropagation();
-    const next = this._currentTwo.getPrev();
-    this._setCurrentViewFromTwo(next);
-  };
-
-  private _setCurrentVPairAndTwo(vpair: VPair, two: Two): void {
+  private _setCurrentVPairById(leafId: string): void {
+    const vpair = this._vpairs[leafId];
+    if (!vpair) return;
     if (this._currentView) {
       this._currentView.getDownstreamEventBus().setForward(null);
     }
     this._currentView = vpair;
-    this._currentTwo = two;
+    this._currentLeafId = leafId;
     this.props.setCurrentView(this);
     this._eventBus.setForward(vpair.getEventBus());
     vpair.getDownstreamEventBus().setForward(this.props.toolbarEventBus);
-    // Notify App of the new pane's viewing state so it can switch toolbars.
     this.props.onViewingChanged?.(vpair.getViewerState().viewing);
-    // Push current viewerState to ViewerToolbar so it renders correctly after pane switch.
     vpair.notifyToolbarOfCurrentState();
     this._bumpCurrentId();
   }
 
-  private _setCurrentViewFromTwo(two: Two): void {
-    const vpair = this._vpairs[two.id];
-    assert(vpair);
-    this._setCurrentVPairAndTwo(vpair, two);
-  }
-
   private _setCurrentView = (vpair: VPair): void => {
-    assert(vpair);
-    assert(vpair.props.twoId);
-    const two = this._twos[vpair.props.twoId];
-    assert(two);
-    this._setCurrentVPairAndTwo(vpair, two);
+    this._setCurrentVPairById(vpair.props.twoId);
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private _playAll = (forwardableEvent: any): void => {
-    forwardableEvent.stopPropagation();
+  private _playAll = (fe: any): void => {
+    fe.stopPropagation();
     const anyPlaying = this.anyPlaying();
     for (const vpair of Object.values(this._vpairs)) {
       const act = { action: 'togglePlay' as const, force: !anyPlaying };
@@ -642,35 +654,36 @@ export default class ViewSplit extends React.Component<Props, State> {
 
   private _bumpCurrentId(): void {
     this._saveLayout();
-    this.setState((prevState) => ({
-      currentId: prevState.currentId + 1,
-    }));
+    this.setState((s) => ({ currentId: s.currentId + 1 }));
   }
 
-  private _handleSliderMouseDown = (e: MouseEvent, id: string): void => {
+  // ── Slider mouse handling ──────────────────────────────────────
+
+  private _handleSliderMouseDown = (e: MouseEvent, dividerId: string): void => {
     e.stopPropagation();
     e.preventDefault();
-    const two = this._twos[id];
-    assert(two, 'found two for slider');
-    this._currentSlider = two;
-    this._logger('id:', id, 'two:', two);
+    this._currentDivider = this._lastDividers.find(d => d.id === dividerId) ?? null;
     this._installSliderMouseHandlers();
-    const mousePos = getRotatedXY(e, 'client', this.props.rotateMode);
-    this._lastX = mousePos.x;
-    this._lastY = mousePos.y;
+    const pos = getRotatedXY(e, 'client', this.props.rotateMode);
+    this._lastX = pos.x;
+    this._lastY = pos.y;
   };
 
   private _handleSliderMouseMove = (e: MouseEvent): void => {
     e.stopPropagation();
     e.preventDefault();
-    assert(this._currentSlider, 'have current slider');
-    const mousePos = getRotatedXY(e, 'client', this.props.rotateMode);
-    const dx = mousePos.x - this._lastX;
-    const dy = mousePos.y - this._lastY;
-    this._lastX = mousePos.x;
-    this._lastY = mousePos.y;
-    this._logger('dx:', dx, 'dy:', dy);
-    if (this._currentSlider!.slide(dx, dy)) {
+    if (!this._currentDivider) return;
+    const pos = getRotatedXY(e, 'client', this.props.rotateMode);
+    const dx = pos.x - this._lastX;
+    const dy = pos.y - this._lastY;
+    this._lastX = pos.x;
+    this._lastY = pos.y;
+
+    const { width, height } = this.state.dimensions;
+    const deltaPx = this._currentDivider.orientation === 'h' ? dx : dy;
+    const totalPx = this._currentDivider.orientation === 'h' ? width : height;
+
+    if (dragDivider(this._currentDivider, deltaPx, totalPx)) {
       this._bumpTreeVersion();
     }
   };
@@ -681,10 +694,8 @@ export default class ViewSplit extends React.Component<Props, State> {
     this._uninstallSliderMouseHandlers();
   };
 
-  private _makeSliderMouseDownHandler(id: string): (e: React.MouseEvent) => void {
-    return (e: React.MouseEvent) => {
-      this._handleSliderMouseDown(e.nativeEvent, id);
-    };
+  private _makeSliderMouseDownHandler(dividerId: string): (e: React.MouseEvent) => void {
+    return (e: React.MouseEvent) => this._handleSliderMouseDown(e.nativeEvent, dividerId);
   }
 
   private _installSliderMouseHandlers(): void {
@@ -696,7 +707,7 @@ export default class ViewSplit extends React.Component<Props, State> {
   }
 
   private _uninstallSliderMouseHandlers(): void {
-    this._currentSlider = null;
+    this._currentDivider = null;
     if (this._sliderMouseHandlersInstalled) {
       this._sliderMouseHandlersInstalled = false;
       window.removeEventListener('mousemove', this._handleSliderMouseMove);
@@ -704,79 +715,83 @@ export default class ViewSplit extends React.Component<Props, State> {
     }
   }
 
+  // ── Render ─────────────────────────────────────────────────────
+
   render(): React.ReactNode {
-    this._logger('render');
-    const width = this.state.dimensions.width;
-    const height = this.state.dimensions.height;
-    this._logger('Render:', 'width:', width, 'height:', height);
-    const gapless = this.props.gaplessDividers;
-    const twos = this._root.layout(width, height, gapless);
-    this._twos = {};
-    const views = twos.map((two) => {
-      this._twos[two.id] = two;
-      const bounds = two.bounds;
-      this._logger('splitType:', two.splitType, bounds);
-      if (two.splitType === Two.NONE) {
-        const style: React.CSSProperties = {
-          position: 'absolute',
-          left: px(bounds.left),
-          top: px(bounds.top),
-          width: px(bounds.width),
-          height: px(bounds.height),
-        };
-        return (
-          <div
-            className="viewholder"
-            style={style}
-            key={two.id}
-          >
-            <VPair
-              root={this.props.root}
-              twoId={two.id}
-              initialState={two.initialState as never}
-              width={bounds.width}
-              isCurrentView={this._currentTwo === two}
-              options={this.props.options}
-              winState={this.props.winState}
-              rotateMode={this.props.rotateMode}
-              setCurrentView={this._setCurrentView}
-              actionListener={this._actionListener}
-              registerVPair={this._registerVPair}
-              unregisterVPair={this._unregisterVPair}
-              saveLayout={this._saveLayout}
-              onViewingChanged={this.props.onViewingChanged}
+    const { width, height } = this.state.dimensions;
+    const gapless = !!this.props.gaplessDividers;
+
+    // Don't render content until we have valid dimensions from ResizeSensor
+    if (width <= 0 || height <= 0) {
+      return (
+        <ResizeSensor onResize={this._handleResize}>
+          {({ measureRef }) => (
+            <div
+              style={{ position: 'relative', width: '100%', height: '100%' }}
+              ref={measureRef}
             />
-          </div>
-        );
-      } else {
-        const rot90 = (this.props.rotateMode % 2) !== 0;
-        const horizontal = two.splitType === Two.HORIZONTAL;
-        const offset = gapless ? Math.floor(sliderSize / 2) : 0;
-        const style: React.CSSProperties = horizontal ? {
-          position: 'absolute',
-          width: px(bounds.width),
-          height: px(sliderSize),
-          left: px(bounds.left),
-          top: px(two.sliderPos - offset),
-        } : {
-          position: 'absolute',
-          width: px(sliderSize),
-          height: px(bounds.height),
-          left: px(two.sliderPos - offset),
-          top: px(bounds.top),
-        };
-        const sliderCursorHorizontal = horizontal ? !rot90 : rot90;
-        this._logger('sliderCurH:', sliderCursorHorizontal, rot90);
-        return (
-          <div
-            className={`split-slider split-slider-${sliderCursorHorizontal ? 'horizontal' : 'vertical'}`}
-            style={style}
-            key={two.id}
-            onMouseDown={this._makeSliderMouseDownHandler(two.id)}
+          )}
+        </ResizeSensor>
+      );
+    }
+
+    g_divId = 0;
+    const layout = computeLayout(this._treeRoot, 0, 0, width, height, gapless);
+    this._lastDividers = layout.dividers;
+    const rot90 = (this.props.rotateMode % 2) !== 0;
+
+    const leafViews = allLeaves(this._treeRoot).map((leaf) => {
+      const rect = layout.leaves.get(leaf.id)!;
+      const style: React.CSSProperties = {
+        position: 'absolute',
+        left: px(rect.left),
+        top: px(rect.top),
+        width: px(rect.width),
+        height: px(rect.height),
+      };
+      return (
+        <div className="viewholder" style={style} key={leaf.id}>
+          <VPair
+            root={this.props.root}
+            twoId={leaf.id}
+            initialState={leaf.initialState as never}
+            width={rect.width}
+            isCurrentView={this._currentLeafId === leaf.id}
+            options={this.props.options}
+            winState={this.props.winState}
+            rotateMode={this.props.rotateMode}
+            setCurrentView={this._setCurrentView}
+            actionListener={this._actionListener}
+            registerVPair={this._registerVPair}
+            unregisterVPair={this._unregisterVPair}
+            saveLayout={this._saveLayout}
+            onViewingChanged={this.props.onViewingChanged}
           />
-        );
-      }
+        </div>
+      );
     });
+
+    const dividerViews = layout.dividers.map((div) => {
+      const isHContainer = div.orientation === 'h';
+      const offset = gapless ? Math.floor(SLIDER_SIZE / 2) : 0;
+      const style: React.CSSProperties = {
+        position: 'absolute',
+        left: px(div.x - (isHContainer ? offset : 0)),
+        top: px(div.y - (isHContainer ? 0 : offset)),
+        width: px(div.width),
+        height: px(div.height),
+      };
+      const cursorHorizontal = isHContainer ? rot90 : !rot90;
+      return (
+        <div
+          className={`split-slider split-slider-${cursorHorizontal ? 'horizontal' : 'vertical'}`}
+          style={style}
+          key={div.id}
+          onMouseDown={this._makeSliderMouseDownHandler(div.id)}
+        />
+      );
+    });
+
     return (
       <ResizeSensor onResize={this._handleResize}>
         {({ measureRef }) => (
@@ -785,7 +800,8 @@ export default class ViewSplit extends React.Component<Props, State> {
             className={gapless ? 'gapless-dividers' : undefined}
             ref={measureRef}
           >
-            {views}
+            {leafViews}
+            {dividerViews}
           </div>
         )}
       </ResizeSensor>
