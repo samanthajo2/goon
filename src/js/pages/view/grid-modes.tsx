@@ -331,7 +331,7 @@ function renderName(props: ThumbnailProps, info: DBFileInfo) {
   return `${date}${name}${dims}`;
 }
 
-function renderNoFrame(props: ThumbnailProps, onClick: () => void, onContextMenu: (e: React.MouseEvent) => void, onDragStart: (e: React.DragEvent) => void) {
+function renderNoFrame(props: ThumbnailProps, onClick: () => void, onContextMenu: (e: React.MouseEvent) => void, onDragStart: (e: React.DragEvent) => void, onPointerDown: () => void) {
   const info = props.info;
   const style = gridModes.value(props.gridMode).getStyle(props);
   const baseType = `mime-${info.type.split('/')[0]}`;
@@ -339,7 +339,7 @@ function renderNoFrame(props: ThumbnailProps, onClick: () => void, onContextMenu
   const className = cssArray('thumbnail', baseType, mimeType);
   const duration = shortDuration(info.duration);
   return (
-    <div draggable="true" data-duration={duration} onClick={onClick} onDragStart={onDragStart} onContextMenu={onContextMenu} className={className.toString()} style={style}>
+    <div draggable="true" data-duration={duration} onPointerDown={onPointerDown} onClick={onClick} onDragStart={onDragStart} onContextMenu={onContextMenu} className={className.toString()} style={style}>
       <div className="thumbinfo">
         <div className="name">{renderName(props, info)}</div>
       </div>
@@ -347,7 +347,7 @@ function renderNoFrame(props: ThumbnailProps, onClick: () => void, onContextMenu
     </div>
   );
 }
-function renderWithFrame(props: ThumbnailProps, onClick: () => void, onContextMenu: (e: React.MouseEvent) => void, onDragStart: (e: React.DragEvent) => void) {
+function renderWithFrame(props: ThumbnailProps, onClick: () => void, onContextMenu: (e: React.MouseEvent) => void, onDragStart: (e: React.DragEvent) => void, onPointerDown: () => void) {
   const info = props.info;
   const pos = props.position;
   const style = gridModes.value(props.gridMode).getStyle(props);
@@ -364,7 +364,7 @@ function renderWithFrame(props: ThumbnailProps, onClick: () => void, onContextMe
   return (
     <div>
       <div className="thumbnail-frame" style={frameStyle}></div>
-      <div draggable="true" data-duration={duration} onClick={onClick} onContextMenu={onContextMenu} onDragStart={onDragStart} className={className.toString()} style={style}>
+      <div draggable="true" data-duration={duration} onPointerDown={onPointerDown} onClick={onClick} onContextMenu={onContextMenu} onDragStart={onDragStart} className={className.toString()} style={style}>
         <div className="thumbinfo">
           <div className="name">{renderName(props, info)}</div>
         </div>

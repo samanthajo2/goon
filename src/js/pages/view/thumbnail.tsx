@@ -34,7 +34,16 @@ export default class Thumbnail extends React.PureComponent<Props> {
   static contextType = AppContext;
   declare context: React.ContextType<typeof AppContext>;
 
+  // We preventDefault() the dragstart and use Electron's native drag instead.
+  // The browser sees no drag, so it fires a click on mouseup. Suppress that click.
+  private _draggedSincePointerDown = false;
+
+  private _handlePointerDown = (): void => {
+    this._draggedSincePointerDown = false;
+  };
+
   private _viewImage = (): void => {
+    if (this._draggedSincePointerDown) return;
     this.props.setCurrentView();
     this.context.eventBus.dispatch(new ForwardableEvent('setCurrentNdx'), this.props.count);
     this.context.eventBus.dispatch(new ForwardableEvent('view'), this.props.info);
@@ -48,10 +57,11 @@ export default class Thumbnail extends React.PureComponent<Props> {
   private _handleDragStart = (event: DragEvent | React.DragEvent): void => {
     const domEvent = (event instanceof DragEvent) ? event : event.nativeEvent;
     domEvent.preventDefault();
+    this._draggedSincePointerDown = true;
     ipcRenderer.send('dragStart', this.props.info.filename);
   };
 
   render(): React.ReactNode {
-    return gridModes.value(this.props.gridMode).render(this.props, this._viewImage, this._handleContextMenu, this._handleDragStart);
+    return gridModes.value(this.props.gridMode).render(this.props, this._viewImage, this._handleContextMenu, this._handleDragStart, this._handlePointerDown);
   }
 }
