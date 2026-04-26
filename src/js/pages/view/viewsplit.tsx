@@ -441,7 +441,7 @@ export default class ViewSplit extends React.Component<Props, State> {
   private _saveLayout: CancelableFn;
   private _currentDivider: DividerInfo | null = null;
   private _lastDividers: DividerInfo[] = [];
-  private _sliderMouseHandlersInstalled = false;
+  private _activePointerId: number | null = null;
   private _lastX = 0;
   private _lastY = 0;
 
@@ -491,7 +491,6 @@ export default class ViewSplit extends React.Component<Props, State> {
   }
 
   componentWillUnmount(): void {
-    this._uninstallSliderMouseHandlers();
     this._actionListener.close();
   }
 
@@ -657,23 +656,29 @@ export default class ViewSplit extends React.Component<Props, State> {
     this.setState((s) => ({ currentId: s.currentId + 1 }));
   }
 
-  // ── Slider mouse handling ──────────────────────────────────────
+  // ── Slider pointer handling ────────────────────────────────────
+  // Uses setPointerCapture so all subsequent pointer events route to the
+  // divider element, even if the pointer leaves it. No global listeners
+  // needed and no risk of getting stuck mid-drag.
 
-  private _handleSliderMouseDown = (e: MouseEvent, dividerId: string): void => {
+  private _handleSliderPointerDown = (e: React.PointerEvent<HTMLDivElement>, dividerId: string): void => {
+    if (e.button !== 0) return; // primary button / touch / pen tip only
     e.stopPropagation();
     e.preventDefault();
     this._currentDivider = this._lastDividers.find(d => d.id === dividerId) ?? null;
-    this._installSliderMouseHandlers();
-    const pos = getRotatedXY(e, 'client', this.props.rotateMode);
+    if (!this._currentDivider) return;
+    this._activePointerId = e.pointerId;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const pos = getRotatedXY(e.nativeEvent, 'client', this.props.rotateMode);
     this._lastX = pos.x;
     this._lastY = pos.y;
   };
 
-  private _handleSliderMouseMove = (e: MouseEvent): void => {
+  private _handleSliderPointerMove = (e: React.PointerEvent<HTMLDivElement>): void => {
+    if (this._activePointerId !== e.pointerId || !this._currentDivider) return;
     e.stopPropagation();
     e.preventDefault();
-    if (!this._currentDivider) return;
-    const pos = getRotatedXY(e, 'client', this.props.rotateMode);
+    const pos = getRotatedXY(e.nativeEvent, 'client', this.props.rotateMode);
     const dx = pos.x - this._lastX;
     const dy = pos.y - this._lastY;
     this._lastX = pos.x;
@@ -688,31 +693,20 @@ export default class ViewSplit extends React.Component<Props, State> {
     }
   };
 
-  private _handleSliderMouseUp = (e: MouseEvent): void => {
+  private _handleSliderPointerUp = (e: React.PointerEvent<HTMLDivElement>): void => {
+    if (this._activePointerId !== e.pointerId) return;
     e.stopPropagation();
     e.preventDefault();
-    this._uninstallSliderMouseHandlers();
+    this._activePointerId = null;
+    this._currentDivider = null;
+    // setPointerCapture is implicitly released on pointerup, but be explicit
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
   };
 
-  private _makeSliderMouseDownHandler(dividerId: string): (e: React.MouseEvent) => void {
-    return (e: React.MouseEvent) => this._handleSliderMouseDown(e.nativeEvent, dividerId);
-  }
-
-  private _installSliderMouseHandlers(): void {
-    if (!this._sliderMouseHandlersInstalled) {
-      this._sliderMouseHandlersInstalled = true;
-      window.addEventListener('mousemove', this._handleSliderMouseMove);
-      window.addEventListener('mouseup', this._handleSliderMouseUp);
-    }
-  }
-
-  private _uninstallSliderMouseHandlers(): void {
-    this._currentDivider = null;
-    if (this._sliderMouseHandlersInstalled) {
-      this._sliderMouseHandlersInstalled = false;
-      window.removeEventListener('mousemove', this._handleSliderMouseMove);
-      window.removeEventListener('mouseup', this._handleSliderMouseUp);
-    }
+  private _makeSliderPointerDownHandler(dividerId: string): (e: React.PointerEvent<HTMLDivElement>) => void {
+    return (e) => this._handleSliderPointerDown(e, dividerId);
   }
 
   // ── Render ─────────────────────────────────────────────────────
@@ -787,7 +781,10 @@ export default class ViewSplit extends React.Component<Props, State> {
           className={`split-slider split-slider-${cursorHorizontal ? 'horizontal' : 'vertical'}`}
           style={style}
           key={div.id}
-          onMouseDown={this._makeSliderMouseDownHandler(div.id)}
+          onPointerDown={this._makeSliderPointerDownHandler(div.id)}
+          onPointerMove={this._handleSliderPointerMove}
+          onPointerUp={this._handleSliderPointerUp}
+          onPointerCancel={this._handleSliderPointerUp}
         />
       );
     });
