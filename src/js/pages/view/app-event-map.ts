@@ -42,6 +42,9 @@ export type AppEventMap = {
   copyFolder: [folderInfo: FolderContextInfo];
   showFileInfo: [fileInfo: DBFileInfo];
 
+  // Selection
+  toggleSelection: [filename: string, shift: boolean];
+
   // Viewer navigation
   view: [fileInfo: DBFileInfo];
   hide: [];

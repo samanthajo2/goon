@@ -69,6 +69,8 @@ const actions = {
   launchBrowser:      { hint: 'launch browser',  icon: 'images/buttons/browser.svg',         desc: 'launch browser', },
   launchExternalViewer: { hint: 'external viewer', icon: 'images/buttons/vr.svg',            desc: 'open in external viewer', },
   refreshFolders:     { hint: 'refresh',         icon: 'images/buttons/refresh.svg',         desc: 'rescan folders for new/removed volumes', },
+  selectAll:          { hint: 'select all',      icon: 'images/buttons/noop.svg',            desc: 'select all visible thumbnails in the active pane', },
+  clearSelection:     { hint: 'clear selection', icon: 'images/buttons/noop.svg',            desc: 'clear thumbnail selection', },
 } as const;
 
 export type ActionId = keyof typeof actions;

@@ -35,6 +35,7 @@ import gridModes, { GridMode } from './grid-modes.js';
 import { setRAF } from '../../lib/wait.js';
 import { FolderStateRoot, FolderStateFolder, SortInfo } from './folder-state-helper.js';
 import { AppContext } from './contexts.js';
+import { toggleSelection, shiftToggleSelection, selectFiles, clearSelection } from './selection-state.js';
 
 let g_imageGridsRenderCount = 0;
 let g_renderCount = 0;
@@ -323,6 +324,7 @@ export default class ImageGrids extends React.Component<Props, State> {
     const on = this._listenerManager.on.bind(this._listenerManager);
     const eventBus = this._eventBus;
     on(eventBus, 'scrollToImage', this._handleScrollToImage);
+    on(eventBus, 'toggleSelection', this._handleToggleSelection);
 
     const actionListener = new ActionListener();
     this._actionListener = actionListener;
@@ -330,6 +332,8 @@ export default class ImageGrids extends React.Component<Props, State> {
     actionListener.on('gotoNext', this._gotoNext);
     actionListener.on('fastForward', this._gotoNext);
     actionListener.on('fastBackward', this._gotoPrev);
+    actionListener.on('selectAll', this._selectAllVisible);
+    actionListener.on('clearSelection', this._clearSelection);
     on(eventBus, 'action', this._actionListener.routeAction);
 
     this.context.eventBus.setForward(this._eventBus);
@@ -466,6 +470,80 @@ export default class ImageGrids extends React.Component<Props, State> {
   private _handleScrollToImage = (ndx: number, folderNdx: number): void => {
     this._logger('handleScrollToImage:', ndx, folderNdx);
     this._reactList?.scrollTo(folderNdx);
+  };
+
+  // Returns the flat ordered list of all filenames across all folders in this
+  // grid, in the same order they're rendered. Used by shift-range selection.
+  private _getOrderedFilenames(): string[] {
+    const result: string[] = [];
+    for (const folder of this.props.root.folders) {
+      for (const file of folder.files) {
+        result.push(file.info.filename);
+      }
+    }
+    return result;
+  }
+
+  private _handleToggleSelection = (
+    _event: ForwardableEvent,
+    filename: string,
+    shift: boolean,
+  ): void => {
+    if (shift) {
+      shiftToggleSelection(filename, this._getOrderedFilenames());
+    } else {
+      toggleSelection(filename);
+    }
+  };
+
+  // Returns filenames whose thumbnails currently overlap the viewport.
+  private _getVisibleFilenames(): string[] {
+    const result: string[] = [];
+    if (!this._imagegrids) return result;
+    const viewportTop = this._imagegrids.scrollTop;
+    const viewportBottom = viewportTop + this._imagegrids.clientHeight;
+    const gridMode = this.props.winState.gridMode;
+    const width = this._getWidth();
+    const options: GridOptions = {
+      padding: this.props.options.padding,
+      minColumnWidth: this._zoom(this.props.options.columnWidth),
+    };
+
+    let folderTop = 0;
+    for (const folder of this.props.root.folders) {
+      const gridHeight = computeFolderHeight(folder, gridMode, width, this._zoom, options);
+      const folderBottom = folderTop + g_folderHeaderHeight + gridHeight;
+
+      // Skip folders entirely above or below the viewport
+      if (folderBottom < viewportTop || folderTop > viewportBottom) {
+        folderTop = folderBottom;
+        continue;
+      }
+
+      const manager = gridModes.value(gridMode).helper(width, options);
+      const files = folder.files;
+      for (let ti = 0; ti < files.length; ti++) {
+        const info = (files[ti] as SortInfo).info;
+        const thumb = info.thumbnail;
+        const pos = manager.getPositionForElement(thumb.width, thumb.height);
+        const absTop = folderTop + g_folderHeaderHeight + pos.y;
+        const absBottom = absTop + pos.height;
+        if (absBottom >= viewportTop && absTop <= viewportBottom) {
+          result.push(info.filename);
+        }
+      }
+
+      folderTop = folderBottom;
+    }
+    return result;
+  }
+
+  private _selectAllVisible = (): void => {
+    selectFiles(this._getVisibleFilenames());
+  };
+
+  private _clearSelection = (): void => {
+    clearSelection();
   };
 
   private _scrollToRelativePosition = (pos: number): void => {

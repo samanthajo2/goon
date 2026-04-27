@@ -27,6 +27,7 @@ import KeyHelper from '../../lib/key-helper.js';
 import { Rect } from '../../lib/rect.js';
 import { DBFileInfo } from './folder-db.js';
 import {trashingFiles, subscribeTrashingFiles} from './trashing-state.js';
+import {isSelected, subscribeSelection} from './selection-state.js';
 
 // Small self-contained component that subscribes to trashing state changes,
 // keeping this separate avoids per-thumbnail subscriptions.
@@ -40,6 +41,39 @@ class TrashingOverlay extends React.Component<{filename: string}> {
   }
   render() {
     return trashingFiles.has(this.props.filename) ? <div className="trashing-overlay" /> : null;
+  }
+}
+
+// Checkbox in the upper-left of each thumbnail. Subscribes to selection state
+// and re-renders just itself when this file's selection changes.
+type SelectionCheckboxProps = {
+  filename: string;
+  onClick: (e: React.MouseEvent) => void;
+};
+class SelectionCheckbox extends React.Component<SelectionCheckboxProps> {
+  _unsubscribe?: () => void;
+  _wasChecked = false;
+  componentDidMount() {
+    this._wasChecked = isSelected(this.props.filename);
+    this._unsubscribe = subscribeSelection(() => {
+      const checked = isSelected(this.props.filename);
+      if (checked !== this._wasChecked) {
+        this._wasChecked = checked;
+        this.forceUpdate();
+      }
+    });
+  }
+  componentWillUnmount() {
+    this._unsubscribe?.();
+  }
+  render() {
+    const checked = isSelected(this.props.filename);
+    const className = checked ? 'thumb-check thumb-check-checked' : 'thumb-check';
+    return (
+      <div className={className} onClick={this.props.onClick}>
+        {checked ? '✓' : ''}
+      </div>
+    );
   }
 }
 
@@ -331,7 +365,7 @@ function renderName(props: ThumbnailProps, info: DBFileInfo) {
   return `${date}${name}${dims}`;
 }
 
-function renderNoFrame(props: ThumbnailProps, onClick: () => void, onContextMenu: (e: React.MouseEvent) => void, onDragStart: (e: React.DragEvent) => void, onPointerDown: () => void) {
+function renderNoFrame(props: ThumbnailProps, onClick: () => void, onContextMenu: (e: React.MouseEvent) => void, onDragStart: (e: React.DragEvent) => void, onPointerDown: () => void, onCheckboxClick: (e: React.MouseEvent) => void) {
   const info = props.info;
   const style = gridModes.value(props.gridMode).getStyle(props);
   const baseType = `mime-${info.type.split('/')[0]}`;
@@ -343,11 +377,12 @@ function renderNoFrame(props: ThumbnailProps, onClick: () => void, onContextMenu
       <div className="thumbinfo">
         <div className="name">{renderName(props, info)}</div>
       </div>
+      <SelectionCheckbox filename={info.filename} onClick={onCheckboxClick} />
       <TrashingOverlay filename={info.filename} />
     </div>
   );
 }
-function renderWithFrame(props: ThumbnailProps, onClick: () => void, onContextMenu: (e: React.MouseEvent) => void, onDragStart: (e: React.DragEvent) => void, onPointerDown: () => void) {
+function renderWithFrame(props: ThumbnailProps, onClick: () => void, onContextMenu: (e: React.MouseEvent) => void, onDragStart: (e: React.DragEvent) => void, onPointerDown: () => void, onCheckboxClick: (e: React.MouseEvent) => void) {
   const info = props.info;
   const pos = props.position;
   const style = gridModes.value(props.gridMode).getStyle(props);
@@ -368,6 +403,7 @@ function renderWithFrame(props: ThumbnailProps, onClick: () => void, onContextMe
         <div className="thumbinfo">
           <div className="name">{renderName(props, info)}</div>
         </div>
+        <SelectionCheckbox filename={info.filename} onClick={onCheckboxClick} />
         <TrashingOverlay filename={info.filename} />
       </div>
     </div>

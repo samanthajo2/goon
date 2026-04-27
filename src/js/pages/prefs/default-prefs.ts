@@ -145,7 +145,11 @@ const defaultPrefs: Preferences = {
     { keyCode:  55, action: 'splitVertical', },  // F7
     { keyCode:  56, action: 'deletePane', },  // F8
     { keyCode: 122, action: 'toggleFullscreen', }, // F11
-    { keyCode:  78, modifiers: 'm', action: 'newWindow', } // Cmd-M
+    { keyCode:  78, modifiers: 'm', action: 'newWindow', }, // Cmd-M
+    { keyCode:  65, modifiers: 'm', action: 'selectAll', },      // Cmd-A
+    { keyCode:  65, modifiers: 'c', action: 'selectAll', },      // Ctrl-A
+    { keyCode:  68, modifiers: 'm', action: 'clearSelection', }, // Cmd-D
+    { keyCode:  68, modifiers: 'c', action: 'clearSelection', }, // Ctrl-D
   ],
 };
 

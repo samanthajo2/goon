@@ -61,7 +61,24 @@ export default class Thumbnail extends React.PureComponent<Props> {
     ipcRenderer.send('dragStart', this.props.info.filename);
   };
 
+  private _handleCheckboxClick = (event: React.MouseEvent): void => {
+    event.stopPropagation();
+    event.preventDefault();
+    this.context.eventBus.dispatch(
+      new ForwardableEvent('toggleSelection'),
+      this.props.info.filename,
+      event.shiftKey,
+    );
+  };
+
   render(): React.ReactNode {
-    return gridModes.value(this.props.gridMode).render(this.props, this._viewImage, this._handleContextMenu, this._handleDragStart, this._handlePointerDown);
+    return gridModes.value(this.props.gridMode).render(
+      this.props,
+      this._viewImage,
+      this._handleContextMenu,
+      this._handleDragStart,
+      this._handlePointerDown,
+      this._handleCheckboxClick,
+    );
   }
 }
