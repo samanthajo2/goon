@@ -25,12 +25,11 @@ import * as win from '../../lib/window-commands.js';
 import React from 'react';
 import fs from 'fs';
 import path from 'path';
-import keycode from 'keycode';
 import '../../lib/stacktrace-log.js';
 import bind from '../../lib/bind.js';
 import debug from '../../lib/debug.js';
 import ListenerManager from '../../lib/listener-manager.js';
-import { eventToKeyInfo, keyInfoToId, keyInfoToString } from '../../lib/keyrouter.js';
+import { eventToAccelerator, acceleratorToDisplay, acceleratorToId, isModifierOnly } from '../../lib/keyrouter.js';
 import Modal from '../../lib/ui/modal.js';
 import { actions, ActionId } from '../../lib/actions.js';
 import { loadPrefs, Preferences, KeyConfig, ToolbarPosition } from './default-prefs.js';
@@ -54,11 +53,6 @@ type PrefsState = {
   saveError: boolean;
 };
 
-type KeyInfo = {
-  keyCode: number;
-  modifiers?: string;
-  action?: ActionId;
-};
 
 async function getFolders(): Promise<string[] | undefined> {
   const { canceled, filePaths } = await win.showOpenDialog({
@@ -189,10 +183,10 @@ const EnumSelector = ({ desc, items, item, onChange }: EnumSelectorProps): React
 // ---------- Key ----------
 
 type KeyProps = {
-  keyInfo: KeyInfo;
+  keyConfig: KeyConfig;
   dup: boolean;
   deleteKey: () => void;
-  setKeyCode: (keyInfo: KeyInfo) => void;
+  setAccelerator: (accelerator: string) => void;
   setKeyAction: (action: ActionId) => void;
 };
 
@@ -201,7 +195,7 @@ type KeyState = {
 };
 
 class Key extends React.Component<KeyProps, KeyState> {
-  private _oldKeyInfo?: KeyInfo;
+  private _oldAccelerator?: string;
 
   constructor(props: KeyProps) {
     super(props);
@@ -210,7 +204,7 @@ class Key extends React.Component<KeyProps, KeyState> {
   }
 
   _startKeyCapture(): void {
-    this._oldKeyInfo = cloneDeep(this.props.keyInfo);
+    this._oldAccelerator = this.props.keyConfig.accelerator;
     this.setState({ setKey: true });
     window.addEventListener('keydown', this._captureKey);
   }
@@ -218,7 +212,8 @@ class Key extends React.Component<KeyProps, KeyState> {
   _captureKey(event: KeyboardEvent): void {
     event.preventDefault();
     event.stopPropagation();
-    this.props.setKeyCode(eventToKeyInfo(event) as KeyInfo);
+    const accel = eventToAccelerator(event);
+    if (accel) this.props.setAccelerator(accel);
   }
 
   _setKeyCapture(): void {
@@ -226,8 +221,8 @@ class Key extends React.Component<KeyProps, KeyState> {
   }
 
   _abortKeyCapture(): void {
-    if (this._oldKeyInfo) {
-      this.props.setKeyCode(this._oldKeyInfo);
+    if (this._oldAccelerator !== undefined) {
+      this.props.setAccelerator(this._oldAccelerator);
     }
     this._stopKeyCapture();
   }
@@ -242,15 +237,16 @@ class Key extends React.Component<KeyProps, KeyState> {
   }
 
   render(): React.ReactNode {
-    const { keyInfo, dup, deleteKey } = this.props;
+    const { keyConfig, dup, deleteKey } = this.props;
     const classes = new CSSArray('key');
     classes.addIf(dup, 'dup');
+    const display = acceleratorToDisplay(keyConfig.accelerator);
 
     const setKeyDialog = this.state.setKey ? (
       <Modal>
         <div className="keypress">
           <div>Press A Key</div>
-          <div>Key: {keyInfoToString(keyInfo as Parameters<typeof keyInfoToString>[0])}</div>
+          <div>Key: {display}</div>
           <button type="button" onClick={this._setKeyCapture}>Set</button>
           <button type="button" onClick={this._abortKeyCapture}>Cancel</button>
         </div>
@@ -261,8 +257,8 @@ class Key extends React.Component<KeyProps, KeyState> {
       <div className={classes.toString()}>
         {setKeyDialog}
         <div>
-          <div className="keycode" onClick={this._startKeyCapture}>{keyInfoToString(keyInfo as Parameters<typeof keyInfoToString>[0])}</div>
-          <ActionSelector items={actions} item={keyInfo.action ?? 'noop'} onChange={this._setAction} />
+          <div className="keycode" onClick={this._startKeyCapture}>{display}</div>
+          <ActionSelector items={actions} item={keyConfig.action ?? 'noop'} onChange={this._setAction} />
         </div>
         <button type="button" onClick={this._startKeyCapture}>Set</button>
         <button type="button" onClick={() => { deleteKey(); }}>Del</button>
@@ -271,35 +267,6 @@ class Key extends React.Component<KeyProps, KeyState> {
   }
 }
 
-// ---------- helpers ----------
-
-function modifiersToString(keyInfo: KeyInfo): string[] {
-  const mods = keyInfo.modifiers;
-  const parts: string[] = [];
-  if (mods) {
-    if (mods.indexOf('c') >= 0) parts.push('ctrl');
-    if (mods.indexOf('a') >= 0) parts.push('alt');
-    if (mods.indexOf('s') >= 0) parts.push('shift');
-    if (mods.indexOf('m') >= 0) parts.push('meta');
-  }
-  return parts;
-}
-
-const s_keySubs: Record<string, string> = {
-  'left command': 'meta',
-  'right command': 'meta',
-};
-
-function getKeyname(keyInfo: KeyInfo): string {
-  const name = keycode(keyInfo.keyCode) as string;
-  return s_keySubs[name] || name;
-}
-
-const s_mods: Record<string, boolean> = { shift: true, ctrl: true, alt: true, meta: true };
-
-function isMod(keyInfo: KeyInfo): boolean {
-  return !!s_mods[getKeyname(keyInfo)];
-}
 
 const s_toolbarPositionModes: Record<ToolbarPosition, EnumItem> = {
   top:        { desc: 'top' },
@@ -330,7 +297,7 @@ export default class Prefs extends React.Component<PrefsProps, PrefsState> {
       '_setFolder',
       '_deleteFolder',
       '_addKey',
-      '_setKeyCode',
+      '_setAccelerator',
       '_setKeyAction',
       '_deleteKey',
       '_setPassword',
@@ -506,7 +473,7 @@ export default class Prefs extends React.Component<PrefsProps, PrefsState> {
   _addKey(): void {
     const prefs = this.state.prefs;
     this._updateState({
-      prefs: { ...prefs, keyConfig: [...prefs.keyConfig, { keyCode: 0, action: 'noop' as ActionId }] },
+      prefs: { ...prefs, keyConfig: [...prefs.keyConfig, { accelerator: '', action: 'noop' as ActionId }] },
     });
   }
 
@@ -517,10 +484,10 @@ export default class Prefs extends React.Component<PrefsProps, PrefsState> {
     this._updateState({ prefs: { ...prefs, keyConfig: keys } });
   }
 
-  _setKeyCode(ndx: number, keyInfo: KeyInfo): void {
+  _setAccelerator(ndx: number, accelerator: string): void {
     const prefs = this.state.prefs;
     const keys = [...prefs.keyConfig];
-    keys[ndx] = { ...keys[ndx], ...keyInfo } as KeyConfig;
+    keys[ndx] = { ...keys[ndx], accelerator };
     this._updateState({ prefs: { ...prefs, keyConfig: keys } });
   }
 
@@ -532,44 +499,44 @@ export default class Prefs extends React.Component<PrefsProps, PrefsState> {
 
   _makeKeys(): React.ReactNode[] {
     const prefs = this.state.prefs;
+    // Duplicate detection: two bindings with the same canonical accelerator id
+    // are flagged. Modifier-only bindings are also flagged when a non-modifier
+    // binding uses that modifier (e.g. binding 'Shift' as a key while 'Shift+A'
+    // is also bound is ambiguous).
     const counts: Record<string, number> = {};
-    const keynames: Record<string, number> = {};
-    const usedMods: Record<string, number> = {};
+    const modifierKeysAsKey: Record<string, number> = {};
 
-    prefs.keyConfig.forEach((keyInfo) => {
-      const id = keyInfoToId({ ...keyInfo, modifiers: keyInfo.modifiers ?? '' });
-      const keyname = getKeyname(keyInfo);
-      const mods = modifiersToString(keyInfo);
+    prefs.keyConfig.forEach((cfg) => {
+      if (!cfg.accelerator) return;
+      const id = acceleratorToId(cfg.accelerator);
       counts[id] = 1 + (counts[id] || 0);
-      keynames[keyname] = 1 + (keynames[keyname] || 0);
-      for (const mod of mods) {
-        if (mod !== keyname) {
-          usedMods[mod] = 1 + (usedMods[mod] || 0);
-        }
+      if (isModifierOnly(cfg.accelerator)) {
+        modifierKeysAsKey[cfg.accelerator] = 1 + (modifierKeysAsKey[cfg.accelerator] || 0);
       }
     });
 
-    const isOneOfOurModsAssignedAsKey = (keyInfo: KeyInfo): boolean => {
-      for (const mod of modifiersToString(keyInfo)) {
-        if (keynames[mod]) return true;
-      }
+    const usesConflictingModifier = (accel: string): boolean => {
+      // If this binding uses Shift/Ctrl/etc. as a modifier and another binding
+      // uses that same modifier as a standalone key, flag it.
+      if (modifierKeysAsKey['Shift'] && /\bShift\+/.test(accel)) return true;
+      if (modifierKeysAsKey['Control'] && /\bControl\+/.test(accel)) return true;
+      if (modifierKeysAsKey['Alt'] && /\bAlt\+/.test(accel)) return true;
+      if (modifierKeysAsKey['Meta'] && /\bMeta\+/.test(accel)) return true;
       return false;
     };
 
-    return prefs.keyConfig.map((keyInfo, ndx) => {
-      const id = keyInfoToId({ ...keyInfo, modifiers: keyInfo.modifiers ?? '' });
-      const dup = counts[id] > 1;
-      const modDup = isMod(keyInfo)
-        ? usedMods[getKeyname(keyInfo)]
-        : isOneOfOurModsAssignedAsKey(keyInfo);
+    return prefs.keyConfig.map((cfg, ndx) => {
+      const id = cfg.accelerator ? acceleratorToId(cfg.accelerator) : '';
+      const dup = id ? counts[id] > 1 : false;
+      const modDup = !isModifierOnly(cfg.accelerator) && usesConflictingModifier(cfg.accelerator);
       return (
         <Key
           key={`key-${ndx}`}  // eslint-disable-line
-          dup={!!(dup || modDup)}
-          keyInfo={keyInfo}
-          setKeyCode={(...args) => { this._setKeyCode(ndx, ...args); }}
-          setKeyAction={(...args) => { this._setKeyAction(ndx, ...args); }}
-          deleteKey={(...args) => { this._deleteKey(ndx, ...args); }}
+          dup={dup || modDup}
+          keyConfig={cfg}
+          setAccelerator={(accel) => { this._setAccelerator(ndx, accel); }}
+          setKeyAction={(action) => { this._setKeyAction(ndx, action); }}
+          deleteKey={() => { this._deleteKey(ndx); }}
         />
       );
     });

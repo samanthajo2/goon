@@ -480,6 +480,21 @@ function App({ options, startState }: Props): React.ReactElement | null {
     actionListener.on('newWindow', () => { ipcRenderer.send('openWindow', 'view'); });
     actionListener.on('showHelp', () => { ipcRenderer.send('openWindow', 'help'); });
     actionListener.on('refreshFolders', () => { eventBus.dispatch(new ForwardableEvent('refreshFolders')); });
+    actionListener.on('trashSelected', () => {
+      const sel = getSelected();
+      if (sel.size === 0) return;
+      // Find the FileInfo of the first selected file and dispatch deleteFile.
+      // The deleteFile handler already detects multi-select and uses the whole set.
+      const firstFilename = sel.values().next().value as string;
+      for (const folder of rootRef.current.folders) {
+        for (const file of folder.files) {
+          if (file.info.filename === firstFilename) {
+            eventBus.dispatch(new ForwardableEvent('deleteFile'), file.info as unknown as DBFileInfo);
+            return;
+          }
+        }
+      }
+    });
 
     // ipcRenderer action routing
     const handleIpcAction = (_event: unknown, actionId: ActionId) => {
@@ -517,7 +532,7 @@ function App({ options, startState }: Props): React.ReactElement | null {
   // ── Update key bindings when prefs arrive ──────────────────────────
   useEffect(() => {
     if (prefsReceived) {
-      keyRouter.registerKeys(prefs.keyConfig as never);
+      keyRouter.registerKeys(prefs.keyConfig ?? []);
       logger('prefs:', JSON.stringify(prefs));
     }
   }, [prefs, prefsReceived, keyRouter, logger]);

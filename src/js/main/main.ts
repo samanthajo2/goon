@@ -34,6 +34,8 @@ import appdata from '../lib/appdata.js';
 import * as utils from '../lib/utils.js';
 import { getFreePort } from '../lib/get-free-port.js';
 import {loadPrefs, Preferences} from '../pages/prefs/default-prefs.js';
+import { actionAccelerator } from './menu-accelerator.js';
+import { actions, type ActionId } from '../lib/actions.js';
 import {
   isTitlebarOnAtLeastOneDisplay,
   putWindowOnNearestDisplay,
@@ -311,6 +313,13 @@ function updatePrefs(newPrefs: Preferences) {
   prefs = newPrefs;
 
   setupFolderRouter();
+
+  // Rebuild menus so accelerators reflect the latest keybindings.
+  // Skip on initial call (before the app has finished starting) — start() will
+  // call setupMenus() itself.
+  if (electron.app.isReady() && electron.Menu.getApplicationMenu()) {
+    setupMenus();
+  }
 
   if (prefs.misc.enableWeb) {
     startWebServer();
@@ -710,195 +719,129 @@ function setupPasswordMenus() {
 }
 
 function setupMenus() {
-  const fileMenuTemplate: Electron.MenuItemConstructorOptions = {
-    label: 'File',
-    submenu: [
-      {
-        label: 'New Window',
-        accelerator: 'CmdOrCtrl-N',
-        click() {
-          createWindow();
-        },
-      },
-      {
-        label: 'Close Window',
-        accelerator: isOSX ? 'Cmd-W' : 'Alt-F4',
-        click(item, focusedWindow) {
-          (focusedWindow as BrowserWindow).close();
-        },
-      },
-    ],
-  };
+  // Helper to make a menu item that dispatches an app action to the focused window.
+  // Label defaults to actions[id].desc; accelerator is looked up from the user's
+  // keyConfig so menus reflect the current bindings.
+  const actionItem = (
+    actionId: ActionId,
+    extra?: Partial<Electron.MenuItemConstructorOptions>,
+  ): Electron.MenuItemConstructorOptions => ({
+    label: actions[actionId].desc,
+    accelerator: actionAccelerator(actionId, prefs.keyConfig),
+    click(_item, focusedWindow) {
+      if (focusedWindow) {
+        sendAction((focusedWindow as BrowserWindow).webContents, actionId);
+      }
+    },
+    ...extra,
+  });
 
-  const menuTemplate: Electron.MenuItemConstructorOptions[] = [
-    fileMenuTemplate,
+  const editSubmenu: Electron.MenuItemConstructorOptions[] = [
+    { label: 'Undo', accelerator: 'CmdOrCtrl+Z', role: 'undo' },
+    { label: 'Redo', accelerator: 'Shift+CmdOrCtrl+Z', role: 'redo' },
+    { type: 'separator' },
+    { label: 'Cut', accelerator: 'CmdOrCtrl+X', role: 'cut' },
+    { label: 'Copy', accelerator: 'CmdOrCtrl+C', role: 'copy' },
+    { label: 'Paste', accelerator: 'CmdOrCtrl+V', role: 'paste' },
+    { type: 'separator' },
+    actionItem('selectAll'),
+    actionItem('clearSelection'),
+    { type: 'separator' },
+    actionItem('trashSelected'),
+  ];
+
+  const viewSubmenu: Electron.MenuItemConstructorOptions[] = [
     {
-      label: 'Edit',
-      submenu: [
-        { label: 'Undo', accelerator: 'CmdOrCtrl+Z', role: 'undo' },
-        { label: 'Redo', accelerator: 'Shift+CmdOrCtrl+Z', role: 'redo' },
-        { type: 'separator' },
-        { label: 'Cut', accelerator: 'CmdOrCtrl+X', role: 'cut' },
-        { label: 'Copy', accelerator: 'CmdOrCtrl+C', role: 'copy' },
-        { label: 'Paste', accelerator: 'CmdOrCtrl+V', role: 'paste' },
-        { label: 'Select All', accelerator: 'CmdOrCtrl+A', role: 'selectAll' },
-      ]
+      label: 'Reload',
+      accelerator: 'CmdOrCtrl+R',
+      click(_item, focusedWindow) {
+        if (focusedWindow) (focusedWindow as BrowserWindow).reload();
+      },
+    },
+    { type: 'separator' },
+    actionItem('zoomIn'),
+    actionItem('zoomOut'),
+    { type: 'separator' },
+    actionItem('splitHorizontal'),
+    actionItem('splitVertical'),
+    actionItem('deletePane'),
+    { type: 'separator' },
+    actionItem('rotate'),
+    actionItem('cycleGridMode'),
+    actionItem('cycleSortMode'),
+    { type: 'separator' },
+    actionItem('refreshFolders'),
+    { type: 'separator' },
+    {
+      label: 'Toggle Developer Tools',
+      accelerator: isOSX ? 'Alt+Command+I' : 'Ctrl+Shift+I',
+      click(_item, focusedWindow) {
+        if (focusedWindow) (focusedWindow as BrowserWindow).webContents.toggleDevTools();
+      },
     },
     {
-      label: 'View',
-      submenu: [
-        {
-          label: 'Reload',
-          accelerator: 'CmdOrCtrl+R',
-          click(item, focusedWindow) {
-            if (focusedWindow) (focusedWindow as BrowserWindow).reload();
-          }
-        },
-        {
-          label: 'Toggle Full Screen',
-          click(item, focusedWindow) {
-            if (focusedWindow) {
-              sendAction((focusedWindow as BrowserWindow).webContents, 'toggleFullscreen');
-            }
-          }
-        },
-        {
-          label: 'Toggle Developer Tools',
-          click(item, focusedWindow) {
-            if (focusedWindow) {
-              (focusedWindow as BrowserWindow).webContents.toggleDevTools();
-            }
-          }
-        },
-        {
-          label: 'Toggle Thumber Developer Tools',
-          click() {
-            if (oneOfAKindWindows.thumber) {
-              oneOfAKindWindows.thumber.webContents.toggleDevTools();
-            }
-          }
-        },
-      ]
-    },
-    {
-      label: 'Window',
-      role: 'window',
-      submenu: [
-        {
-          label: 'Minimize',
-          accelerator: 'CmdOrCtrl+M',
-          role: 'minimize'
-        },
-        {
-          label: 'Toggle Full Screen',
-          click(item, focusedWindow) {
-            if (focusedWindow) {
-              sendAction((focusedWindow as BrowserWindow).webContents, 'toggleFullscreen');
-            }
-          }
-        },
-        {
-          label: 'New Window',
-          click() {
-            createWindow();
-          },
-        },
-        {
-          label: 'Close',
-          accelerator: 'CmdOrCtrl+W',
-          role: 'close'
-        },
-      ]
-    },
-    {
-      label: 'Help',
-      role: 'help',
-      submenu: [
-        {
-          label: 'Learn More',
-          click: createHelpWindow,
-        },
-      ]
+      label: 'Toggle Thumber Developer Tools',
+      click() {
+        if (oneOfAKindWindows.thumber) {
+          oneOfAKindWindows.thumber.webContents.toggleDevTools();
+        }
+      },
     },
   ];
 
+  const windowSubmenu: Electron.MenuItemConstructorOptions[] = [
+    { label: 'Minimize', accelerator: 'CmdOrCtrl+M', role: 'minimize' },
+    actionItem('toggleFullscreen'),
+    actionItem('newWindow'),
+    { label: 'Close', accelerator: 'CmdOrCtrl+W', role: 'close' },
+  ];
+
+  const helpSubmenu: Electron.MenuItemConstructorOptions[] = [
+    { label: 'Learn More', click: createHelpWindow },
+  ];
+
+  const menuTemplate: Electron.MenuItemConstructorOptions[] = [];
+
   if (isOSX) {
     const name = electron.app.name;
-    menuTemplate.unshift({
+    menuTemplate.push({
       label: name,
       submenu: [
-        {
-          label: `About ${name}`,
-          click: createHelpWindow,
-        },
-        {
-          label: 'Check for Updates...',
-          click: createUpdateWindow,
-        },
-        {
-          label: 'Preferences...',
-          click: createPreferencesWindow,
-        },
-        {
-          type: 'separator'
-        },
-        {
-          label: 'Services',
-          role: 'services',
-          submenu: []
-        },
-        {
-          type: 'separator'
-        },
-        {
-          label: `Hide ${name}`,
-          accelerator: 'Command+H',
-          role: 'hide'
-        },
-        {
-          label: 'Hide Others',
-          accelerator: 'Command+Alt+H',
-          role: 'hideOthers'
-        },
-        {
-          label: 'Show All',
-          role: 'unhide'
-        },
-        {
-          type: 'separator'
-        },
-        {
-          label: 'Quit',
-          accelerator: 'Command+Q',
-          click() { app.quit(); }
-        },
-      ]
+        { label: `About ${name}`, click: createHelpWindow },
+        { label: 'Check for Updates...', click: createUpdateWindow },
+        { label: 'Preferences...', click: createPreferencesWindow },
+        { type: 'separator' },
+        { label: 'Services', role: 'services', submenu: [] },
+        { type: 'separator' },
+        { label: `Hide ${name}`, accelerator: 'Command+H', role: 'hide' },
+        { label: 'Hide Others', accelerator: 'Command+Alt+H', role: 'hideOthers' },
+        { label: 'Show All', role: 'unhide' },
+        { type: 'separator' },
+        { label: 'Quit', accelerator: 'Command+Q', click() { app.quit(); } },
+      ],
+    });
+  } else {
+    // Windows/Linux: a File menu replaces the missing Mac App menu.
+    menuTemplate.push({
+      label: 'File',
+      submenu: [
+        actionItem('newWindow'),
+        { type: 'separator' },
+        { label: 'Preferences...', click: createPreferencesWindow },
+        { label: 'Check for Updates...', click: createUpdateWindow },
+        { type: 'separator' },
+        { label: 'Close Window', accelerator: 'Alt+F4', click(_i, w) { (w as BrowserWindow)?.close(); } },
+        { label: 'Quit', accelerator: 'Ctrl+Q', click() { app.quit(); } },
+      ],
     });
   }
 
-  if (!isOSX) {
-    (fileMenuTemplate.submenu! as Electron.MenuItemConstructorOptions[]).push(
-      {
-        type: 'separator',
-      },
-      {
-        label: 'Check for Updates...',
-        click: createUpdateWindow,
-      },
-      {
-        label: 'Preferences...',
-        click: createPreferencesWindow,
-      },
-      {
-        type: 'separator'
-      },
-      {
-        label: 'Quit',
-        accelerator: 'Command+Q',
-        click() { app.quit(); }
-      },
-    );
-  }
+  menuTemplate.push(
+    { label: 'Edit', submenu: editSubmenu },
+    { label: 'View', submenu: viewSubmenu },
+    { label: 'Window', role: 'window', submenu: windowSubmenu },
+    { label: 'Help', role: 'help', submenu: helpSubmenu },
+  );
 
   const menu = electron.Menu.buildFromTemplate(menuTemplate);
   electron.Menu.setApplicationMenu(menu);

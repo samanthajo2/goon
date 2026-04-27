@@ -23,9 +23,10 @@ import hjson from 'hjson';
 import { ActionId } from '../../lib/actions.js';
 import { cloneDeep } from '../../lib/utils.js';
 
+// An Electron-style accelerator string, e.g. 'F6', 'CommandOrControl+A',
+// 'Cmd+Shift+Z', 'Tab'. See https://www.electronjs.org/docs/api/accelerator
 export type KeyConfig = {
-  keyCode: number,
-  modifiers?: string,
+  accelerator: string,
   action: ActionId,
 };
 
@@ -109,47 +110,45 @@ const defaultPrefs: Preferences = {
     'default': 5,
   },
   keyConfig: [
-    { keyCode:  27, action: 'closeViewer', },  // esc
-    { keyCode: 112, action: 'zoomIn', },  // F1
-    { keyCode: 113, action: 'zoomOut', },  // F2
-    { keyCode:  76, action: 'setLoop', },
-    { keyCode:  16, modifiers: 's', action: 'gotoPrev', }, // left-shift
-    { keyCode: 219, action: 'gotoPrev', },  // [
-    { keyCode:  17, modifiers: 'c', action: 'gotoNext', },  // left control
-    { keyCode: 221, action: 'gotoNext', },  // ]
-    { keyCode: 220, action: 'gotoNext', },  // \|
-    { keyCode:  80, action: 'togglePlay', }, // p
-    { keyCode:   9, action: 'fastForward', },   // tab
-    { keyCode:  81, action: 'fastForward', },   // q
-    { keyCode:  39, action: 'fastForward', },   // right
-    { keyCode:  37, action: 'fastBackward', },  // left
-    { keyCode: 192, action: 'fastBackward', },  // tilda
-    { keyCode:  87, action: 'fastBackward', },  // w
-    { keyCode:  38, action: 'scrollUp', },  // up
-    { keyCode:  40, action: 'scrollDown', },  // down
-    { keyCode:  49, action: 'setPlaybackSpeed1', },  // 1  1
-    { keyCode:  50, action: 'setPlaybackSpeed2', },  // 2  0.66
-    { keyCode:  51, action: 'setPlaybackSpeed3', },  // 3  0.5
-    { keyCode:  52, action: 'setPlaybackSpeed4', },  // 4  0.33
-    { keyCode:  53, action: 'setPlaybackSpeed5', },  // 5  0.25
-    { keyCode:  83, action: 'toggleSlideshow', }, // S
-    { keyCode: 191, action: 'rotate', },  // /  rotate
-    { keyCode:  65, action: 'rotate', },  // a  rotate
-    { keyCode:  88, action: 'rotate', },  // x  rotate
-    { keyCode: 190, action: 'changeStretchMode', },  // . stretch
-    { keyCode:  90, action: 'changeStretchMode', },  // z stretch
-    { keyCode: 114, action: 'nextView', },  // F3
-    { keyCode: 115, action: 'prevView', },  // F4
-    { keyCode: 116, action: 'toggleUI', },  // F5
-    { keyCode:  54, action: 'splitHorizontal', },  // F6
-    { keyCode:  55, action: 'splitVertical', },  // F7
-    { keyCode:  56, action: 'deletePane', },  // F8
-    { keyCode: 122, action: 'toggleFullscreen', }, // F11
-    { keyCode:  78, modifiers: 'm', action: 'newWindow', }, // Cmd-M
-    { keyCode:  65, modifiers: 'm', action: 'selectAll', },      // Cmd-A
-    { keyCode:  65, modifiers: 'c', action: 'selectAll', },      // Ctrl-A
-    { keyCode:  68, modifiers: 'm', action: 'clearSelection', }, // Cmd-D
-    { keyCode:  68, modifiers: 'c', action: 'clearSelection', }, // Ctrl-D
+    { accelerator: 'Escape',                  action: 'closeViewer' },
+    { accelerator: 'F1',                      action: 'zoomIn' },
+    { accelerator: 'F2',                      action: 'zoomOut' },
+    { accelerator: 'L',                       action: 'setLoop' },
+    { accelerator: 'Shift',                   action: 'gotoPrev' },
+    { accelerator: '[',                       action: 'gotoPrev' },
+    { accelerator: 'Control',                 action: 'gotoNext' },
+    { accelerator: ']',                       action: 'gotoNext' },
+    { accelerator: '\\',                      action: 'gotoNext' },
+    { accelerator: 'P',                       action: 'togglePlay' },
+    { accelerator: 'Tab',                     action: 'fastForward' },
+    { accelerator: 'Q',                       action: 'fastForward' },
+    { accelerator: 'Right',                   action: 'fastForward' },
+    { accelerator: 'Left',                    action: 'fastBackward' },
+    { accelerator: '`',                       action: 'fastBackward' },
+    { accelerator: 'W',                       action: 'fastBackward' },
+    { accelerator: 'Up',                      action: 'scrollUp' },
+    { accelerator: 'Down',                    action: 'scrollDown' },
+    { accelerator: '1',                       action: 'setPlaybackSpeed1' },
+    { accelerator: '2',                       action: 'setPlaybackSpeed2' },
+    { accelerator: '3',                       action: 'setPlaybackSpeed3' },
+    { accelerator: '4',                       action: 'setPlaybackSpeed4' },
+    { accelerator: '5',                       action: 'setPlaybackSpeed5' },
+    { accelerator: 'S',                       action: 'toggleSlideshow' },
+    { accelerator: '/',                       action: 'rotate' },
+    { accelerator: 'A',                       action: 'rotate' },
+    { accelerator: 'X',                       action: 'rotate' },
+    { accelerator: '.',                       action: 'changeStretchMode' },
+    { accelerator: 'Z',                       action: 'changeStretchMode' },
+    { accelerator: 'F3',                      action: 'nextView' },
+    { accelerator: 'F4',                      action: 'prevView' },
+    { accelerator: 'F5',                      action: 'toggleUI' },
+    { accelerator: '6',                       action: 'splitHorizontal' },
+    { accelerator: '7',                       action: 'splitVertical' },
+    { accelerator: '8',                       action: 'deletePane' },
+    { accelerator: 'F11',                     action: 'toggleFullscreen' },
+    { accelerator: 'CommandOrControl+N',      action: 'newWindow' },
+    { accelerator: 'CommandOrControl+A',      action: 'selectAll' },
+    { accelerator: 'CommandOrControl+D',      action: 'clearSelection' },
   ],
 };
 
