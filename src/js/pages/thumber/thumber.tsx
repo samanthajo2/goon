@@ -270,7 +270,12 @@ function start(args: ProgOptions) {
         stream.send('trashFailed', filePath, String(err));
       }
     });
-    g.thumbnailManager.sendAll(stream);
+    // Pull-based init: the renderer asks for the current snapshot once it
+    // has its 'updateFiles' listener attached. Pushing on connect would race
+    // the renderer's listener wiring (which happens in a React effect).
+    stream.on('requestAll', () => {
+      g.thumbnailManager.sendAll(stream);
+    });
   });
   window.addEventListener('beforeunload', () => {
     targets.slice().forEach((target) => {

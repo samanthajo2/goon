@@ -133,6 +133,10 @@ export function useFolderPipeline({
       folderDBRef.current.updateFiles(folders as never);
     };
     thumberStream.on('updateFiles', addFilesToFolderDB);
+    // Now that the listener is attached, ask the thumber for the current
+    // snapshot. This avoids a race where pushing on connect would arrive
+    // before this effect runs.
+    thumberStream.send('requestAll');
     return () => {
       thumberStream.removeListener('updateFiles', addFilesToFolderDB);
     };
