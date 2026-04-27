@@ -26,6 +26,7 @@ import { ipcRenderer } from '../../lib/electron-imports.js';
 import debug from '../../lib/debug.js';
 import VPair from './vpair.js';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher.js';
+import ForwardableEvent from '../../lib/forwardable-event.js';
 import type { AppEventMap } from './app-event-map.js';
 import ActionEvent from '../../lib/action-event.js';
 import ActionListener from '../../lib/action-listener.js';
@@ -594,7 +595,14 @@ export default class ViewSplit extends React.Component<Props, State> {
   private _deletePane = (fe: any): void => {
     fe.stopPropagation();
     const leaf = this._getCurrentLeaf();
-    if (!leaf || allLeaves(this._treeRoot).length <= 1) return;
+    if (!leaf) return;
+    if (allLeaves(this._treeRoot).length <= 1) {
+      // Last pane: if it's showing the Viewer, switch back to ImageGrids.
+      if (this._currentView) {
+        this._currentView.getEventBus().dispatch(new ForwardableEvent('hide'));
+      }
+      return;
+    }
     const { root, neighborLeaf } = deleteLeaf(this._treeRoot, leaf);
     this._treeRoot = root;
     this._currentLeafId = neighborLeaf.id;
