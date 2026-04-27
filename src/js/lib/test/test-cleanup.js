@@ -19,16 +19,18 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import nodeCleanup from 'node-cleanup';   
-
 const funcs = [];
 
-nodeCleanup(() => {
+function runCleanup() {
   while (funcs.length) {
     const fn = funcs.pop();
-    fn();
+    try { fn(); } catch { /* swallow — best-effort cleanup */ }
   }
-});
+}
+
+process.on('exit', runCleanup);
+process.on('SIGINT', () => { runCleanup(); process.exit(130); });
+process.on('SIGTERM', () => { runCleanup(); process.exit(143); });
 
 function register(fn) {
   funcs.push(fn);
