@@ -350,7 +350,14 @@ export default class ImageGrids extends React.Component<Props, State> {
       if (initialAnchor && initialAnchor.folderName) {
         this._pendingScrollAnchor = initialAnchor;
         setRAF(() => { this._tryRestoreScrollAnchor(); }, 2);
-      } else if (initialAnchor && this._folders) {
+      } else if (
+        initialAnchor &&
+        this._folders &&
+        initialAnchor.folderIndex >= 0 &&
+        initialAnchor.folderIndex < this._folders.length &&
+        initialAnchor.fileIndex >= 0 &&
+        initialAnchor.fileIndex < this._folders[initialAnchor.folderIndex].folder.files.length
+      ) {
         const zoom = this._zoom;
         const options = {
           padding: this.props.options.padding,

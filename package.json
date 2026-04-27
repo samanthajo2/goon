@@ -36,6 +36,8 @@
     "clean": "rimraf out",
     "start": "node tools/launch.js development",
     "startp": "node tools/launch.js production",
+    "start-test": "node tools/run-with-test-data.js",
+    "clean-test-runs": "node tools/clean-test-runs.js",
     "unit-tests": "mocha --node-option enable-source-maps --import ./test/register-electron-mock.js --recursive out/**/*.test.js",
     "integration-tests": "mocha --node-option enable-source-maps --recursive test/integration/**/*.test.js",
     "lint": "eslint . --max-warnings 0",

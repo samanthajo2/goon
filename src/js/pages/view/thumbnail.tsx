@@ -24,6 +24,7 @@ import { ipcRenderer } from '../../lib/electron-imports.js';
 import ForwardableEvent from '../../lib/forwardable-event.js';
 import gridModes, { ThumbnailProps } from './grid-modes.js';
 import { AppContext } from './contexts.js';
+import { isSelected, getSelected } from './selection-state.js';
 
 type Props = ThumbnailProps & {
   count: number;
@@ -58,7 +59,14 @@ export default class Thumbnail extends React.PureComponent<Props> {
     const domEvent = (event instanceof DragEvent) ? event : event.nativeEvent;
     domEvent.preventDefault();
     this._draggedSincePointerDown = true;
-    ipcRenderer.send('dragStart', this.props.info.filename);
+    const filename = this.props.info.filename;
+    // If the dragged item is part of the selection, drag the whole selection.
+    // Otherwise drag just this one file (matches Finder/Explorer behavior).
+    if (isSelected(filename) && getSelected().size > 1) {
+      ipcRenderer.send('dragStart', Array.from(getSelected()));
+    } else {
+      ipcRenderer.send('dragStart', filename);
+    }
   };
 
   private _handleCheckboxClick = (event: React.MouseEvent): void => {

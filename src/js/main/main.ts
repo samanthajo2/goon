@@ -257,8 +257,14 @@ ipcMain.on('showItemInFolder', (_event, fullPath) => {
 ipcMain.on('openPath', (_event, fullPath) => {
   shell.openPath(fullPath);
 });
-ipcMain.on('dragStart', (event, file) => {
-  event.sender.startDrag({ file, icon: dragIcon });
+ipcMain.on('dragStart', (event, fileOrFiles: string | string[]) => {
+  if (Array.isArray(fileOrFiles) && fileOrFiles.length > 0) {
+    // The TS type requires `file` even when `files` is used; pass the first as the fallback.
+    event.sender.startDrag({ file: fileOrFiles[0], files: fileOrFiles, icon: dragIcon });
+  } else {
+    const file = Array.isArray(fileOrFiles) ? fileOrFiles[0] : fileOrFiles;
+    event.sender.startDrag({ file, icon: dragIcon });
+  }
 });
 ipcMain.handle('deleteFile', async (_event, filename: string) => {
   await fs.promises.unlink(filename);

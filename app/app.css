@@ -1063,6 +1063,53 @@ div::-webkit-scrollbar-corner {
         } /* .msg */
     }
 
+    .delete-prompt {
+        min-width: 500px;
+    }
+    .delete-list {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        background: #444;
+        margin-bottom: 1em;
+        padding: 4px;
+        max-height: 60vh;
+    }
+    .delete-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px;
+        border-bottom: 1px solid #555;
+    }
+    .delete-item:last-child {
+        border-bottom: none;
+    }
+    .delete-item-archive {
+        opacity: 0.6;
+    }
+    .delete-thumb-cell {
+        width: 64px;
+        height: 64px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #444;
+    }
+    .delete-thumb {
+        flex-shrink: 0;
+    }
+    .delete-name {
+        flex: 1 1 auto;
+        word-break: break-all;
+        font-size: smaller;
+    }
+    .delete-tag {
+        color: #f88;
+        font-weight: bold;
+        margin-right: 4px;
+    }
+
     .dialog {
         max-width: 600px;
         max-height: 80vh;
