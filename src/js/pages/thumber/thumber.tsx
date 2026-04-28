@@ -203,6 +203,15 @@ function start(args: ProgOptions) {
     //g.dirsToPrefixMap = Object.entries(utils.dirsToPrefixMap(dirs))
     //  .sort((a, b) => Math.sign(b.length - a.length));
     g.thumbnailManager.setFolders(utils.removeChildFolders(utils.filterNonExistingDirs(dirs)), isPrefs);
+    // setFolders may have populated freshly-added folders entirely from
+    // cache. The watchers won't refire `files` events in that case, so any
+    // already-connected target that issued `requestAll` before prefs
+    // arrived would still see an empty view. Push the current snapshot
+    // explicitly to all targets to close that race.
+    // (`targets` is declared further down — fine at runtime because
+    //  updatePrefs only runs after prefs arrive, well after init.)
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
+    targets.forEach((target) => g.thumbnailManager.sendAll(target));
   }
 
   function refreshFolders() {
