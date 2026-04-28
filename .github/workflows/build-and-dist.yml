@@ -68,6 +68,7 @@ jobs:
         with:
           path: |
             ./dist/Goon*.dmg
+            ./dist/Goon*.zip
             ./dist/Goon*.exe
             ./dist/Goon*.AppImage
           name: Goon-${{ matrix.config.artifact }}.${{ matrix.config.ext }}
@@ -78,6 +79,7 @@ jobs:
         with:
           files: |
             ./dist/Goon*.dmg
+            ./dist/Goon*.zip
             ./dist/Goon*.exe
             ./dist/Goon*.AppImage
             ./dist/Goon*.snap

@@ -20,10 +20,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import { ipcMain, type WebContents } from './electron-imports.js';
-import { autoUpdater } from './electron-main-imports.js';
+import { autoUpdater } from '../main/auto-update.js';
 
 let g_webContent: WebContents | undefined;
-let g_checkDate: number | undefined;
 
 ([
   'error',
@@ -35,34 +34,22 @@ let g_checkDate: number | undefined;
 ] as const).forEach((event) => {
   autoUpdater.on(event, (...args: unknown[]) => {
     if (g_webContent) {
-      g_webContent.send(event, ...args);
-    } else {
-      console.error('no window for event:', event);
+      // Errors from Node need to be stringified for IPC; everything else is plain JSON.
+      const safeArgs = args.map(a => a instanceof Error ? String(a) : a);
+      g_webContent.send(event, ...safeArgs);
     }
   });
 });
 
-ipcMain.on('checkForUpdate', (e) => {
+ipcMain.on('checkForUpdate', (e, force?: boolean) => {
   g_webContent = e.sender;
-  try {
-    autoUpdater.checkForUpdates();
-  } catch (err) {
-    g_webContent.send('error', String(err));
-  }
+  autoUpdater.checkForUpdates(!!force);
+});
+
+ipcMain.on('downloadUpdate', () => {
+  autoUpdater.downloadUpdate();
 });
 
 ipcMain.on('quitAndInstall', () => {
   autoUpdater.quitAndInstall();
 });
-
-ipcMain.on('checkedForUpdate', () => {
-  g_checkDate = Date.now();
-});
-
-function getUpdateCheckDate(): number | undefined {
-  return g_checkDate;
-}
-
-export {
-  getUpdateCheckDate,
-};

@@ -29,23 +29,25 @@ import '../../lib/title.js';
 import Modal from '../../lib/ui/modal.js';
 import ListenerManager from '../../lib/listener-manager.js';
 
-type StateKey = 'idle' | 'requested' | 'checking' | 'downloading' | 'error' | 'noUpdate' | 'readyToUpdate' | 'quitting';
+type StateKey = 'idle' | 'requested' | 'checking' | 'available' | 'downloading' | 'error' | 'noUpdate' | 'readyToUpdate' | 'quitting';
 
 type StateInfo = {
   canTry?: boolean;
+  canUpdate?: boolean;
   restart?: boolean;
   msg: string;
 };
 
 const states: Record<StateKey, StateInfo> = {
-  idle:          { canTry: true,  msg: '', },
-  requested:     {                msg: 'update requested', },
-  checking:      {                msg: 'checking for udpate', },
-  downloading:   {                msg: 'update found. downloading...', },
-  error:         { canTry: true,  msg: 'error checking for update', },
-  noUpdate:      { canTry: true,  msg: 'no update available', },
-  readyToUpdate: { restart: true, msg: 'update downloaded', },
-  quitting:      {                msg: '...quiting...', },
+  idle:          { canTry: true,                  msg: '', },
+  requested:     {                                msg: 'update requested', },
+  checking:      {                                msg: 'checking for update', },
+  available:     {                canUpdate: true, msg: 'update available', },
+  downloading:   {                                msg: 'downloading...', },
+  error:         { canTry: true,                  msg: 'error checking for update', },
+  noUpdate:      { canTry: true,                  msg: 'no update available', },
+  readyToUpdate: { restart: true,                 msg: 'update downloaded', },
+  quitting:      {                                msg: '...quitting...', },
 };
 
 type DownloadProgress = {
@@ -57,6 +59,7 @@ type UpdateState = {
   state: StateKey;
   error: string;
   progress: DownloadProgress | null;
+  availableVersion: string;
 };
 
 function toString(v: unknown): string {
@@ -84,11 +87,14 @@ class Update extends React.Component<Record<string, never>, UpdateState> {
       '_handleUpdateDownloaded',
       '_handleDownloadProgress',
       '_checkForUpdate',
+      '_downloadUpdate',
+      '_quitAndUpdate',
     );
     this.state = {
       state: 'idle',
       error: '',
       progress: null,
+      availableVersion: '',
     };
     this._listenerManager = new ListenerManager();
   }
@@ -112,10 +118,10 @@ class Update extends React.Component<Record<string, never>, UpdateState> {
     this.setState({ state });
   }
 
-  _checkForUpdate(): void {
+  _checkForUpdate(force = false): void {
     this.updateState = 'requested';
     this.setState({ error: '' });
-    ipcRenderer.send('checkForUpdate');
+    ipcRenderer.send('checkForUpdate', force);
   }
 
   _handleError(_e: unknown, err: unknown): void {
@@ -127,24 +133,27 @@ class Update extends React.Component<Record<string, never>, UpdateState> {
     this.updateState = 'checking';
   }
 
-  _handleUpdateAvailable(): void {
-    this.updateState = 'downloading';
+  _handleUpdateAvailable(_e: unknown, info: { version?: string }): void {
+    this.setState({ state: 'available', availableVersion: info?.version ?? '' });
   }
 
   _handleUpdateNotAvailable(): void {
     this.updateState = 'noUpdate';
     this.setState({ progress: null });
-    ipcRenderer.send('checkedForUpdate');
   }
 
   _handleUpdateDownloaded(e: unknown): void {
     this._logger(e);
     this.updateState = 'readyToUpdate';
-    ipcRenderer.send('checkedForUpdate');
   }
 
   _handleDownloadProgress(_e: unknown, progress: DownloadProgress): void {
     this.setState({ progress });
+  }
+
+  _downloadUpdate(): void {
+    this.updateState = 'downloading';
+    ipcRenderer.send('downloadUpdate');
   }
 
   _quitAndUpdate(): void {
@@ -155,13 +164,16 @@ class Update extends React.Component<Record<string, never>, UpdateState> {
   /* eslint indent: "off" */
   render(): React.ReactNode {
     const state = states[this.updateState];
-    const { progress, error } = this.state;
+    const { progress, error, availableVersion } = this.state;
+    const msg = (this.updateState === 'available' && availableVersion)
+      ? `version ${availableVersion} is available`
+      : state.msg;
     return (
       <Modal>
         <div className="msg update">
           <h1>Update</h1>
           <div className="status">
-            <div>status: {state.msg}</div>
+            <div>status: {msg}</div>
             {(progress && progress.transferred && progress.total)
               ? <div>{progress.transferred} / {progress.total}</div>
               : undefined
@@ -172,11 +184,15 @@ class Update extends React.Component<Record<string, never>, UpdateState> {
             : undefined
           }
           {state.canTry
-            ? <div><button type="button" onClick={this._checkForUpdate}>Check for Update</button></div>
+            ? <div><button type="button" onClick={() => { this._checkForUpdate(true); }}>Check for Update</button></div>
+            : undefined
+          }
+          {state.canUpdate
+            ? <div><button type="button" onClick={this._downloadUpdate}>Update Now</button></div>
             : undefined
           }
           {state.restart
-            ? <div><button type="button" onClick={() => { this._quitAndUpdate(); }}>Quit and Update</button></div>
+            ? <div><button type="button" onClick={this._quitAndUpdate}>Quit and Update</button></div>
             : undefined
           }
         </div>

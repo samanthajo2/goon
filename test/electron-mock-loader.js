@@ -4,7 +4,6 @@
 
 const electronPackages = new Set([
   'electron',
-  'electron-updater',
 ]);
 
 export async function resolve(specifier, context, nextResolve) {

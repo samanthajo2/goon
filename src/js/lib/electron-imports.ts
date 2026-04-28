@@ -4,6 +4,7 @@
 
 import electron from 'electron';
 
+export const app = electron.app;
 export const ipcMain = electron.ipcMain;
 export const ipcRenderer = electron.ipcRenderer;
 export const nativeImage = electron.nativeImage;

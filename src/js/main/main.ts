@@ -29,7 +29,8 @@ import express from 'express';
 import electron, { BrowserWindow, nativeImage, type WebContents } from '../lib/electron-imports.js';
 import { initRelay } from '../lib/window-ipc.js';
 
-import {getUpdateCheckDate} from '../lib/update-manager.js';
+import '../lib/update-manager.js';
+import { autoUpdater } from './auto-update.js';
 import appdata from '../lib/appdata.js';
 import * as utils from '../lib/utils.js';
 import { getFreePort } from '../lib/get-free-port.js';
@@ -164,7 +165,6 @@ type SavedWindowState = {
 
 type SavedProgramState = {
   version: number;
-  lastUpdateCheckDate?: number;
   windows: SavedWindowState[];
 };
 
@@ -189,7 +189,6 @@ let {prefs} = loadPrefs(prefsFilename, {
   existsSync: fs.existsSync,
   readUTF8FileSync: utils.readUTF8FileSync,
 });
-let oldProgState: SavedProgramState | undefined;
 let hideInsteadOfCloseOneOffWindows = true;
 let quitting = false;
 let server: Server | undefined;
@@ -388,7 +387,6 @@ function loadProgramState() {
   if (!windows.length) {
     windows = [{}];
   }
-  oldProgState = progStat;
 
   windows.forEach((winState) => {
     let needMaximized = false;
@@ -435,7 +433,6 @@ function saveProgramState() {
   
   const progState: SavedProgramState = {
     version: s_progStatVersion,
-    lastUpdateCheckDate: getUpdateCheckDate() ?? oldProgState?.lastUpdateCheckDate,
     windows: windows.map((window) => ({
       maximized: window.isMaximized(),
       minimized: window.isMinimized(),
@@ -847,7 +844,6 @@ function setupMenus() {
   electron.Menu.setApplicationMenu(menu);
 }
 
-const s_minMsBetweenUpdateChecks = 7 *  24 * 60 * 60 * 1000;  // 7 days
 function start() {
   updatePrefs(prefs);
   setupMenus();
@@ -855,12 +851,13 @@ function start() {
   createPreferencesWindow();
   loadProgramState();
   if (!isDevMode && prefs && prefs.misc && prefs.misc.checkForUpdates) {
-    if (!oldProgState ||
-        !oldProgState.lastUpdateCheckDate ||
-        Date.now() - oldProgState.lastUpdateCheckDate > s_minMsBetweenUpdateChecks) {
-      // TODO: turn this on when it actually works
-      // createUpdateWindow();
-    }
+    // Silent background check: only surface the update window if a new
+    // version is actually available. The user must explicitly opt into the
+    // download from there.
+    autoUpdater.once('update-available', () => {
+      createUpdateWindow();
+    });
+    autoUpdater.checkForUpdates();
   }
 }
 
