@@ -66,13 +66,21 @@ export default class FolderContextMenu extends React.Component<Props> {
   };
 
   render(): React.ReactNode {
+    const { platform } = this.context;
+    const canShowInFinder = platform.showItemInFolder || platform.openPath;
     return (
       <ContextMenu id="folderContextMenu" rotateMode={this.props.rotateMode}>
-        <MenuItem onClick={this._handleOpen}>Show in Finder/Explorer</MenuItem>
-        <MenuItem onClick={this._handleDelete}>
-          Trash {this.props.folder ? this.props.folder.filename : ''}
-        </MenuItem>
-        <MenuItem onClick={this._handleCopy}>Copy Folder Path</MenuItem>
+        {canShowInFinder && (
+          <MenuItem onClick={this._handleOpen}>Show in Finder/Explorer</MenuItem>
+        )}
+        {platform.trashItem && (
+          <MenuItem onClick={this._handleDelete}>
+            Trash {this.props.folder ? this.props.folder.filename : ''}
+          </MenuItem>
+        )}
+        {platform.showItemInFolder && (
+          <MenuItem onClick={this._handleCopy}>Copy Folder Path</MenuItem>
+        )}
         <MenuItem onClick={this._handleRefreshFolder}>Refresh</MenuItem>
         <MenuItem onClick={this._handleSyncFolderView}>Sync Folder View</MenuItem>
       </ContextMenu>

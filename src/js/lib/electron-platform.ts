@@ -13,6 +13,7 @@ import type { Platform, WindowKind } from './platform.js';
 
 export function createElectronPlatform(): Platform {
   return {
+    kind: 'electron',
     createChannelStream(channelId: string) {
       return otherWindowIPC.createChannelStream(channelId);
     },

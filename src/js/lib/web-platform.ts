@@ -57,6 +57,7 @@ export async function createWebPlatform(): Promise<Platform> {
   const config = await fetchConfig();
 
   return {
+    kind: 'web',
     createChannelStream(channelId: string) {
       return createWebChannelStream(channelId);
     },

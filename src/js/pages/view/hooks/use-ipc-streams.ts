@@ -24,12 +24,7 @@ import { type ChannelStream } from '../../../lib/window-ipc.js';
 import type { Platform } from '../../../lib/platform.js';
 import { Preferences } from '../../prefs/default-prefs.js';
 
-function reload(): void {
-  console.log('queue reload');
-  setTimeout(() => {
-    window.location.reload();
-  }, 1000);
-}
+const RETRY_DELAY_MS = 2000;
 
 type Callbacks = {
   onTrashFailed: (filename: string) => void;
@@ -39,6 +34,7 @@ export function useIPCStreams(platform: Platform, callbacks: Callbacks): {
   thumberStream: ChannelStream | null;
   prefs: Partial<Preferences>;
   prefsReceived: boolean;
+  disconnected: boolean;
 } {
   // Keep callbacks stable via ref — callers don't need to memoize them
   const callbacksRef = useRef(callbacks);
@@ -47,42 +43,65 @@ export function useIPCStreams(platform: Platform, callbacks: Callbacks): {
   const [thumberStream, setThumberStream] = useState<ChannelStream | null>(null);
   const [prefs, setPrefs] = useState<Partial<Preferences>>({});
   const [prefsReceived, setPrefsReceived] = useState(false);
+  const [disconnected, setDisconnected] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     let thumberStreamLocal: ChannelStream | null = null;
     let prefsStreamLocal: ChannelStream | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
-    platform.createChannelStream('thumber')
-      .then((stream: ChannelStream) => {
-        thumberStreamLocal = stream;
-        setThumberStream(stream);
-        stream.on('trashFailed', (filename: string) => callbacksRef.current.onTrashFailed(filename));
-        stream.on('disconnect', reload);
-      })
-      .catch((err: unknown) => {
-        console.error(err);
-        if (err instanceof Error && err.stack) console.error(err.stack);
-      });
+    const handleDisconnect = (): void => {
+      if (cancelled) return;
+      setDisconnected(true);
+      // Drop the streams; they're closed.
+      thumberStreamLocal = null;
+      prefsStreamLocal = null;
+      setThumberStream(null);
+      retryTimer = setTimeout(() => { connect(); }, RETRY_DELAY_MS); // eslint-disable-line @typescript-eslint/no-use-before-define
+    };
 
-    platform.createChannelStream('prefs')
-      .then((stream: ChannelStream) => {
-        prefsStreamLocal = stream;
-        stream.on('prefs', (newPrefs: Preferences) => {
+    const connect = async (): Promise<void> => {
+      if (cancelled) return;
+      retryTimer = null;
+      try {
+        const [tStream, pStream] = await Promise.all([
+          platform.createChannelStream('thumber'),
+          platform.createChannelStream('prefs'),
+        ]);
+        if (cancelled) {
+          tStream.close();
+          pStream.close();
+          return;
+        }
+        thumberStreamLocal = tStream;
+        prefsStreamLocal = pStream;
+        tStream.on('trashFailed', (filename: string) => callbacksRef.current.onTrashFailed(filename));
+        tStream.on('disconnect', handleDisconnect);
+        pStream.on('prefs', (newPrefs: Preferences) => {
           setPrefs(newPrefs);
           setPrefsReceived(true);
         });
-        stream.on('disconnect', reload);
-      })
-      .catch((err: unknown) => {
+        pStream.on('disconnect', handleDisconnect);
+        setThumberStream(tStream);
+        setDisconnected(false);
+      } catch (err) {
         console.error(err);
-        if (err instanceof Error && err.stack) console.error(err.stack);
-      });
+        if (cancelled) return;
+        setDisconnected(true);
+        retryTimer = setTimeout(() => { connect(); }, RETRY_DELAY_MS);
+      }
+    };
+
+    connect();
 
     return () => {
+      cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
       thumberStreamLocal?.close();
       prefsStreamLocal?.close();
     };
   }, [platform]);
 
-  return { thumberStream, prefs, prefsReceived };
+  return { thumberStream, prefs, prefsReceived, disconnected };
 }

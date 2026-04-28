@@ -22,14 +22,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import React from 'react';
 import Modal from '../../lib/ui/modal.js';
 
-const WaitForFiles = (props: { onClick: () => void }) => (
+// `onClick` is only present on platforms where Preferences are reachable —
+// Electron. On web there's no prefs UI, so we omit the button.
+const WaitForFiles = (props: { onClick?: () => void }) => (
   <Modal>
     <div className="msg">
       <div><img src="images/logo.svg" style={{ width: '320px' }} /></div>
       <div>&nbsp;</div>
       <div>... waiting for files ...</div>
       <div>&nbsp;</div>
-      <div>Use <button type="button" onClick={props.onClick}>Preferences</button> to add folders</div>
+      {props.onClick
+        ? <div>Use <button type="button" onClick={props.onClick}>Preferences</button> to add folders</div>
+        : <div>Add folders to watch from the desktop app's Preferences.</div>
+      }
     </div>
   </Modal>
 );

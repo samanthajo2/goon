@@ -152,7 +152,7 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
     }, 250);
   }, []);
 
-  const { thumberStream, prefs, prefsReceived } = useIPCStreams(platform, { onTrashFailed: handleTrashFailed });
+  const { thumberStream, prefs, prefsReceived, disconnected } = useIPCStreams(platform, { onTrashFailed: handleTrashFailed });
   const [externalViewerAvailable, setExternalViewerAvailable] = useState(false);
 
   // ── Filter state ───────────────────────────────────────────────────
@@ -621,7 +621,7 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
     return (<Loading />);
   }
   if (!totalFiles) {
-    return (<WaitForFiles onClick={showPrefs} />);
+    return (<WaitForFiles onClick={platform.kind === 'electron' ? showPrefs : undefined} />);
   }
 
   // ── Main render ────────────────────────────────────────────────────
@@ -647,6 +647,11 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
       className={`view ${rotateModes[rotateMode].className}`}
       ref={(ref) => { containerRef.current = ref; }}
     >
+      {disconnected && (
+        <div className="disconnected-overlay">
+          <div>Disconnected — reconnecting…</div>
+        </div>
+      )}
       <ToolbarHolder bottom={toolbarOnBottom}>
         {getToolbar()}
       </ToolbarHolder>

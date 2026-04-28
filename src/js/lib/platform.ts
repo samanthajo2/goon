@@ -22,6 +22,11 @@ export type WindowKind = 'view' | 'prefs' | 'help';
 export type Platform = {
   // ── Required (both platforms) ───────────────────────────────────────
 
+  // Identifies the runtime so UI can hide affordances that don't apply
+  // (e.g. a "Preferences" button on web, where prefs are managed only by
+  // the desktop app).
+  readonly kind: 'electron' | 'web';
+
   // Open a bidirectional channel-stream to a named peer. On Electron this
   // is the `otherWindowIPC` relay; on web it'll be a WebSocket-backed
   // implementation of the same interface.

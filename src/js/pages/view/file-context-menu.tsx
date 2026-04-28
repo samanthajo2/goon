@@ -78,6 +78,7 @@ export default class FileContextMenu extends React.Component<Props> {
   };
 
   private _deleteMenuItem(): React.ReactNode {
+    if (!this.context.platform.trashItem) return undefined;
     if (this.props.file && this.props.file.filename) {
       const sel = getSelected();
       const label = sel.has(this.props.file.filename) && sel.size > 1
@@ -93,13 +94,18 @@ export default class FileContextMenu extends React.Component<Props> {
   }
 
   render(): React.ReactNode {
+    const { platform } = this.context;
     return (
       <ContextMenu id="fileContextMenu" rotateMode={this.props.rotateMode}>
-        <MenuItem onClick={this._handleOpen}>Show in Finder/Explorer</MenuItem>
+        {platform.showItemInFolder && (
+          <MenuItem onClick={this._handleOpen}>Show in Finder/Explorer</MenuItem>
+        )}
         <MenuItem onClick={this._handleInfo}>Get Info</MenuItem>
         {this._deleteMenuItem()}
         <MenuItem onClick={this._handleRefreshFolder}>Refresh</MenuItem>
-        <MenuItem onClick={this._handleCopy}>Copy File Path</MenuItem>
+        {platform.showItemInFolder && (
+          <MenuItem onClick={this._handleCopy}>Copy File Path</MenuItem>
+        )}
         <MenuItem onClick={this._handleSyncFolderView}>Sync Folder View</MenuItem>
       </ContextMenu>
     );
