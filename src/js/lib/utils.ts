@@ -32,10 +32,17 @@ function urlFromFilename(filename: string): string {
     return filename;
   }
 
-  if (driveRE.test(filename) || uncRE.test(filename)) {
-    return `file:///${filename.replace(/#/g, '%23').replace(/\?/g, '%3f')}`;
+  // Callers may append a `?cache=N` cache-buster to paths before passing
+  // them in. Strip it before encoding the path segments so the `?` doesn't
+  // get URL-encoded into part of the path; re-append on the result.
+  const qIdx = filename.indexOf('?');
+  const query = qIdx >= 0 ? filename.slice(qIdx) : '';
+  const bare = qIdx >= 0 ? filename.slice(0, qIdx) : filename;
+
+  if (driveRE.test(bare) || uncRE.test(bare)) {
+    return `file:///${bare.replace(/#/g, '%23')}${query}`;
   }
-  return filename.replace(backslashRE, '/').split('/').map(encodeURIComponent).join('/');
+  return bare.replace(backslashRE, '/').split('/').map(encodeURIComponent).join('/') + query;
 }
 
 // const slashDriveRE = /^[\\/][A-Z]:[\\/]/i;
