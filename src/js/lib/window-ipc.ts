@@ -189,10 +189,108 @@ export function createChannelStream(channelId: string): Promise<ChannelStream> {
 
 // ── Main process relay ──
 
+// Sentinel windowId used to make main itself a peer in the existing
+// connect/relay protocol. Real Electron webContents IDs start at 1 and are
+// never negative, so -1 is safe.
+const MAIN_SENDER_ID = -1;
+
+// A WebSocket-like duck type — lets ws-bridge.ts wire up `ws` without this
+// module having to import the `ws` package (keeping it usable in renderer
+// bundles too).
+export type WebSocketLike = {
+  send(data: string): void;
+  close(): void;
+  onMessage(handler: (data: string) => void): void;
+  onClose(handler: () => void): void;
+};
+
+// State for browser-originated streams that main is bridging to a renderer.
+const bridgeStreams = new Map<number, BridgeStream>();
+let bridgeNextId = 1;
+const ownersRef: { value: Map<string, number> | null } = { value: null };
+
+class BridgeStream {
+  peerWindowId: number | null = null;
+  peerStreamId: number | null = null;
+  private _closed = false;
+
+  constructor(
+    public readonly localId: number,
+    private readonly _ws: WebSocketLike,
+  ) {
+    this._ws.onMessage((data) => this._onWsMessage(data));
+    this._ws.onClose(() => this._onWsClose());
+  }
+
+  private _onWsMessage(data: string): void {
+    if (this._closed) return;
+    if (this.peerWindowId == null || this.peerStreamId == null) return;
+    let msg: { event?: string; args?: unknown[] };
+    try { msg = JSON.parse(data); } catch { return; }
+    if (typeof msg.event !== 'string') return;
+    electron.webContents.fromId(this.peerWindowId)
+      ?.send(`${P}relay`, this.peerStreamId, msg.event, ...(msg.args ?? []));
+  }
+
+  // Forward a `relay` event coming from the peer renderer down to the browser.
+  forwardToWs(event: string, args: unknown[]): void {
+    if (this._closed) return;
+    try { this._ws.send(JSON.stringify({ event, args })); } catch { /* socket may be closed */ }
+  }
+
+  // Browser closed the WebSocket: tell the peer renderer.
+  private _onWsClose(): void {
+    if (this._closed) return;
+    this._closed = true;
+    if (this.peerWindowId != null && this.peerStreamId != null) {
+      electron.webContents.fromId(this.peerWindowId)?.send(`${P}disconnect`, this.peerStreamId);
+    }
+    bridgeStreams.delete(this.localId);
+  }
+
+  // Peer renderer closed: close the WebSocket too.
+  handlePeerDisconnect(): void {
+    if (this._closed) return;
+    this._closed = true;
+    try { this._ws.close(); } catch { /* already closed */ }
+    bridgeStreams.delete(this.localId);
+  }
+}
+
+/**
+ * Accept a browser WebSocket as a new connection to a registered channel.
+ * Main acts as a virtual peer in the existing connect protocol — the
+ * channel-owning renderer doesn't need to know whether the originating
+ * peer is another renderer or a browser.
+ */
+export function acceptWebSocketConnection(ws: WebSocketLike, channelId: string): void {
+  if (!ownersRef.value) {
+    ws.close();
+    return;
+  }
+  const ownerId = ownersRef.value.get(channelId);
+  if (ownerId === undefined) {
+    ws.close();
+    return;
+  }
+  const wc = electron.webContents.fromId(ownerId);
+  if (!wc) {
+    ws.close();
+    return;
+  }
+  const localId = bridgeNextId++;
+  const stream = new BridgeStream(localId, ws);
+  bridgeStreams.set(localId, stream);
+  // Send connect IPC directly to the owner. The owner will respond with a
+  // connectResult IPC routed back at us (intercepted in initRelay below).
+  wc.send(`${P}connect`, MAIN_SENDER_ID, localId, channelId);
+}
+
 export function initRelay(): void {
   const { ipcMain, webContents, app } = electron;
 
   const owners = new Map<string, number>();
+  ownersRef.value = owners;
   const waiting: { senderId: number; localStreamId: number; channelId: string }[] = [];
 
   function flush(): void {
@@ -236,14 +334,34 @@ export function initRelay(): void {
   });
 
   ipcMain.on(`${P}connectResult`, (e: Electron.IpcMainEvent, targetWindowId: number, remoteStreamId: number, success: boolean, localStreamId: number) => {
+    if (targetWindowId === MAIN_SENDER_ID) {
+      // The peer was main itself (a WS bridge stream). Wire it up.
+      const stream = bridgeStreams.get(remoteStreamId);
+      if (!stream) return;
+      if (!success) {
+        stream.handlePeerDisconnect();
+        return;
+      }
+      stream.peerWindowId = e.sender.id;
+      stream.peerStreamId = localStreamId;
+      return;
+    }
     webContents.fromId(targetWindowId)?.send(`${P}connectResult`, remoteStreamId, success, localStreamId);
   });
 
   ipcMain.on(`${P}relay`, (_e: Electron.IpcMainEvent, targetWindowId: number, remoteStreamId: number, event: string, ...args: unknown[]) => {
+    if (targetWindowId === MAIN_SENDER_ID) {
+      bridgeStreams.get(remoteStreamId)?.forwardToWs(event, args);
+      return;
+    }
     webContents.fromId(targetWindowId)?.send(`${P}relay`, remoteStreamId, event, ...args);
   });
 
   ipcMain.on(`${P}disconnect`, (_e: Electron.IpcMainEvent, targetWindowId: number, remoteStreamId: number) => {
+    if (targetWindowId === MAIN_SENDER_ID) {
+      bridgeStreams.get(remoteStreamId)?.handlePeerDisconnect();
+      return;
+    }
     webContents.fromId(targetWindowId)?.send(`${P}disconnect`, remoteStreamId);
   });
 

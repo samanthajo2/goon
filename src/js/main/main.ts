@@ -48,6 +48,7 @@ import { WinState } from '../lib/win-state.js';
 import { ProgOptions } from './program-options.js';
 
 import {windowTrackerInit, windowTrackerIsAnyWindowFullScreen} from '../lib/remote-helpers.cjs';
+import { startWebSocketBridge } from './ws-bridge.js';
 
 
 initRelay();
@@ -192,8 +193,9 @@ let {prefs} = loadPrefs(prefsFilename, {
 let hideInsteadOfCloseOneOffWindows = true;
 let quitting = false;
 let server: Server | undefined;
-let serverPort: number = 0; 
+let serverPort: number = 0;
 let router: express.Router | undefined;
+let wsServer: import('ws').WebSocketServer | undefined;
 
 if (args.compareFoldersToCache) {
   const baseFolders = args._ && args._.length > 0 ? args._ : prefs.folders;
@@ -336,10 +338,17 @@ async function startWebServer() {
   app.use('/', router!);
   serverPort = await getFreePort(8080);
   server = app.listen(serverPort);
+  // Mount the WebSocket bridge so browsers can talk to the same channels
+  // (thumber, prefs, ...) that the desktop view window does.
+  wsServer = startWebSocketBridge(server);
   debug(`Web server started on port: ${serverPort}`);
 }
 
 function stopWebServer() {
+  if (wsServer) {
+    wsServer.close();
+    wsServer = undefined;
+  }
   if (server) {
     debug('Web server stopped');
     server.close();
