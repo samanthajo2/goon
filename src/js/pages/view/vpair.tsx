@@ -275,6 +275,9 @@ export default class VPair extends React.Component<Props, ComponentState> {
     if (this.props.isCurrentView) {
       this.props.onViewingChanged?.(true);
     }
+    // Persist the viewer-open state so quitting now and restarting restores
+    // it. Without this the saved layout lags behind viewer open/close.
+    this.props.saveLayout?.();
   };
 
   private _stopViewingImage = (): void => {
@@ -283,6 +286,7 @@ export default class VPair extends React.Component<Props, ComponentState> {
     if (this.props.isCurrentView) {
       this.props.onViewingChanged?.(false);
     }
+    this.props.saveLayout?.();
   };
 
   private _setCurrentNdx = (_forwardableEvent: ForwardableEvent, ndx: number): void => {
