@@ -21,7 +21,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import debug from './debug.js';
 import bind from './bind.js';
-import { urlFromFilename } from './utils.js';
 import type { Platform } from './platform.js';
 import type {
   MediaRequest,
@@ -42,8 +41,10 @@ export default class MediaManagerClient {
   private _stream: MediaClientStream | null = null;
   private _streamP: Promise<MediaClientStream>;
   private readonly _logger: ReturnType<typeof debug>;
+  private readonly _platform: Platform;
 
   constructor(platform: Platform) {
+    this._platform = platform;
     this._logger = debug('MediaManagerClient', ++g_clientCount);
     bind(this, '_handleMediaStatus');
 
@@ -72,7 +73,7 @@ export default class MediaManagerClient {
       } else {
         process.nextTick(() => {
           callback(undefined, {
-            url: urlFromFilename(info.filename),
+            url: this._platform.fileToUrl(info.filename),
             type: info.type,
           });
         });

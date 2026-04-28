@@ -27,6 +27,12 @@ export type Platform = {
   // implementation of the same interface.
   createChannelStream(channelId: string): Promise<ChannelStream>;
 
+  // Turn an absolute file path into a URL the renderer can use as <img src>
+  // or CSS background-image. On Electron this is a file:// URL (or the
+  // bare path that resolves against the file:// origin). On web it's a
+  // path served by the express folder router (e.g. `/<prefix>/...`).
+  fileToUrl(filePath: string): string;
+
   toggleFullscreen(): void | Promise<void>;
   setupFullscreen(): void | Promise<void>;
   openNewWindow(kind: WindowKind): void;
