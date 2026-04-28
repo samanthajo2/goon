@@ -161,7 +161,6 @@ class Update extends React.Component<Record<string, never>, UpdateState> {
     ipcRenderer.send('quitAndInstall');
   }
 
-  /* eslint indent: "off" */
   render(): React.ReactNode {
     const state = states[this.updateState];
     const { progress, error, availableVersion } = this.state;
@@ -175,7 +174,9 @@ class Update extends React.Component<Record<string, never>, UpdateState> {
           <div className="status">
             <div>status: {msg}</div>
             {(progress && progress.transferred && progress.total)
-              ? <div>{progress.transferred} / {progress.total}</div>
+              ? (<div className="progress-bar">
+                   <div style={{width: `${progress.transferred / progress.total % 100 | 0}%`}}></div>
+                 </div>)
               : undefined
             }
           </div>
