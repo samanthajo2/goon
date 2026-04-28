@@ -23,9 +23,12 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { ipcRenderer } from '../../lib/electron-imports.js';
+import { createElectronPlatform } from '../../lib/electron-platform.js';
 import App from './app.js';
 import '../../lib/stacktrace-log.js';
 import '../../lib/title.js';
+
+const platform = createElectronPlatform();
 
 const isDevMode = process.env.NODE_ENV === 'development';
 
@@ -60,7 +63,7 @@ function start(_args: unknown, startState: any): void {
 
   setTimeout(() => {
     createRoot(document.querySelector('.browser')!).render(
-      <App options={g} startState={startState} />,
+      <App options={g} startState={startState} platform={platform} />,
     );
   }, isDevMode ? 1000 : 100);
 }

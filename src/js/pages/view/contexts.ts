@@ -23,6 +23,7 @@ import { createContext } from 'react';
 import type ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher.js';
 import type { AppEventMap } from './app-event-map.js';
 import type { Preferences } from '../prefs/default-prefs.js';
+import type { Platform } from '../../lib/platform.js';
 
 export type AppContextValue = {
   // The event bus for the current subtree. app.tsx provides the root bus;
@@ -34,6 +35,12 @@ export type AppContextValue = {
   // Application preferences — provided once at the app level and updated
   // whenever the prefs IPC stream emits a new value.
   prefs: Preferences;
+
+  // Platform capabilities (Electron vs web). Renderer code calls into this
+  // instead of importing ipcRenderer directly. Optional methods (trash,
+  // openPath, ...) may be undefined on platforms that don't support them —
+  // UI must check before calling.
+  platform: Platform;
 };
 
 // The default value is never used at runtime because AppContext.Provider is

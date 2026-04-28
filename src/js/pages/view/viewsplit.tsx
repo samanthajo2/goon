@@ -22,12 +22,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import React from 'react';
 import ResizeSensor from '../../lib/ui/resize-sensor.js';
 import { debounce, CancelableFn } from '../../lib/utils.js';
-import { ipcRenderer } from '../../lib/electron-imports.js';
 import debug from '../../lib/debug.js';
 import VPair from './vpair.js';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher.js';
 import ForwardableEvent from '../../lib/forwardable-event.js';
 import type { AppEventMap } from './app-event-map.js';
+import { AppContext } from './contexts.js';
 import ActionEvent from '../../lib/action-event.js';
 import ActionListener from '../../lib/action-listener.js';
 import { getRotatedXY } from '../../lib/rotatehelper.js';
@@ -431,6 +431,8 @@ type State = {
 };
 
 export default class ViewSplit extends React.Component<Props, State> {
+  static contextType = AppContext;
+  declare context: React.ContextType<typeof AppContext>;
   private _logger: ReturnType<typeof debug>;
   private _treeRoot: Node;
   private _currentLeafId: string;
@@ -524,7 +526,7 @@ export default class ViewSplit extends React.Component<Props, State> {
       const vpair = this._vpairs[leaf.id];
       if (vpair) leaf.initialState = vpair.getState();
     }
-    ipcRenderer.send('saveSplitLayout', dumpNode(this._treeRoot));
+    this.context.platform.saveSplitLayout(dumpNode(this._treeRoot));
   }
 
   private _handleResize = (contentRect: { client: { width: number; height: number } }): void => {

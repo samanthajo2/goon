@@ -20,7 +20,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import { ipcRenderer } from '../../lib/electron-imports.js';
 import ForwardableEvent from '../../lib/forwardable-event.js';
 import gridModes, { ThumbnailProps } from './grid-modes.js';
 import { AppContext } from './contexts.js';
@@ -59,13 +58,15 @@ export default class Thumbnail extends React.PureComponent<Props> {
     const domEvent = (event instanceof DragEvent) ? event : event.nativeEvent;
     domEvent.preventDefault();
     this._draggedSincePointerDown = true;
+    const startDrag = this.context.platform.startDrag;
+    if (!startDrag) return;
     const filename = this.props.info.filename;
     // If the dragged item is part of the selection, drag the whole selection.
     // Otherwise drag just this one file (matches Finder/Explorer behavior).
     if (isSelected(filename) && getSelected().size > 1) {
-      ipcRenderer.send('dragStart', Array.from(getSelected()));
+      startDrag(Array.from(getSelected()));
     } else {
-      ipcRenderer.send('dragStart', filename);
+      startDrag(filename);
     }
   };
 

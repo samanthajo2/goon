@@ -21,7 +21,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import React from 'react';
 import path from 'path';
-import { ipcRenderer } from '../../lib/electron-imports.js';
 import { ContextMenu, MenuItem } from '../../lib/ui/context-menu.js';
 import debug from '../../lib/debug.js';
 import ForwardableEvent from '../../lib/forwardable-event.js';
@@ -30,11 +29,6 @@ import { AppContext } from './contexts.js';
 import { getSelected } from './selection-state.js';
 
 const logger = debug('FileContextMenu');
-
-function showItem(filename: string): void {
-  logger('show item:', filename);
-  ipcRenderer.send('showItemInFolder', filename);
-}
 
 type Props = {
   file: DBFileInfo;
@@ -49,7 +43,9 @@ export default class FileContextMenu extends React.Component<Props> {
   };
 
   private _handleOpen = (): void => {
-    showItem(this.props.file.archiveName ?? this.props.file.filename!);
+    const filename = this.props.file.archiveName ?? this.props.file.filename!;
+    logger('show item:', filename);
+    this.context.platform.showItemInFolder?.(filename);
   };
 
   private _handleInfo = (): void => {

@@ -388,7 +388,7 @@ export default class VPair extends React.Component<Props, ComponentState> {
     // The value object is cached by prefs reference to avoid spurious re-renders.
     if (this._cachedContextPrefs !== this.context.prefs) {
       this._cachedContextPrefs = this.context.prefs;
-      this._cachedContextValue = { eventBus: this._eventBus, prefs: this.context.prefs };
+      this._cachedContextValue = { eventBus: this._eventBus, prefs: this.context.prefs, platform: this.context.platform };
     }
 
     const classes = new CSSArray('vpair');

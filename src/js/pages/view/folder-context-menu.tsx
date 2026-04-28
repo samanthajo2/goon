@@ -20,7 +20,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import { ipcRenderer } from '../../lib/electron-imports.js';
 import { ContextMenu, MenuItem } from '../../lib/ui/context-menu.js';
 import debug from '../../lib/debug.js';
 import ForwardableEvent from '../../lib/forwardable-event.js';
@@ -28,15 +27,6 @@ import { FolderContextInfo } from './viewer-events.js';
 import { AppContext } from './contexts.js';
 
 const logger = debug('FolderContextMenu');
-
-function showItem(filename: string, archive: boolean | undefined): void {
-  logger('show item:', filename);
-  if (archive) {
-    ipcRenderer.send('showItemInFolder', filename);
-  } else {
-    ipcRenderer.send('openPath', filename);
-  }
-}
 
 type Props = {
   folder: FolderContextInfo;
@@ -51,7 +41,13 @@ export default class FolderContextMenu extends React.Component<Props> {
   };
 
   private _handleOpen = (): void => {
-    showItem(this.props.folder.filename, this.props.folder.archive);
+    const { filename, archive } = this.props.folder;
+    logger('show item:', filename);
+    if (archive) {
+      this.context.platform.showItemInFolder?.(filename);
+    } else {
+      this.context.platform.openPath?.(filename);
+    }
   };
 
   private _handleDelete = (): void => {

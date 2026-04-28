@@ -21,7 +21,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import React from 'react';
 import { throttle, debounce } from '../../lib/utils.js';
-import { ipcRenderer } from '../../lib/electron-imports.js';
 import ResizeSensor from '../../lib/ui/resize-sensor.js';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher.js';
 import ForwardableEvent from '../../lib/forwardable-event.js';
@@ -731,11 +730,13 @@ export default class Viewer extends React.Component<Props, State> {
   };
 
   private _launchBrowser = (): void => {
-    ipcRenderer.invoke('launchBrowser', this.props.viewerState.filename);
+    const filename = this.props.viewerState.filename;
+    if (filename) this.context.platform.launchBrowser?.(filename);
   };
 
   private _launchExternalViewer = (): void => {
-    ipcRenderer.invoke('launchExternalViewer', this.context.prefs.misc.externalViewerPath, this.props.viewerState.filename);
+    const filename = this.props.viewerState.filename;
+    if (filename) this.context.platform.launchExternalViewer?.(this.context.prefs.misc.externalViewerPath, filename);
   };
 
   private _showNewMedia(

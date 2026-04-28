@@ -20,8 +20,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import { rimraf } from 'rimraf';
-import { ipcRenderer } from '../../lib/electron-imports.js';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import type { Platform } from '../../lib/platform.js';
 import { hideMenu, showMenu } from '../../lib/ui/context-menu.js';
 import ActionEvent from '../../lib/action-event.js';
 import ActionListener from '../../lib/action-listener.js';
@@ -51,7 +51,6 @@ import { makeCompositeFilter } from '../../lib/make-filter.js';
 import ToolbarHolder from './toolbar-holder.js';
 import WaitForFiles from './wait-for-files.js';
 import Loading from './loading.js';
-import { setupFullscreen, toggleFullscreen } from '../../lib/fullscreen.js';
 import MediaManagerClient from '../../lib/media-manager-client.js';
 import { Preferences } from '../prefs/default-prefs.js';
 import { DBFileInfo } from './folder-db.js';
@@ -91,17 +90,18 @@ type Props = {
     padding: number;
     maxSeekTime: number;
   };
+  platform: Platform;
   startState?: {
-    winState?: Parameters<typeof useWinState>[0];
+    winState?: Parameters<typeof useWinState>[1];
     layout?: unknown;
   };
 };
 
-function App({ options, startState }: Props): React.ReactElement | null {
+function App({ options, startState, platform }: Props): React.ReactElement | null {
   const logger = useRef(debug('App')).current;
 
   // ── Window state (sort mode, grid mode, zoom, rotation, split, UI) ──
-  const { winState, updateWinState } = useWinState(startState?.winState);
+  const { winState, updateWinState } = useWinState(platform, startState?.winState);
 
   // ── UI state (declared early so handleTrashFailed can reference the setters) ──
   const [contextFileInfo, setContextFileInfo] = useState<DBFileInfo | null>(null);
@@ -279,15 +279,15 @@ function App({ options, startState }: Props): React.ReactElement | null {
   const deleteFolder = useCallback(async () => {
     setShowDeleteFolderPrompt(false);
     const filename = contextFolderInfo?.filename;
-    if (!filename) return;
+    if (!filename || !platform.trashItem) return;
     try {
-      await ipcRenderer.invoke('trashItem', filename);
+      await platform.trashItem(filename);
     } catch {
       setShowForceDelete(true);
       setForceDeleteFilename(filename);
       setForceDeleteIsFolder(!contextFolderInfo?.archive);
     }
-  }, [contextFolderInfo]);
+  }, [contextFolderInfo, platform]);
 
   const forceDelete = useCallback(async () => {
     setShowForceDelete(false);
@@ -298,29 +298,30 @@ function App({ options, startState }: Props): React.ReactElement | null {
       } catch (e) {
         logger(e);
       }
-    } else {
+    } else if (platform.deleteFile) {
       try {
-        await ipcRenderer.invoke('deleteFile', forceDeleteFilename);
+        await platform.deleteFile(forceDeleteFilename);
         thumberStream?.send('removeFile', forceDeleteFilename);
       } catch (err) {
         logger(err);
       }
     }
-  }, [forceDeleteFilename, forceDeleteIsFolder, thumberStream, logger]);
+  }, [forceDeleteFilename, forceDeleteIsFolder, thumberStream, logger, platform]);
 
   const forceDeleteFiles = useCallback(async () => {
     setShowForceDeleteFiles(false);
     const items = forceDeleteItems;
     setForceDeleteItems([]);
+    if (!platform.deleteFile) return;
     for (const item of items) {
       try {
-        await ipcRenderer.invoke('deleteFile', item.filename);
+        await platform.deleteFile(item.filename);
         thumberStream?.send('removeFile', item.filename);
       } catch (err) {
         logger(err);
       }
     }
-  }, [forceDeleteItems, thumberStream, logger]);
+  }, [forceDeleteItems, thumberStream, logger, platform]);
 
   // ── Stable refs for callbacks that reference mutable state ────────
   // (declared before the one-time useEffect so lint can see they're defined)
@@ -476,9 +477,9 @@ function App({ options, startState }: Props): React.ReactElement | null {
     actionListener.on('cycleGridMode', () => {
       updateWinState((prev) => ({ gridMode: gridModes.next(prev.gridMode) }));
     });
-    actionListener.on('toggleFullscreen', toggleFullscreen);
-    actionListener.on('newWindow', () => { ipcRenderer.send('openWindow', 'view'); });
-    actionListener.on('showHelp', () => { ipcRenderer.send('openWindow', 'help'); });
+    actionListener.on('toggleFullscreen', () => { platform.toggleFullscreen(); });
+    actionListener.on('newWindow', () => { platform.openNewWindow('view'); });
+    actionListener.on('showHelp', () => { platform.openNewWindow('help'); });
     actionListener.on('refreshFolders', () => { eventBus.dispatch(new ForwardableEvent('refreshFolders')); });
     actionListener.on('trashSelected', () => {
       const sel = getSelected();
@@ -496,11 +497,10 @@ function App({ options, startState }: Props): React.ReactElement | null {
       }
     });
 
-    // ipcRenderer action routing
-    const handleIpcAction = (_event: unknown, actionId: ActionId) => {
+    // Action routing from outside the renderer (Electron menu bar, etc.)
+    const unsubscribeOnAction = platform.onAction((actionId) => {
       eventBus.dispatch(new ActionEvent({ action: actionId }));
-    };
-    ipcRenderer.on('action', handleIpcAction);
+    });
 
     // Keyboard
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -516,11 +516,11 @@ function App({ options, startState }: Props): React.ReactElement | null {
     // Initial toolbar forwarding — updated reactively in the isViewing useEffect below.
     toolbarEventBus.setForward(imageGridToolbarEventBus);
 
-    setupFullscreen();
+    platform.setupFullscreen();
 
     return () => {
       actionListener.close();
-      ipcRenderer.removeListener('action', handleIpcAction);
+      unsubscribeOnAction();
       window.removeEventListener('keydown', handleKeyDown);
     };
   // All values used inside (eventBus, actionListener, keyRouter, etc.) are
@@ -540,14 +540,14 @@ function App({ options, startState }: Props): React.ReactElement | null {
   // ── Check external viewer availability when path pref changes ────────
   useEffect(() => {
     const exePath = prefs.misc?.externalViewerPath ?? '';
-    if (!exePath) {
+    if (!exePath || !platform.checkFileExists) {
       setExternalViewerAvailable(false); // eslint-disable-line @eslint-react/set-state-in-effect
       return;
     }
-    ipcRenderer.invoke('checkFileExists', exePath).then((exists: boolean) => {
+    platform.checkFileExists(exePath).then((exists: boolean) => {
       setExternalViewerAvailable(exists);
     });
-  }, [prefs.misc?.externalViewerPath]);
+  }, [prefs.misc?.externalViewerPath, platform]);
 
   // ── Toolbar forwarding — switch between viewer and imagegrid toolbar ──
   useEffect(() => {
@@ -569,8 +569,8 @@ function App({ options, startState }: Props): React.ReactElement | null {
   }, [updateWinState]);
 
   const showPrefs = useCallback(() => {
-    ipcRenderer.send('openWindow', 'prefs');
-  }, []);
+    platform.openNewWindow('prefs');
+  }, [platform]);
 
   const getForceDeleteMsg = (): string => {
     if (forceDeleteIsFolder) {
@@ -641,7 +641,7 @@ function App({ options, startState }: Props): React.ReactElement | null {
     : s_toolbarModeBottomTable[toolbarPosition];
 
   return (
-    <AppContext value={{ eventBus, prefs: prefs as Preferences }}>
+    <AppContext value={{ eventBus, prefs: prefs as Preferences, platform }}>
     <div
       style={splitStyle}
       className={`view ${rotateModes[rotateMode].className}`}

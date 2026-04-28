@@ -20,8 +20,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import { useState, useRef, useCallback } from 'react';
-import { ipcRenderer } from '../../../lib/electron-imports.js';
 import { debounce } from '../../../lib/utils.js';
+import type { Platform } from '../../../lib/platform.js';
 import type { SortMode } from '../folder-state-helper.js';
 import type { GridMode } from '../grid-modes.js';
 
@@ -47,7 +47,7 @@ const DEFAULT_WIN_STATE: WinState = {
 
 type StartWinState = Partial<WinState>;
 
-export function useWinState(startWinState: StartWinState = {}): {
+export function useWinState(platform: Platform, startWinState: StartWinState = {}): {
   winState: WinState;
   updateWinState: (patch: Partial<WinState> | ((prev: WinState) => Partial<WinState>), save?: boolean) => void;
 } {
@@ -63,9 +63,11 @@ export function useWinState(startWinState: StartWinState = {}): {
   // Holds the latest WinState so the debounced save can read it without args
   const latestRef = useRef<WinState>(initial);
 
-  // Stable debounced save — created once, reads from latestRef
+  // Stable debounced save — created once, reads from latestRef. The
+  // `platform` arg is captured at hook-init time; in practice platform is
+  // a stable reference for the lifetime of the component tree.
   const saveRef = useRef(debounce(() => {
-    ipcRenderer.send('saveWinState', latestRef.current);
+    platform.saveWinState(latestRef.current);
   }, 250));
 
   const updateWinState = useCallback(
