@@ -20,7 +20,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import { useState, useEffect, useRef } from 'react';
-import { otherWindowIPC, type ChannelStream } from '../../../lib/electron-renderer-imports.js';
+import { type ChannelStream } from '../../../lib/window-ipc.js';
+import type { Platform } from '../../../lib/platform.js';
 import { Preferences } from '../../prefs/default-prefs.js';
 
 function reload(): void {
@@ -34,7 +35,7 @@ type Callbacks = {
   onTrashFailed: (filename: string) => void;
 };
 
-export function useIPCStreams(callbacks: Callbacks): {
+export function useIPCStreams(platform: Platform, callbacks: Callbacks): {
   thumberStream: ChannelStream | null;
   prefs: Partial<Preferences>;
   prefsReceived: boolean;
@@ -51,7 +52,7 @@ export function useIPCStreams(callbacks: Callbacks): {
     let thumberStreamLocal: ChannelStream | null = null;
     let prefsStreamLocal: ChannelStream | null = null;
 
-    otherWindowIPC.createChannelStream('thumber')
+    platform.createChannelStream('thumber')
       .then((stream: ChannelStream) => {
         thumberStreamLocal = stream;
         setThumberStream(stream);
@@ -63,7 +64,7 @@ export function useIPCStreams(callbacks: Callbacks): {
         if (err instanceof Error && err.stack) console.error(err.stack);
       });
 
-    otherWindowIPC.createChannelStream('prefs')
+    platform.createChannelStream('prefs')
       .then((stream: ChannelStream) => {
         prefsStreamLocal = stream;
         stream.on('prefs', (newPrefs: Preferences) => {
@@ -81,7 +82,7 @@ export function useIPCStreams(callbacks: Callbacks): {
       thumberStreamLocal?.close();
       prefsStreamLocal?.close();
     };
-  }, []);
+  }, [platform]);
 
   return { thumberStream, prefs, prefsReceived };
 }

@@ -4,12 +4,16 @@
 */
 
 import { ipcRenderer } from './electron-imports.js';
+import { otherWindowIPC } from './electron-renderer-imports.js';
 import { setupFullscreen, toggleFullscreen } from './fullscreen.js';
 import type { ActionId } from './actions.js';
 import type { Platform, WindowKind } from './platform.js';
 
 export function createElectronPlatform(): Platform {
   return {
+    createChannelStream(channelId: string) {
+      return otherWindowIPC.createChannelStream(channelId);
+    },
     toggleFullscreen,
     setupFullscreen,
     openNewWindow(kind: WindowKind) {

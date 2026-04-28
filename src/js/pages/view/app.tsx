@@ -153,7 +153,7 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
     }, 250);
   }, []);
 
-  const { thumberStream, prefs, prefsReceived } = useIPCStreams({ onTrashFailed: handleTrashFailed });
+  const { thumberStream, prefs, prefsReceived } = useIPCStreams(platform, { onTrashFailed: handleTrashFailed });
   const [externalViewerAvailable, setExternalViewerAvailable] = useState(false);
 
   // ── Filter state ───────────────────────────────────────────────────
@@ -191,7 +191,7 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
   const rootRef = useRef(root);
   rootRef.current = root;
 
-  const fileInfoMediaManager = useRef(new MediaManagerClient()).current;
+  const fileInfoMediaManager = useRef(new MediaManagerClient(platform)).current;
 
   // Plain (non-reactive) holder for the active pane's imagegrid state.
   // ImagegridState has no fields so this is purely for API compatibility with ImagegridsToolbar.

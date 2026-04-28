@@ -19,10 +19,10 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import { otherWindowIPC } from './electron-renderer-imports.js';
 import debug from './debug.js';
 import bind from './bind.js';
 import { urlFromFilename } from './utils.js';
+import type { Platform } from './platform.js';
 import type {
   MediaRequest,
   MediaBlobInfo,
@@ -43,12 +43,12 @@ export default class MediaManagerClient {
   private _streamP: Promise<MediaClientStream>;
   private readonly _logger: ReturnType<typeof debug>;
 
-  constructor() {
+  constructor(platform: Platform) {
     this._logger = debug('MediaManagerClient', ++g_clientCount);
     bind(this, '_handleMediaStatus');
 
     this._logger('registerMediaManager');
-    this._streamP = otherWindowIPC
+    this._streamP = platform
       .createChannelStream('mediaManager')
       .then((stream) => {
         this._logger('got stream');

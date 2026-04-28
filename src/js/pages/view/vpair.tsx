@@ -127,15 +127,18 @@ export default class VPair extends React.Component<Props, ComponentState> {
   private _imagegridsAnchor: ScrollAnchor | null;
   private _listenerManager: ListenerManager;
 
-  constructor(props: Props) {
-    super(props);
+  // React 19 doesn't pre-set `this.context` before the constructor body runs;
+  // it does, however, pass the context value as the second constructor arg
+  // when `static contextType` is configured. Read platform from there.
+  constructor(props: Props, context: React.ContextType<typeof AppContext>) {
+    super(props, context);
     this._logger = debug('VPair', ++g_vpairCount);
     this._logger('ctor');
     this._downstreamEventBus = new ForwardableEventDispatcher();
     this._downstreamEventBus.debugId = `${this._logger.getPrefix()}-downstream`;
     this._eventBus = new ForwardableEventDispatcher();
     this._eventBus.debugId = this._logger.getPrefix();
-    this._mediaManager = new MediaManagerClient();
+    this._mediaManager = new MediaManagerClient(context.platform);
 
     const { initialState: initialStates = {} } = props;
     const {

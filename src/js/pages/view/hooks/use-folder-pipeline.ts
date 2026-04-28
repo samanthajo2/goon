@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { ChannelStream } from '../../../lib/electron-renderer-imports.js';
+import type { ChannelStream } from '../../../lib/window-ipc.js';
 import { throttle } from '../../../lib/utils.js';
 import FolderDB, { DBFoldersByPath } from '../folder-db.js';
 import FolderFilter from '../folder-filter.js';

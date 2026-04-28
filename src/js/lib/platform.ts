@@ -15,11 +15,18 @@
 */
 
 import type { ActionId } from './actions.js';
+import type { ChannelStream } from './window-ipc.js';
 
 export type WindowKind = 'view' | 'prefs' | 'help';
 
 export type Platform = {
   // ── Required (both platforms) ───────────────────────────────────────
+
+  // Open a bidirectional channel-stream to a named peer. On Electron this
+  // is the `otherWindowIPC` relay; on web it'll be a WebSocket-backed
+  // implementation of the same interface.
+  createChannelStream(channelId: string): Promise<ChannelStream>;
+
   toggleFullscreen(): void | Promise<void>;
   setupFullscreen(): void | Promise<void>;
   openNewWindow(kind: WindowKind): void;
