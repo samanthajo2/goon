@@ -25,7 +25,7 @@ import { createBasename, debounce, isDeepEqual } from '../../lib/utils.js';
 import { FileInfo } from '../../lib/fileinfo.js';
 
 const s_saveDebounceDuration = 2000;
-const s_folderVersion = 6;
+const s_folderVersion = 7;
 
 type LocalFsAPI = {
   existsSync: (path: string) => boolean;
@@ -35,8 +35,36 @@ type LocalFsAPI = {
   writeFileSync: (path: string, data: string | Buffer) => void;
 };
 
+// Convert a v6 thumbnail.url (URL-encoded path with optional `?cache=N`
+// suffix, sometimes prefixed with `file:///`) back to a raw absolute path
+// with the cache suffix preserved. v7 stores raw paths so consumers can
+// translate per-platform via Platform.fileToUrl at render time.
+function decodeOldThumbnailUrl(url: string): string {
+  let s = url;
+  if (s.startsWith('file:///')) {
+    // Mac/Linux: file:///abs/path → /abs/path (keep leading slash).
+    // Windows: file:///C:/path → C:/path (drop leading slash).
+    s = /^file:\/\/\/[A-Z]:[/\\]/i.test(s) ? s.slice(8) : s.slice(7);
+  }
+  const qIdx = s.indexOf('?');
+  const query = qIdx >= 0 ? s.slice(qIdx) : '';
+  const bare = qIdx >= 0 ? s.slice(0, qIdx) : s;
+  try { return decodeURIComponent(bare) + query; } catch { return s; }
+}
+
 // TODO: figure out a better way type this. Or use ajv or something?
-const versionConverters: Record<string, (data: unknown, filepath: string) => unknown> = {};
+const versionConverters: Record<string, (data: unknown, filepath: string) => unknown> = {
+  6: (data: unknown) => {
+    const d = data as { version: number; files: Record<string, FileInfo> };
+    for (const file of Object.values(d.files)) {
+      if (file.thumbnail && typeof file.thumbnail.url === 'string') {
+        file.thumbnail.url = decodeOldThumbnailUrl(file.thumbnail.url);
+      }
+    }
+    d.version = 7;
+    return d;
+  },
+};
 
 export default class FolderData {
   #logger: Logger;
