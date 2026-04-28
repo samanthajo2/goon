@@ -19,11 +19,12 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import React from 'react';
-import path from 'node:path';
+import React, { use } from 'react';
+import * as path from '../../lib/path-helpers.js';
 import Modal from '../../lib/ui/modal.js';
 import { px } from '../../lib/utils.js';
 import type { FileInfo } from '../../lib/fileinfo.js';
+import { AppContext } from './contexts.js';
 
 const THUMB_SIZE = 64;
 
@@ -53,7 +54,7 @@ function archiveTag(info: FileInfo): string | null {
   return ext || 'archive';
 }
 
-function thumbStyle(info: FileInfo): React.CSSProperties {
+function thumbStyle(info: FileInfo, fileToUrl: (p: string) => string): React.CSSProperties {
   const thumb = info.thumbnail;
   if (!thumb || !thumb.url) {
     return { width: px(THUMB_SIZE), height: px(THUMB_SIZE), background: '#444' };
@@ -65,7 +66,7 @@ function thumbStyle(info: FileInfo): React.CSSProperties {
   return {
     width: px(thumb.width * scale),
     height: px(thumb.height * scale),
-    backgroundImage: `url(${prepForCSSUrl(thumb.url)})`,
+    backgroundImage: `url(${prepForCSSUrl(fileToUrl(thumb.url))})`,
     backgroundPositionX: px(-thumb.x * scale),
     backgroundPositionY: px(-thumb.y * scale),
     backgroundSize: `${px(pageSize)} ${px(pageSize)}`,
@@ -82,6 +83,7 @@ export default function DeletePrompt({
   onCancel,
   parent,
 }: Props): React.ReactElement {
+  const { platform } = use(AppContext);
   const archiveCount = items.filter(it => !!it.info.archiveName).length;
   const realCount = items.length - archiveCount;
   const defaultHeadline = realCount === 1 && archiveCount === 0
@@ -102,7 +104,7 @@ export default function DeletePrompt({
             return (
               <div key={item.filename} className={`delete-item${tag ? ' delete-item-archive' : ''}`}>
                 <div className="delete-thumb-cell">
-                  <div className="delete-thumb" style={thumbStyle(item.info)} />
+                  <div className="delete-thumb" style={thumbStyle(item.info, platform.fileToUrl)} />
                 </div>
                 <div className="delete-name">
                   {tag && <span className="delete-tag">🚫 {tag} </span>}

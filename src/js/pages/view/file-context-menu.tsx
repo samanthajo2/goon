@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import path from 'path';
+import * as path from '../../lib/path-helpers.js';
 import { ContextMenu, MenuItem } from '../../lib/ui/context-menu.js';
 import debug from '../../lib/debug.js';
 import ForwardableEvent from '../../lib/forwardable-event.js';

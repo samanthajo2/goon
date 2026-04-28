@@ -42,6 +42,9 @@ export default class MediaManagerClient {
   private _streamP: Promise<MediaClientStream>;
   private readonly _logger: ReturnType<typeof debug>;
   private readonly _platform: Platform;
+  // Object URLs we've created from received bytes — revoked on close so
+  // the browser can free the underlying blob buffers.
+  private readonly _objectUrls = new Set<string>();
 
   constructor(platform: Platform) {
     this._platform = platform;
@@ -86,17 +89,37 @@ export default class MediaManagerClient {
     error: string | null,
     blobInfo: MediaBlobInfo | undefined,
   ): void {
-    this._logger('mediaStatus:', requestId, error, JSON.stringify(blobInfo));
+    this._logger('mediaStatus:', requestId, error);
     const callback = this._requests[requestId];
     if (!callback) {
       throw new Error(`no callback for requestId: ${requestId}`);
     }
     delete this._requests[requestId];
-    callback(error, blobInfo);
+    // Server delivered raw decompressed bytes; wrap in a Blob and create
+    // an object URL in our own origin.
+    if (blobInfo && blobInfo.bytes) {
+      // bytes may be Uint8Array (Electron IPC preserves the type) or a
+      // raw ArrayBuffer (WS binary-frame reconstruction). Blob accepts
+      // both as BlobPart; cast suppresses the lib.dom Uint8Array<...>
+      // generic mismatch.
+      const blob = new Blob([blobInfo.bytes as BlobPart], { type: blobInfo.type });
+      const url = URL.createObjectURL(blob);
+      this._objectUrls.add(url);
+      callback(error, {
+        url,
+        type: blobInfo.type,
+        size: blobInfo.size,
+        mtime: blobInfo.mtime,
+      });
+    } else {
+      callback(error, undefined);
+    }
   }
 
   close(): void {
     this._logger('close');
+    for (const url of this._objectUrls) URL.revokeObjectURL(url);
+    this._objectUrls.clear();
     if (this._stream) {
       this._stream.close();
       this._stream = null;

@@ -40,12 +40,15 @@ export type MediaRequest = {
   type: string;
 };
 
-// Blob info sent by the server for archive files.
+// Blob info sent by the server for archive files. The server delivers the
+// raw decompressed bytes; the client wraps them in a Blob locally so the
+// resulting object URL is same-origin with whatever transport carried them
+// (Electron file:// or browser http://).
 export type MediaBlobInfo = {
   size: number;
   type: string;
   mtime: number;
-  url: string;
+  bytes: Uint8Array;
 };
 
 // Result delivered to the MediaCallback. For non-archive files the server

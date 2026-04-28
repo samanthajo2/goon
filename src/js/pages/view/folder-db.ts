@@ -21,7 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import EventEmitter from 'node:events';
 import { throttle, isEmpty } from '../../lib/utils.js';
-import path from 'node:path';
+import * as path from '../../lib/path-helpers.js';
 import { FileInfo, FilesByPath } from '../../lib/fileinfo.js';
 import { FolderInfo, FoldersByPath } from '../../lib/folderinfo.js';
 

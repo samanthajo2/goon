@@ -25,7 +25,6 @@ import {
   filenameFromUrl,
   getDifferentFilenames,
   getObjectsByKeys,
-  urlFromFilename,
   range,
 } from '../../lib/utils.js';
 import {separateFilesByPages} from './folder-utils.js';
@@ -262,7 +261,10 @@ export default function createThumbnailPageMaker(options: {
   }
 
   function createPage(filename: string): Page {
-    const url = urlFromFilename(filename);
+    // Send the raw absolute path; the renderer wraps it with platform.fileToUrl
+    // at render time so Electron and web clients each get the URL form they
+    // can actually load.
+    const url = filename;
     const ctx = get2DContext();
     ctx.canvas.width = pageSize;
     ctx.canvas.height = pageSize;

@@ -7,6 +7,7 @@
 
 import { EventEmitter } from 'node:events';
 import electron from './electron-imports.js';
+import { extractBinaries } from './binary-args.js';
 
 const P = 'wipc:';
 
@@ -199,6 +200,7 @@ const MAIN_SENDER_ID = -1;
 // bundles too).
 export type WebSocketLike = {
   send(data: string): void;
+  sendBinary(data: ArrayBuffer): void;
   close(): void;
   onMessage(handler: (data: string) => void): void;
   onClose(handler: () => void): void;
@@ -233,9 +235,15 @@ class BridgeStream {
   }
 
   // Forward a `relay` event coming from the peer renderer down to the browser.
+  // Args may contain binary values (Uint8Array / Buffer / ArrayBuffer); we
+  // pull them out into separate WS binary frames following the JSON frame.
   forwardToWs(event: string, args: unknown[]): void {
     if (this._closed) return;
-    try { this._ws.send(JSON.stringify({ event, args })); } catch { /* socket may be closed */ }
+    const { jsonArgs, binaries } = extractBinaries(args);
+    try {
+      this._ws.send(JSON.stringify({ event, args: jsonArgs }));
+      for (const bin of binaries) this._ws.sendBinary(bin);
+    } catch { /* socket may be closed */ }
   }
 
   // Browser closed the WebSocket: tell the peer renderer.

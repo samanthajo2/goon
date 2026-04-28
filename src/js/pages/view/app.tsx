@@ -19,7 +19,6 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import { rimraf } from 'rimraf';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { Platform } from '../../lib/platform.js';
 import { hideMenu, showMenu } from '../../lib/ui/context-menu.js';
@@ -293,8 +292,9 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
     setShowForceDelete(false);
     if (!forceDeleteFilename) return;
     if (forceDeleteIsFolder) {
+      if (!platform.deleteFolder) return;
       try {
-        await rimraf(forceDeleteFilename);
+        await platform.deleteFolder(forceDeleteFilename);
       } catch (e) {
         logger(e);
       }

@@ -22,11 +22,20 @@ function adapt(ws: WebSocket): WebSocketLike {
     send(data: string) {
       if (ws.readyState === WebSocket.OPEN) ws.send(data);
     },
+    sendBinary(data: ArrayBuffer) {
+      if (ws.readyState === WebSocket.OPEN) ws.send(Buffer.from(data), { binary: true });
+    },
     close() {
       if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) ws.close();
     },
     onMessage(handler) {
-      ws.on('message', (data) => handler(data.toString()));
+      // Browser→server messages we currently care about are JSON-only
+      // (getMediaStatus, refreshFolder, ...). Binary frames in this
+      // direction would be ignored.
+      ws.on('message', (data, isBinary) => {
+        if (isBinary) return;
+        handler(data.toString());
+      });
     },
     onClose(handler) {
       ws.on('close', handler);

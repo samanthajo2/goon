@@ -13,6 +13,7 @@
 */
 
 import type { ChannelStream } from './window-ipc.js';
+import { countBinaries, inlineBinaries } from './binary-args.js';
 
 type Listener = (...args: unknown[]) => void;
 
@@ -22,19 +23,51 @@ type Listener = (...args: unknown[]) => void;
 class WebChannelStream implements ChannelStream {
   private _listeners = new Map<string, Set<Listener>>();
   private _closed = false;
+  // While a JSON message with binary attachments is pending we accumulate
+  // the binary frames here. Once we've received as many as the message
+  // declared via {__bin: N} markers, we inline them and dispatch.
+  private _pendingMsg: { event: string; args: unknown[] } | null = null;
+  private _pendingExpected = 0;
+  private _pendingBinaries: ArrayBuffer[] = [];
 
   constructor(private readonly _ws: WebSocket) {
-    _ws.addEventListener('message', (e: MessageEvent<string>) => {
-      let msg: { event?: string; args?: unknown[] };
-      try { msg = JSON.parse(e.data); } catch { return; }
-      if (typeof msg.event !== 'string') return;
-      const listeners = this._listeners.get(msg.event);
-      if (!listeners) return;
-      // Snapshot to tolerate listeners removing themselves during dispatch.
-      for (const fn of [...listeners]) fn(...(msg.args ?? []));
+    _ws.binaryType = 'arraybuffer';
+    _ws.addEventListener('message', (e: MessageEvent<string | ArrayBuffer>) => {
+      if (typeof e.data === 'string') {
+        let msg: { event?: string; args?: unknown[] };
+        try { msg = JSON.parse(e.data); } catch { return; }
+        if (typeof msg.event !== 'string') return;
+        const args = msg.args ?? [];
+        const expected = countBinaries(args);
+        if (expected === 0) {
+          this._dispatch(msg.event, args);
+        } else {
+          this._pendingMsg = { event: msg.event, args };
+          this._pendingExpected = expected;
+          this._pendingBinaries = [];
+        }
+      } else {
+        if (!this._pendingMsg) return;
+        this._pendingBinaries.push(e.data);
+        if (this._pendingBinaries.length >= this._pendingExpected) {
+          const { event, args } = this._pendingMsg;
+          const filled = inlineBinaries(args, this._pendingBinaries);
+          this._pendingMsg = null;
+          this._pendingExpected = 0;
+          this._pendingBinaries = [];
+          this._dispatch(event, filled);
+        }
+      }
     });
     _ws.addEventListener('close', () => this._handleDisconnect());
     _ws.addEventListener('error', () => this._handleDisconnect());
+  }
+
+  private _dispatch(event: string, args: unknown[]): void {
+    const listeners = this._listeners.get(event);
+    if (!listeners) return;
+    // Snapshot to tolerate listeners removing themselves during dispatch.
+    for (const fn of [...listeners]) fn(...args);
   }
 
   on(event: string, fn: Listener): this {

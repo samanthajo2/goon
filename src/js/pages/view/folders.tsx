@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import path from 'path';
+import * as path from '../../lib/path-helpers.js';
 import { getRotatedXY } from '../../lib/rotatehelper.js';
 import ForwardableEvent from '../../lib/forwardable-event.js';
 import { cssArray } from '../../lib/css-utils.js';

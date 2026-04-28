@@ -41,7 +41,11 @@ class MediaClientProxy {
   private _requests: PendingRequest[] = [];
   private _currentRequest: PendingRequest | null = null;
   private _archiveFiles: ArchiveFiles = {};
-  private _archiveBlobUrlsByFilename: Record<string, string> = {};
+  // Cached decompressed bytes keyed by entry filename. We send the raw
+  // bytes over the channel-stream and let the client wrap them in a Blob
+  // locally; that gives both Electron (file://) and browser clients
+  // (http://) a same-origin blob URL they can use as <img src>.
+  private _archiveBytesByFilename: Record<string, Uint8Array> = {};
 
   constructor(id: number, stream: MediaServerStream) {
     this._id = id;
@@ -58,11 +62,8 @@ class MediaClientProxy {
   }
 
   private _closeArchive(): void {
-    Object.values(this._archiveBlobUrlsByFilename).forEach((url) => {
-      URL.revokeObjectURL(url);
-    });
     this._archiveFiles = {};
-    this._archiveBlobUrlsByFilename = {};
+    this._archiveBytesByFilename = {};
     this._archiveName = null;
   }
 
@@ -85,11 +86,13 @@ class MediaClientProxy {
     const { requestId, archiveName, filename } = this._currentRequest!;
     const blobInfo = this._archiveFiles[filename];
     let exception: unknown;
+    let bytes = this._archiveBytesByFilename[filename];
 
-    if (blobInfo && !this._archiveBlobUrlsByFilename[filename]) {
+    if (blobInfo && !bytes) {
       try {
         const blob = await blobInfo.blob();
-        this._archiveBlobUrlsByFilename[filename] = URL.createObjectURL(blob);
+        bytes = new Uint8Array(await blob.arrayBuffer());
+        this._archiveBytesByFilename[filename] = bytes;
       } catch (e) {
         exception = e;
       }
@@ -117,7 +120,10 @@ class MediaClientProxy {
           size: blobInfo.size,
           type: blobInfo.type,
           mtime: blobInfo.mtime,
-          url: this._archiveBlobUrlsByFilename[filename],
+          // Raw decompressed bytes — client wraps them in a Blob and
+          // calls URL.createObjectURL locally so the resulting URL is
+          // same-origin with whatever transport delivered them.
+          bytes,
         }
         : undefined,
     );

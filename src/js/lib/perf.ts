@@ -19,12 +19,15 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-// perf_hooks is only available in the main process; renderer uses window.performance
-import { performance as nodePerformance } from 'node:perf_hooks';
-const performance: Performance = (process.type === 'renderer')
+// In a renderer (Electron or browser) `window.performance` is always
+// available. Only the main process needs the perf_hooks shim — and main.ts
+// can use globalThis.performance too on modern Node, so we just rely on
+// that everywhere and avoid pulling in node:perf_hooks (which doesn't
+// resolve in browser bundles).
+const perf: Performance = (typeof window !== 'undefined' && window.performance)
   ? window.performance
-  : nodePerformance as unknown as Performance;
+  : (globalThis as unknown as { performance: Performance }).performance;
 
 export {
-  performance,
+  perf as performance,
 };

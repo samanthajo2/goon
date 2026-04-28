@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import React from 'react';
-import path from 'node:path';
+import * as path from '../../lib/path-helpers.js';
 import {px} from '../../lib/utils.js';
 import {cssArray} from '../../lib/css-utils.js';
 import KeyHelper from '../../lib/key-helper.js';
@@ -146,7 +146,7 @@ class ColumnManager {
   }
 }
 
-function computeColumnStyle(props: ThumbnailProps) {
+function computeColumnStyle(props: ThumbnailRenderProps) {
   const info = props.info;
   const pos = props.position;
   const thumbnail = info.thumbnail;
@@ -159,14 +159,14 @@ function computeColumnStyle(props: ThumbnailProps) {
     top: px(pos.y),
     width: px(pos.width),
     height: px(pos.height),
-    backgroundImage: `url(${prepForCSSUrl(thumbnail.url)})`,
+    backgroundImage: `url(${prepForCSSUrl(props.fileToUrl(thumbnail.url))})`,
     backgroundPositionX: px(-thumbnail.x * scale),
     backgroundPositionY: px(-thumbnail.y * scale),
     backgroundSize: `${px(thumbnailPageSize * scale)} ${px(thumbnailPageSize * scale)}`,
   };
 }
 
-function computeGridStyle(displayAspect: number, props: ThumbnailProps) {
+function computeGridStyle(displayAspect: number, props: ThumbnailRenderProps) {
   const info = props.info;
   const pos = props.position;
   const thumbnail = info.thumbnail;
@@ -201,7 +201,7 @@ function computeGridStyle(displayAspect: number, props: ThumbnailProps) {
     top: px(pos.y),
     width: px(width),
     height: px(height),
-    backgroundImage: `url(${prepForCSSUrl(thumbnail.url)})`,
+    backgroundImage: `url(${prepForCSSUrl(props.fileToUrl(thumbnail.url))})`,
     backgroundPositionX: px(zoom(bkX)),
     backgroundPositionY: px(zoom(bkY)),
     backgroundSize: `${px(zoom(bkWidth))} ${px(zoom(bkHeight))}`,
@@ -242,7 +242,17 @@ export type ThumbnailProps = {
   info: DBFileInfo;
 };
 
-function computeFitStyle(displayAspect: number, props: ThumbnailProps) {
+// Thumbnail injects this into ThumbnailProps when calling the style/render
+// helpers — it's an internal extension, not part of the public consumer
+// contract for Thumbnail itself, so callers don't have to provide it.
+export type ThumbnailRenderProps = ThumbnailProps & {
+  // Translate a raw path (as produced by the thumber) to a URL the
+  // current platform can load. Electron returns a file:// URL, web returns
+  // a path served by the express folder router.
+  fileToUrl: (filePath: string) => string;
+};
+
+function computeFitStyle(displayAspect: number, props: ThumbnailRenderProps) {
   const info = props.info;
   const pos = props.position;
   const thumbnail = info.thumbnail;
@@ -294,7 +304,7 @@ function computeFitStyle(displayAspect: number, props: ThumbnailProps) {
     top: px(y),
     width: px(width),
     height: px(height),
-    backgroundImage: `url(${prepForCSSUrl(thumbnail.url)})`,
+    backgroundImage: `url(${prepForCSSUrl(props.fileToUrl(thumbnail.url))})`,
     backgroundPositionX: px(zoom(bkX)),
     backgroundPositionY: px(zoom(bkY)),
     backgroundSize: `${px(zoom(bkWidth))} ${px(zoom(bkHeight))}`,
@@ -314,42 +324,42 @@ const gridModeDefs = {
     hint: 'fit',
     helper: (width: number, options: ColumnManagerOptions) => new ColumnManager(width, ({itemHeightRatio: 1, ...options})),
     render: renderWithFrame,
-    getStyle: (props: ThumbnailProps) => computeFitStyle(1, props),
+    getStyle: (props: ThumbnailRenderProps) => computeFitStyle(1, props),
   },
   'grid-4x3':  {
     icon: 'images/buttons/grid-4-3.svg',
     hint: '4x3',
     helper: (width: number, options: ColumnManagerOptions) => new ColumnManager(width, ({itemHeightRatio: 4 / 3, ...options})),
     render: renderNoFrame,
-    getStyle: (props: ThumbnailProps) => computeGridStyle(4 / 3, props),
+    getStyle: (props: ThumbnailRenderProps) => computeGridStyle(4 / 3, props),
   },
   'grid-3x4':  {
     icon: 'images/buttons/grid-3-4.svg',
     hint: '3x4',
     helper: (width: number, options: ColumnManagerOptions) => new ColumnManager(width, ({itemHeightRatio: 3 / 4, ...options})),
     render: renderNoFrame,
-    getStyle: (props: ThumbnailProps) => computeGridStyle(3 / 4, props),
+    getStyle: (props: ThumbnailRenderProps) => computeGridStyle(3 / 4, props),
   },
   'grid-16x9': {
     icon: 'images/buttons/grid-16-9.svg',
     hint: '16x9',
     helper: (width: number, options: ColumnManagerOptions) => new ColumnManager(width, ({itemHeightRatio: 16 / 9, ...options})),
     render: renderNoFrame,
-    getStyle: (props: ThumbnailProps) => computeGridStyle(16 / 9, props),
+    getStyle: (props: ThumbnailRenderProps) => computeGridStyle(16 / 9, props),
   },
   'grid-9x16': {
     icon: 'images/buttons/grid-9-16.svg',
     hint: '9x16',
     helper: (width: number, options: ColumnManagerOptions) => new ColumnManager(width, ({itemHeightRatio: 9 / 16, ...options})),
     render: renderNoFrame,
-    getStyle: (props: ThumbnailProps) => computeGridStyle(9 / 16, props),
+    getStyle: (props: ThumbnailRenderProps) => computeGridStyle(9 / 16, props),
   },
   'grid-1x1':  {
     icon: 'images/buttons/grid-1-1.svg',
     hint: '1x1',
     helper: (width: number, options: ColumnManagerOptions) => new ColumnManager(width, ({itemHeightRatio: 1, ...options})),
     render: renderNoFrame,
-    getStyle: (props: ThumbnailProps) => computeGridStyle(1, props),
+    getStyle: (props: ThumbnailRenderProps) => computeGridStyle(1, props),
   },
 } as const;
 
@@ -365,7 +375,7 @@ function renderName(props: ThumbnailProps, info: DBFileInfo) {
   return `${date}${name}${dims}`;
 }
 
-function renderNoFrame(props: ThumbnailProps, onClick: () => void, onContextMenu: (e: React.MouseEvent) => void, onDragStart: (e: React.DragEvent) => void, onPointerDown: () => void, onCheckboxClick: (e: React.MouseEvent) => void) {
+function renderNoFrame(props: ThumbnailRenderProps, onClick: () => void, onContextMenu: (e: React.MouseEvent) => void, onDragStart: (e: React.DragEvent) => void, onPointerDown: () => void, onCheckboxClick: (e: React.MouseEvent) => void) {
   const info = props.info;
   const style = gridModes.value(props.gridMode).getStyle(props);
   const baseType = `mime-${info.type.split('/')[0]}`;
@@ -382,7 +392,7 @@ function renderNoFrame(props: ThumbnailProps, onClick: () => void, onContextMenu
     </div>
   );
 }
-function renderWithFrame(props: ThumbnailProps, onClick: () => void, onContextMenu: (e: React.MouseEvent) => void, onDragStart: (e: React.DragEvent) => void, onPointerDown: () => void, onCheckboxClick: (e: React.MouseEvent) => void) {
+function renderWithFrame(props: ThumbnailRenderProps, onClick: () => void, onContextMenu: (e: React.MouseEvent) => void, onDragStart: (e: React.DragEvent) => void, onPointerDown: () => void, onCheckboxClick: (e: React.MouseEvent) => void) {
   const info = props.info;
   const pos = props.position;
   const style = gridModes.value(props.gridMode).getStyle(props);

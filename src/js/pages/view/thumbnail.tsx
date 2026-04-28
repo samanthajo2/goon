@@ -81,8 +81,11 @@ export default class Thumbnail extends React.PureComponent<Props> {
   };
 
   render(): React.ReactNode {
-    return gridModes.value(this.props.gridMode).render(
-      this.props,
+    // Inject fileToUrl into the props so style helpers can translate the
+    // raw paths the thumber sent into platform-appropriate URLs.
+    const props = { ...this.props, fileToUrl: this.context.platform.fileToUrl };
+    return gridModes.value(props.gridMode).render(
+      props,
       this._viewImage,
       this._handleContextMenu,
       this._handleDragStart,

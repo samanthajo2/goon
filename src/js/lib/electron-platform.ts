@@ -3,6 +3,7 @@
   existing ipcRenderer channels / fullscreen helpers.
 */
 
+import { rimraf } from 'rimraf';
 import { ipcRenderer } from './electron-imports.js';
 import { otherWindowIPC } from './electron-renderer-imports.js';
 import { setupFullscreen, toggleFullscreen } from './fullscreen.js';
@@ -39,6 +40,9 @@ export function createElectronPlatform(): Platform {
     },
     deleteFile(filename: string) {
       return ipcRenderer.invoke('deleteFile', filename) as Promise<void>;
+    },
+    async deleteFolder(filename: string) {
+      await rimraf(filename);
     },
     showItemInFolder(filename: string) {
       ipcRenderer.send('showItemInFolder', filename);

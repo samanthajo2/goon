@@ -299,8 +299,25 @@ const staticOptions = {
 
 function setupFolderRouter() {
   router = express.Router();
-  router.use('/out', express.static(path.join(`${import.meta.dirname}/../../../out`), staticOptions));
+  // Project root: compiled main.js lives at out/js/src/js/main/main.js, so
+  // we walk up five levels to reach the repo root where app/ and out/ sit.
+  const repoRoot = path.join(import.meta.dirname, '..', '..', '..', '..', '..');
+  // Static app/ assets (external.html, app.css, images/, ...). external.html
+  // is the index served at "/" for browser clients.
+  router.use('/', express.static(path.join(repoRoot, 'app'), { ...staticOptions, index: 'external.html' }));
+  router.use('/out', express.static(path.join(repoRoot, 'out'), staticOptions));
   router.use('/user-data-dir', express.static(args.userDataDir, staticOptions));
+  // Config endpoint consumed by web-platform.ts on boot — exposes the
+  // folder→prefix map and userDataDir so the client can translate file
+  // paths to URLs the express folder router will serve.
+  router.get('/api/config', (_req, res) => {
+    const cfgIsPrefs = !args._.length;
+    const cfgDirs = cfgIsPrefs ? prefs.folders : args._;
+    res.json({
+      folders: utils.dirsToPrefixMap(utils.filterNonExistingDirs(cfgDirs)),
+      userDataDir: args.userDataDir,
+    });
+  });
   const isPrefs = !args._.length;
   const dirs = isPrefs ? prefs.folders : args._;
   const map = utils.dirsToPrefixMap(utils.filterNonExistingDirs(dirs));
@@ -334,10 +351,20 @@ async function startWebServer() {
   if (server) {
     stopWebServer();
   }
-  const app = express();
-  app.use('/', router!);
+  const expressApp = express();
+  expressApp.use('/', router!);
   serverPort = await getFreePort(8080);
-  server = app.listen(serverPort);
+  console.log(`[web] starting server on port: ${serverPort}`);
+  const localServer = expressApp.listen(serverPort);
+  // Surface bind failures (and any later runtime errors) to stderr instead
+  // of letting them propagate to Electron's default crash dialog.
+  localServer.on('error', (err) => {
+    console.error('[web] server error:', err);
+  });
+  localServer.on('listening', () => {
+    console.log(`[web] server listening on ${serverPort}`);
+  });
+  server = localServer;
   // Mount the WebSocket bridge so browsers can talk to the same channels
   // (thumber, prefs, ...) that the desktop view window does.
   wsServer = startWebSocketBridge(server);

@@ -19,7 +19,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import path from 'node:path';
+import * as path from '../../lib/path-helpers.js';
 import debug from '../../lib/debug.js';
 import KeyHelper from '../../lib/key-helper.js';
 import { FoldersByPath, FolderStatus } from '../../lib/folderinfo.js';

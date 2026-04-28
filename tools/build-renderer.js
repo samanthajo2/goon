@@ -2,8 +2,10 @@ import * as esbuild from 'esbuild';
 
 const watch = process.argv.includes('--watch');
 
-// Renderer entry points: each HTML page has one entry
-const entryPoints = {
+// Renderer entry points: each HTML page has one entry. These run inside
+// Electron WebContents with Node integration enabled, so they're built
+// as CJS for `platform: 'node'`.
+const electronEntryPoints = {
   view:        'src/js/pages/view/view.tsx',
   help:        'src/js/pages/help/help.ts',
   password:    'src/js/pages/password/password.tsx',
@@ -12,8 +14,8 @@ const entryPoints = {
   update:      'src/js/pages/update/update.tsx',
 };
 
-const buildOptions = {
-  entryPoints,
+const electronBuildOptions = {
+  entryPoints: electronEntryPoints,
   bundle: true,
   outdir: 'out/renderer',
   outExtension: { '.js': '.cjs' },
@@ -29,10 +31,58 @@ const buildOptions = {
   logOverride: { 'empty-import-meta': 'silent' },
 };
 
+// Browser entry points: served by the optional HTTP server when enableWeb
+// is on. These run in a vanilla browser, so we alias Node modules to
+// browser-compatible polyfills and never bundle Electron.
+const browserEntryPoints = {
+  external: 'src/js/pages/view/external-view.tsx',
+};
+
+const browserBuildOptions = {
+  entryPoints: browserEntryPoints,
+  bundle: true,
+  outdir: 'out/external',
+  platform: 'browser',
+  format: 'iife',
+  jsx: 'transform',
+  sourcemap: 'inline',
+  alias: {
+    'node:events': 'events',
+    'events': 'events',
+    'node:path': 'path-browserify',
+    'path': 'path-browserify',
+  },
+  // Provide `globalThis.process` for shared code (debug.ts reads
+  // process.env.DEBUG, MediaManagerClient does process.nextTick, etc.).
+  inject: ['./src/js/lib/web-stubs/process-polyfill.ts'],
+  external: [],
+  // Map Node-only deps that appear at module-load time to a tiny shim file
+  // that exports an empty object — code paths that try to use them would
+  // throw, but the view tree never reaches those paths in web mode.
+  loader: {},
+  define: {
+    'process.platform': '"web"',
+    'process.env.NODE_ENV': '"production"',
+  },
+  logLevel: 'info',
+  logOverride: { 'empty-import-meta': 'silent' },
+};
+// Alias unconditionally Node-only modules to a shared empty stub.
+browserBuildOptions.alias['node:fs'] = './src/js/lib/web-stubs/empty.ts';
+browserBuildOptions.alias['fs'] = './src/js/lib/web-stubs/empty.ts';
+browserBuildOptions.alias['graceful-fs'] = './src/js/lib/web-stubs/empty.ts';
+browserBuildOptions.alias['node:crypto'] = './src/js/lib/web-stubs/empty.ts';
+browserBuildOptions.alias['crypto'] = './src/js/lib/web-stubs/empty.ts';
+browserBuildOptions.alias['rimraf'] = './src/js/lib/web-stubs/empty.ts';
+
 if (watch) {
-  const ctx = await esbuild.context(buildOptions);
-  await ctx.watch();
+  const electron = await esbuild.context(electronBuildOptions);
+  const browser = await esbuild.context(browserBuildOptions);
+  await Promise.all([electron.watch(), browser.watch()]);
   console.log('Watching for renderer changes...');
 } else {
-  await esbuild.build(buildOptions);
+  await Promise.all([
+    esbuild.build(electronBuildOptions),
+    esbuild.build(browserBuildOptions),
+  ]);
 }

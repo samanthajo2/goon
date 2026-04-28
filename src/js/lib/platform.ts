@@ -46,6 +46,8 @@ export type Platform = {
   // ── Optional (desktop-only) ─────────────────────────────────────────
   trashItem?(filename: string): Promise<void>;
   deleteFile?(filename: string): Promise<void>;
+  // Force-delete a folder (used as a last resort when trashItem fails).
+  deleteFolder?(filename: string): Promise<void>;
   showItemInFolder?(filename: string): void;
   openPath?(filename: string): void;
   // Start a native OS drag for the given file(s).
