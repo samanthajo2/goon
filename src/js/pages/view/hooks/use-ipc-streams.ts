@@ -83,6 +83,10 @@ export function useIPCStreams(platform: Platform, callbacks: Callbacks): {
           setPrefsReceived(true);
         });
         pStream.on('disconnect', handleDisconnect);
+        // Pull-based handshake — see prefs.tsx _addStream. Attaching the
+        // listener and then requesting closes the race where push-on-
+        // connect could arrive before the listener was wired up.
+        pStream.send('requestPrefs');
         setThumberStream(tStream);
         setDisconnected(false);
       } catch (err) {

@@ -354,7 +354,10 @@ export default class Prefs extends React.Component<PrefsProps, PrefsState> {
   _addStream(stream: { on: (e: string, fn: () => void) => void; send: (e: string, ...a: unknown[]) => void; close: () => void }): void {
     stream.on('disconnect', () => { this._removeStream(stream); });
     (this._streams as typeof stream[]).push(stream);
-    this._sendPrefs(stream, this._getPrefsToSend());
+    // Pull-based: the consumer requests prefs once it has its 'prefs'
+    // listener attached, which avoids a race where pushing on connect
+    // would arrive before that listener wires up (similar fix as thumber).
+    stream.on('requestPrefs', () => { this._sendPrefs(stream, this._getPrefsToSend()); });
   }
 
   _removeStream(stream: unknown): void {

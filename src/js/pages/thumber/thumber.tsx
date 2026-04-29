@@ -226,6 +226,9 @@ function start(args: ProgOptions) {
     .then((stream) => {
       g.prefsStream = stream;
       g.prefsStream.on('prefs', updatePrefs);
+      // Pull the current prefs after attaching the listener; otherwise a
+      // push-on-connect would race the listener wiring above.
+      g.prefsStream.send('requestPrefs');
     })
     .catch((err) => {
       console.error(err);
