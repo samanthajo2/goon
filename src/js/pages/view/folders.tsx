@@ -169,11 +169,12 @@ class Folder extends React.Component<FolderProps> {
   };
 
   private _handleContextMenu = (event: React.MouseEvent): void => {
-    // Virtual ancestor entries don't have a real folder underneath them —
-    // suppress the context menu for those (no folder-level operations make
-    // sense on a synthesized row).
-    if (!this.props.entry.realFolder) return;
-    this.context.eventBus.dispatch(new ForwardableEvent('folderContextMenu', event.nativeEvent), this.props.entry.realFolder);
+    // Virtual ancestor entries (synthesized empty parents) don't have a
+    // FolderStateFolder, but the context-menu actions only need a filename
+    // (and an `archive` flag, which is false for these). Synthesize a
+    // minimal FolderContextInfo so Refresh / Show in Finder / etc. work.
+    const ctxInfo = this.props.entry.realFolder ?? { filename: this.props.entry.filename };
+    this.context.eventBus.dispatch(new ForwardableEvent('folderContextMenu', event.nativeEvent), ctxInfo);
   };
 
   scrollIntoView(): void {

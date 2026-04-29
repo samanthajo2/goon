@@ -111,7 +111,10 @@ export default class SimpleFolderWatcher extends EventEmitter {
 
   refresh() {
     if (!this._closed) {
-      this._scan('create');
+      // Force a full readdir + per-file stat — skip the cached-mtime fast
+      // path so manual "Refresh" picks up changes the OS hasn't bumped the
+      // dir mtime for (e.g. files copied with mtime preserved).
+      this._scan('create', true);
     }
   }
 
@@ -170,7 +173,7 @@ export default class SimpleFolderWatcher extends EventEmitter {
     }
   }
 
-  _scan(addOrCreate: 'add' | 'create') {
+  _scan(addOrCreate: 'add' | 'create', force = false) {
     if (this._scanning) {
       return;
     }
@@ -185,7 +188,8 @@ export default class SimpleFolderWatcher extends EventEmitter {
         this._logger('stat error:', statErr.message);
       }
       // Fast path: directory mtime unchanged — use cached entries, skip readdir + per-file stats
-      if (!statErr &&
+      if (!force &&
+          !statErr &&
           cachedDirMtime !== undefined &&
           dirStats.mtimeMs === cachedDirMtime &&
           initialEntries) {
