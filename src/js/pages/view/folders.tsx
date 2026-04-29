@@ -39,14 +39,10 @@ function depthPrefix(depth: number): string {
   return prefix;
 }
 
-// Compute display names that collapse empty parent folders.
-// E.g. if "animals" has files and "animals/dogs/shepherds" has files
-// but "animals/dogs" does NOT, we display "dogs/shepherds" indented under "animals".
-function computeIndentedNames(baseFolders: string[], folders: FolderStateFolder[]): string[] {
-  const visiblePaths = new Set(folders.map(f => f.filename));
-
-  // For each folder, find the base that was stripped and compute the depth offset
-  const baseDir = (filename: string): string => {
+// Resolve which watched root a folder lives under (returning the dirname
+// of that root, so the watched folder itself is the first visible level).
+function baseDirFn(baseFolders: string[]): (filename: string) => string {
+  return (filename: string): string => {
     for (const baseFolder of baseFolders) {
       if (filename.startsWith(baseFolder)) {
         return path.dirname(baseFolder);
@@ -54,13 +50,21 @@ function computeIndentedNames(baseFolders: string[], folders: FolderStateFolder[
     }
     return '';
   };
+}
 
-  return folders.map(folder => {
-    const base = baseDir(folder.filename);
+// Compute display names that collapse empty parent folders.
+// E.g. if "animals" has files and "animals/dogs/shepherds" has files
+// but "animals/dogs" does NOT, we display "dogs/shepherds" indented under "animals".
+function computeIndentedNames(baseFolders: string[], filenames: string[]): string[] {
+  const visiblePaths = new Set(filenames);
+  const baseDir = baseDirFn(baseFolders);
+
+  return filenames.map(filename => {
+    const base = baseDir(filename);
 
     // Walk up from folder to base, collecting parent paths
     const parents: string[] = [];
-    let p = path.dirname(folder.filename);
+    let p = path.dirname(filename);
     while (p.length > base.length) {
       parents.unshift(p);
       p = path.dirname(p);
@@ -76,7 +80,7 @@ function computeIndentedNames(baseFolders: string[], folders: FolderStateFolder[
 
     // Build display name from the path after the deepest visible ancestor
     const startPath = ancestorIdx >= 0 ? parents[ancestorIdx] : base;
-    let relative = folder.filename.substring(startPath.length);
+    let relative = filename.substring(startPath.length);
     // Strip leading separator (POSIX or Windows).
     if (relative.startsWith('/') || relative.startsWith('\\')) {
       relative = relative.substring(1);
@@ -86,12 +90,72 @@ function computeIndentedNames(baseFolders: string[], folders: FolderStateFolder[
   });
 }
 
+// One row in the rendered Folders sidebar — either a real non-empty
+// folder or a virtual empty ancestor synthesized when the
+// `showEmptyIfChildNotEmpty` pref is on. Virtual entries reuse the
+// `realFolderNdx` of their first non-empty descendant so a click still
+// dispatches a valid goToImage.
+type FolderEntry = {
+  filename: string;
+  numFiles: number;
+  realFolder?: FolderStateFolder;
+  realFolderNdx: number;
+  scanning: boolean;
+  checking: boolean;
+};
+
+function buildFolderEntries(
+  baseFolders: string[],
+  realFolders: FolderStateFolder[],
+  withVirtualAncestors: boolean,
+): FolderEntry[] {
+  const realEntries: FolderEntry[] = realFolders.map((folder, ndx) => ({
+    filename: folder.filename,
+    numFiles: folder.files.length,
+    realFolder: folder,
+    realFolderNdx: ndx,
+    scanning: !!folder.scanning,
+    checking: !!folder.checking,
+  }));
+  if (!withVirtualAncestors) return realEntries;
+
+  const baseDir = baseDirFn(baseFolders);
+  const result: FolderEntry[] = [];
+  const emitted = new Set<string>();
+  realEntries.forEach((entry) => {
+    const base = baseDir(entry.filename);
+    // Collect ancestor paths between base (exclusive) and folder (exclusive).
+    const ancestors: string[] = [];
+    let p = path.dirname(entry.filename);
+    while (p.length > base.length) {
+      ancestors.unshift(p);
+      p = path.dirname(p);
+    }
+    for (const ancestor of ancestors) {
+      if (!emitted.has(ancestor)) {
+        emitted.add(ancestor);
+        result.push({
+          filename: ancestor,
+          numFiles: 0,
+          realFolderNdx: entry.realFolderNdx,
+          scanning: false,
+          checking: false,
+        });
+      }
+    }
+    if (!emitted.has(entry.filename)) {
+      emitted.add(entry.filename);
+      result.push(entry);
+    }
+  });
+  return result;
+}
+
 type FolderProps = {
-  folder: FolderStateFolder;
+  entry: FolderEntry;
   displayName: string;
   count: number;
   folderCount: number;
-  numFiles: number;
 };
 
 class Folder extends React.Component<FolderProps> {
@@ -105,7 +169,11 @@ class Folder extends React.Component<FolderProps> {
   };
 
   private _handleContextMenu = (event: React.MouseEvent): void => {
-    this.context.eventBus.dispatch(new ForwardableEvent('folderContextMenu', event.nativeEvent), this.props.folder);
+    // Virtual ancestor entries don't have a real folder underneath them —
+    // suppress the context menu for those (no folder-level operations make
+    // sense on a synthesized row).
+    if (!this.props.entry.realFolder) return;
+    this.context.eventBus.dispatch(new ForwardableEvent('folderContextMenu', event.nativeEvent), this.props.entry.realFolder);
   };
 
   scrollIntoView(): void {
@@ -117,12 +185,13 @@ class Folder extends React.Component<FolderProps> {
   }
 
   render(): React.ReactNode {
-    const { folder } = this.props;
+    const { entry } = this.props;
     const name = this.props.displayName;
     const classes = cssArray(
       'folder',
-      folder.scanning ? 'scanning' : undefined,
-      folder.checking ? 'checking' : undefined,
+      entry.scanning ? 'scanning' : undefined,
+      entry.checking ? 'checking' : undefined,
+      !entry.realFolder ? 'virtual' : undefined,
     );
     return (
       <div
@@ -130,7 +199,7 @@ class Folder extends React.Component<FolderProps> {
         onClick={this._handleClick}
         onContextMenu={this._handleContextMenu}
       >
-        <div ref={this._ref}>{name} ({this.props.numFiles})</div>
+        <div ref={this._ref}>{name} ({entry.numFiles})</div>
       </div>
     );
   }
@@ -179,23 +248,28 @@ export default class Folders extends React.Component<Props> {
   private renderFolder(root: FolderStateRoot): React.ReactNode[] {
     this._filenameToRef.clear();
     const { prefs } = this.context;
+    const entries = buildFolderEntries(
+      prefs.folders,
+      root.folders,
+      !!prefs.misc.showEmptyIfChildNotEmpty,
+    );
     const displayNames = prefs.misc.indentByFolderDepth
-      ? computeIndentedNames(prefs.folders, root.folders)
-      : root.folders.map(f => f.name);
-    return root.folders.map((folder, ndx) => {
-      const id = `folder-${folder.filename}`;
-      const numFiles = folder.files.length;
+      ? computeIndentedNames(prefs.folders, entries.map(e => e.filename))
+      : entries.map(e => path.basename(e.filename));
+    return entries.map((entry, ndx) => {
+      const id = `folder-${entry.filename}`;
       const ref = React.createRef<Folder>();
-      this._filenameToRef.set(folder.filename, ref);
+      this._filenameToRef.set(entry.filename, ref);
       return (
         <Folder
           key={id}
           ref={ref}
-          folder={folder}
+          entry={entry}
           displayName={displayNames[ndx]}
-          numFiles={numFiles}
-          count={ndx}
-          folderCount={ndx}
+          // Click navigation targets the entry's first non-empty descendant
+          // for virtual rows, or the entry itself otherwise.
+          count={entry.realFolderNdx}
+          folderCount={entry.realFolderNdx}
         />
       );
     });

@@ -59,6 +59,11 @@ export type Preferences = {
     // oops!
     enableRendevous: boolean,
     showEmpty: boolean,
+    // When true, the Folders sidebar shows empty parent folders if they
+    // have at least one non-empty descendant. Clicking such a virtual
+    // entry scrolls the image grid to its first non-empty descendant.
+    // Has no effect on the image grid itself.
+    showEmptyIfChildNotEmpty: boolean,
     externalViewerPath: string,
   },
   slideshowDuration: {
@@ -82,7 +87,7 @@ const defaultPrefs: Preferences = {
     stepForwardDuration: 10,
     stepBackwardDuration: 5,
     fullPathOnSeparator: true,
-    indentByFolderDepth: false,
+    indentByFolderDepth: true,
     gaplessDividers: false,
     scanContinuously: true,
     showThumber: true,
@@ -98,6 +103,7 @@ const defaultPrefs: Preferences = {
     enableWeb: false,
     enableRendevous: true,
     showEmpty: false,
+    showEmptyIfChildNotEmpty: true,
     externalViewerPath: '',
   },
   slideshowDuration: {
