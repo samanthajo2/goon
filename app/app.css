@@ -1020,6 +1020,46 @@ div::-webkit-scrollbar-corner {
   min-width: 400px;
 }
 
+.browser-server {
+  min-width: 480px;
+  padding: 16px;
+}
+.browser-server .row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+}
+.browser-server .status {
+  color: #ccc;
+}
+.browser-server .qr {
+  display: flex;
+  justify-content: center;
+  margin: 12px 0;
+  padding: 12px;
+  background: #fff;
+  border-radius: 4px;
+}
+.browser-server .urls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.browser-server .url-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.browser-server .url-row code {
+  flex: 1 1 auto;
+  background: #222;
+  padding: 4px 8px;
+  border-radius: 3px;
+  user-select: all;
+  word-break: break-all;
+}
+
 .disconnected-overlay {
   position: absolute;
   top: 0px;

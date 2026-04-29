@@ -21,6 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import path from 'node:path';
 import fs from 'node:fs';
+import os from 'node:os';
 import { spawn } from 'node:child_process';
 import { Server } from 'http'
 import { Command } from 'commander';
@@ -184,6 +185,7 @@ const oneOfAKindWindows: {
   password?: BrowserWindow,
   help?: BrowserWindow,
   update?: BrowserWindow,
+  browser?: BrowserWindow,
 } = {};
 type OneOfAKindWindowId = keyof typeof oneOfAKindWindows;
 let {prefs} = loadPrefs(prefsFilename, {
@@ -363,12 +365,14 @@ async function startWebServer() {
   });
   localServer.on('listening', () => {
     console.log(`[web] server listening on ${serverPort}`);
+    broadcastBrowserServerState();
   });
   server = localServer;
   // Mount the WebSocket bridge so browsers can talk to the same channels
   // (thumber, prefs, ...) that the desktop view window does.
   wsServer = startWebSocketBridge(server);
   debug(`Web server started on port: ${serverPort}`);
+  broadcastBrowserServerState();
 }
 
 function stopWebServer() {
@@ -381,7 +385,79 @@ function stopWebServer() {
     server.close();
     server = undefined;
   }
+  serverPort = 0;
+  broadcastBrowserServerState();
 }
+
+// ── Browser-server window IPC ──────────────────────────────────────────
+// The "Start Server" window (browser.tsx) shows the current server URLs,
+// can launch them in a system browser, and renders a QR code so a phone
+// on the same wifi can scan and connect.
+
+function getBrowserServerUrls(port: number): string[] {
+  if (!port) return [];
+  const urls: string[] = [];
+  const seen = new Set<string>();
+  const add = (host: string): void => {
+    const url = `http://${host}:${port}/`;
+    if (seen.has(url)) return;
+    seen.add(url);
+    urls.push(url);
+  };
+  // Walk every non-internal IPv4/IPv6 interface — these are the ones a
+  // phone or other device on the LAN can actually reach.
+  const ifaces = os.networkInterfaces();
+  for (const list of Object.values(ifaces)) {
+    if (!list) continue;
+    for (const info of list) {
+      if (info.internal) continue;
+      if (info.family === 'IPv4') add(info.address);
+      else if (info.family === 'IPv6') add(`[${info.address}]`);
+    }
+  }
+  add('localhost');
+  return urls;
+}
+
+type BrowserServerState = {
+  running: boolean;
+  port: number;
+  urls: string[];
+};
+
+function getBrowserServerState(): BrowserServerState {
+  const running = !!server && serverPort > 0;
+  return {
+    running,
+    port: serverPort,
+    urls: running ? getBrowserServerUrls(serverPort) : [],
+  };
+}
+
+function broadcastBrowserServerState(): void {
+  const state = getBrowserServerState();
+  const window = oneOfAKindWindows.browser;
+  if (window && !window.isDestroyed()) {
+    window.webContents.send('browser:state', state);
+  }
+}
+
+ipcMain.handle('browser:getServerState', () => getBrowserServerState());
+ipcMain.on('browser:startServer', () => {
+  // Manual start should also flip the pref so the choice persists.
+  if (!prefs.misc.enableWeb) {
+    prefs.misc.enableWeb = true;
+    try { fs.writeFileSync(prefsFilename, JSON.stringify(prefs, null, 2)); } catch { /* best effort */ }
+  }
+  startWebServer();
+});
+ipcMain.on('browser:stopServer', () => {
+  if (prefs.misc.enableWeb) {
+    prefs.misc.enableWeb = false;
+    try { fs.writeFileSync(prefsFilename, JSON.stringify(prefs, null, 2)); } catch { /* best effort */ }
+  }
+  stopWebServer();
+});
 
 function getWindowInfo(webContents: WebContents): WindowInfo | undefined{
   const ndx = windows.findIndex((window) => webContents === window.webContents);
@@ -686,6 +762,15 @@ function createUpdateWindow() {
   });
 }
 
+function createBrowserServerWindow() {
+  createOneOfAKindWindow('browser', 'app/browser.html', {
+    show: true,
+    width: 600,
+    height: 600,
+    hideInsteadOfClose: true,
+  });
+}
+
 function sendAction(webContents: WebContents, action: string) {
   webContents.send('action', action);
 }
@@ -843,6 +928,7 @@ function setupMenus() {
         { label: `About ${name}`, click: createHelpWindow },
         { label: 'Check for Updates...', click: createUpdateWindow },
         { label: 'Preferences...', click: createPreferencesWindow },
+        { label: 'Start Server...', click: createBrowserServerWindow },
         { type: 'separator' },
         { label: 'Services', role: 'services', submenu: [] },
         { type: 'separator' },
@@ -861,6 +947,7 @@ function setupMenus() {
         actionItem('newWindow'),
         { type: 'separator' },
         { label: 'Preferences...', click: createPreferencesWindow },
+        { label: 'Start Server...', click: createBrowserServerWindow },
         { label: 'Check for Updates...', click: createUpdateWindow },
         { type: 'separator' },
         { label: 'Close Window', accelerator: 'Alt+F4', click(_i, w) { (w as BrowserWindow)?.close(); } },

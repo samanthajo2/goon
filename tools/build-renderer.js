@@ -12,6 +12,7 @@ const electronEntryPoints = {
   preferences: 'src/js/pages/prefs/preferences.tsx',
   thumber:     'src/js/pages/thumber/thumber.tsx',
   update:      'src/js/pages/update/update.tsx',
+  browser:     'src/js/pages/browser/browser.tsx',
 };
 
 const electronBuildOptions = {
