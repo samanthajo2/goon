@@ -1257,6 +1257,11 @@ div::-webkit-scrollbar-corner {
     background-size: 40px 40px;
     animation: move-stripes 1s linear infinite;
 
+    &.complete {
+      background-color: #2e7d32;
+      background-image: none;
+      animation: none;
+    }
   }
 }
 

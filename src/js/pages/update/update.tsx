@@ -173,11 +173,15 @@ class Update extends React.Component<Record<string, never>, UpdateState> {
           <h1>Update</h1>
           <div className="status">
             <div>status: {msg}</div>
-            {(progress && progress.transferred && progress.total)
+            {(this.updateState === 'readyToUpdate')
               ? (<div className="progress-bar">
-                   <div style={{width: `${progress.transferred / progress.total * 100 | 0}%`}}></div>
+                   <div className="complete" style={{width: '100%'}}></div>
                  </div>)
-              : undefined
+              : (progress && progress.transferred && progress.total)
+                ? (<div className="progress-bar">
+                     <div style={{width: `${progress.transferred / progress.total * 100 | 0}%`}}></div>
+                   </div>)
+                : undefined
             }
           </div>
           {error
