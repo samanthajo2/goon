@@ -26,7 +26,22 @@ import crypto from 'node:crypto';
 const driveRE = /^[A-Z]:[\\/]/i;
 const uncRE = /^\/\/[^/]+\/[^/]+|\\\\[^\\]+\\[^\\]+/;
 const backslashRE = /\\/g;
+// Cached because urlFromFilename is called per-thumbnail per render, and
+// hot paths (image-grid scroll) hammer it with the same handful of strings.
+// Bounded by re-creation when it grows past a soft cap so we don't leak.
+const urlFromFilenameCache = new Map<string, string>();
+const URL_CACHE_MAX = 10000;
+
 function urlFromFilename(filename: string): string {
+  const cached = urlFromFilenameCache.get(filename);
+  if (cached !== undefined) return cached;
+  const result = urlFromFilenameImpl(filename);
+  if (urlFromFilenameCache.size >= URL_CACHE_MAX) urlFromFilenameCache.clear();
+  urlFromFilenameCache.set(filename, result);
+  return result;
+}
+
+function urlFromFilenameImpl(filename: string): string {
   // this smells
   if (filename.substring(0, 5).toLowerCase() === 'blob:') {
     return filename;

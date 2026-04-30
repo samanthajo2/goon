@@ -582,6 +582,7 @@ export default class ImageGrids extends React.Component<Props, State> {
 
   private _getFoldersFromState(props: Props): void {
     this._folders = this._addFolders(props.root);
+    this._rebuildItemHeights();
   }
 
   private _itemRenderer = (index: number, key: number): React.ReactNode => {
@@ -605,15 +606,15 @@ export default class ImageGrids extends React.Component<Props, State> {
     );
   };
 
-  private _getNumItems(): number {
-    return this._folders ? this._folders.length : 0;
-  }
+  // Heights snapshot for VirtualList. Built fresh whenever the folder list
+  // is rebuilt; passed as a stable array reference so VirtualList can
+  // memoize its prefix-sum table on identity.
+  private _itemHeights: number[] = [];
 
-  private _itemSizeGetter = (index: number): number => {
-    const info = this._folders![index];
-    this._logger('height index:', index, 'height:', info.height);
-    return g_folderHeaderHeight + info.height;
-  };
+  private _rebuildItemHeights(): void {
+    const folders = this._folders ?? [];
+    this._itemHeights = folders.map(f => g_folderHeaderHeight + f.height);
+  }
 
   private _getWidth(): number {
     if (this.props.width > 0) return this.props.width;
@@ -702,8 +703,7 @@ export default class ImageGrids extends React.Component<Props, State> {
             }}
             className="imagegrids"
             onScroll={this._handleScroll}
-            length={this._getNumItems()}
-            itemHeight={this._itemSizeGetter}
+            itemHeights={this._itemHeights}
             renderItem={this._itemRenderer}
           />
         )}

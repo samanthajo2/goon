@@ -163,6 +163,13 @@ button {
             text-shadow: 0 0 3px black, 0 0 3px black, 0 0 3px black, 0 0 3px black, 0 0 3px black;
             overflow-wrap: break-word;
             overflow: hidden;
+            /* Each thumbnail has explicit width/height set inline, so the
+               browser already knows its layout box. content-visibility:auto
+               lets it skip painting + layout containment for off-screen
+               thumbnails, which dramatically cuts the cost of mounting a
+               tall folder-grid that scrolls into view. */
+            content-visibility: auto;
+            contain-intrinsic-size: auto 150px auto 150px;
 
             &.current-image {
                 box-shadow:

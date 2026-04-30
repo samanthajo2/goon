@@ -19,7 +19,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import React, { useImperativeHandle, useRef, useState } from 'react';
+import React, { useImperativeHandle, useMemo, useRef, useState } from 'react';
 
 // VirtualList renders only the items visible in its scroll viewport plus an
 // overscan buffer, maintaining the correct total scroll height with spacer
@@ -34,8 +34,9 @@ import React, { useImperativeHandle, useRef, useState } from 'react';
 //   domElement       – the underlying <div>, for callers that need addEventListener
 //                      or scrollTop access
 //
-// itemHeight(index) is called synchronously; heights are NOT cached here.
-// Callers are expected to keep their own pre-computed height data.
+// Heights are passed as a precomputed array so this component can build
+// prefix sums once per heights-array change and use binary search for
+// visible-range and spacer computations on every scroll event.
 
 export interface VirtualListHandle {
   scrollTo(index: number): void;
@@ -43,8 +44,7 @@ export interface VirtualListHandle {
 }
 
 export interface VirtualListProps {
-  length: number;
-  itemHeight: (index: number) => number;
+  itemHeights: number[];
   renderItem: (index: number, key: number) => React.ReactNode;
   overscan?: number;
   className?: string;
@@ -52,17 +52,9 @@ export interface VirtualListProps {
   onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
 }
 
-// Sum itemHeight from 0 (inclusive) to endIndex (exclusive).
-function sumHeights(itemHeight: (i: number) => number, endIndex: number): number {
-  let total = 0;
-  for (let i = 0; i < endIndex; i++) total += itemHeight(i);
-  return total;
-}
-
 function VirtualList(props: VirtualListProps & { ref?: React.Ref<VirtualListHandle> }): React.ReactNode {
   const {
-    length,
-    itemHeight,
+    itemHeights,
     renderItem,
     overscan = 3,
     className,
@@ -70,16 +62,38 @@ function VirtualList(props: VirtualListProps & { ref?: React.Ref<VirtualListHand
     onScroll,
     ref,
   } = props;
+  const length = itemHeights.length;
+
+  // Cumulative heights; prefixSums[i] = sum of itemHeights[0..i-1], so
+  // prefixSums[i] is the y-offset of item i's top edge and prefixSums[length]
+  // is the total height. Rebuilt only when the heights array reference
+  // changes — scroll-driven re-renders re-use the same memoized array.
+  const prefixSums = useMemo(() => {
+    const sums = new Array<number>(length + 1);
+    sums[0] = 0;
+    for (let i = 0; i < length; i++) sums[i + 1] = sums[i] + itemHeights[i];
+    return sums;
+  }, [itemHeights, length]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [containerHeight, setContainerHeight] = useState(0);
+  // Cached visible-range cursors. Scrolling normally moves these by 0–1
+  // items per frame, so the loops below are O(1) in the common case.
+  const firstVisibleRef = useRef(0);
+  const lastVisibleRef = useRef(0);
+  // Reset cursors when the heights array (and thus prefixSums identity)
+  // changes — items may have been added/removed/resized.
+  const lastSumsRef = useRef(prefixSums);
+  if (lastSumsRef.current !== prefixSums) {
+    lastSumsRef.current = prefixSums;
+    if (firstVisibleRef.current >= length) firstVisibleRef.current = Math.max(0, length - 1);
+    if (lastVisibleRef.current >= length) lastVisibleRef.current = Math.max(0, length - 1);
+  }
 
   // Track container height via ResizeObserver so we re-render when it resizes.
   const observerRef = useRef<ResizeObserver | null>(null);
   const containerCallbackRef = (el: HTMLDivElement | null): void => {
-    // containerRef is set by React's own ref forwarding; we need a callback
-    // ref for the ResizeObserver.
     if (observerRef.current) {
       observerRef.current.disconnect();
       observerRef.current = null;
@@ -98,16 +112,14 @@ function VirtualList(props: VirtualListProps & { ref?: React.Ref<VirtualListHand
     scrollTo(index: number): void {
       const el = containerRef.current;
       if (!el) return;
-      const offset = sumHeights(itemHeight, index);
+      const offset = prefixSums[Math.max(0, Math.min(index, length))];
       el.scrollTop = offset;
-      // Update internal scrollTop immediately so visible range is correct
-      // before the scroll event fires.
       setScrollTop(offset);
     },
     get domElement(): HTMLDivElement | null {
       return containerRef.current;
     },
-  }), [itemHeight]);
+  }), [prefixSums, length]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>): void => {
     setScrollTop(e.currentTarget.scrollTop);
@@ -125,29 +137,31 @@ function VirtualList(props: VirtualListProps & { ref?: React.Ref<VirtualListHand
     );
   }
 
-  // Find first visible item: the last item whose top edge is <= scrollTop.
-  let firstVisible = 0;
-  let accumulated = 0;
-  while (firstVisible < length - 1) {
-    const h = itemHeight(firstVisible);
-    if (accumulated + h > scrollTop) break;
-    accumulated += h;
-    firstVisible++;
-  }
+  // Incremental visible-range update. We know where the visible window
+  // *was*; nudge the cursors to where it is now. For typical wheel/touch
+  // scroll deltas this is O(1) per frame; only big scrollbar jumps walk
+  // a non-trivial number of steps, and that's still O(distance / itemH),
+  // not O(N).
+  let firstVisible = firstVisibleRef.current;
+  // Move forward while item below `firstVisible` has scrolled out of view.
+  while (firstVisible < length - 1 && prefixSums[firstVisible + 1] <= scrollTop) firstVisible++;
+  // Move backward if we've scrolled up past the top of the cached cursor.
+  while (firstVisible > 0 && prefixSums[firstVisible] > scrollTop) firstVisible--;
 
-  // Find last visible item: first item whose top edge is >= scrollTop + containerHeight.
-  let lastVisible = firstVisible;
-  let accFromFirst = accumulated;
-  while (lastVisible < length - 1 && accFromFirst < scrollTop + containerHeight) {
-    accFromFirst += itemHeight(lastVisible);
-    lastVisible++;
-  }
+  let lastVisible = lastVisibleRef.current;
+  if (lastVisible < firstVisible) lastVisible = firstVisible;
+  const bottom = scrollTop + containerHeight;
+  while (lastVisible < length - 1 && prefixSums[lastVisible + 1] < bottom) lastVisible++;
+  while (lastVisible > firstVisible && prefixSums[lastVisible] >= bottom) lastVisible--;
+
+  firstVisibleRef.current = firstVisible;
+  lastVisibleRef.current = lastVisible;
 
   const startIndex = Math.max(0, firstVisible - overscan);
   const endIndex = Math.min(length - 1, lastVisible + overscan);
 
-  const topSpacer = sumHeights(itemHeight, startIndex);
-  const bottomSpacer = sumHeights(itemHeight, length) - sumHeights(itemHeight, endIndex + 1);
+  const topSpacer = prefixSums[startIndex];
+  const bottomSpacer = prefixSums[length] - prefixSums[endIndex + 1];
 
   const items: React.ReactNode[] = [];
   for (let i = startIndex; i <= endIndex; i++) {
