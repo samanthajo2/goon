@@ -621,6 +621,7 @@ function createWindow(url?: string, options?: WindowOptions) {
   }
 
   catchNavigation(window);
+  installCrashRecovery(window);
 
   window.on('close', saveProgramStateIfLastWindow);
   window.on('closed', makeCloseWindowHandler(window));
@@ -644,6 +645,24 @@ function catchNavigation(window: BrowserWindow) {
     if (isSafeishURL(url)) {
       shell.openExternal(url);
     }
+  });
+}
+
+// Auto-recover from renderer crashes (e.g. macOS killing the process after
+// a long sleep, or OOM). Without this the user sees a frozen white window
+// with no recourse short of restarting the app.
+function installCrashRecovery(window: BrowserWindow) {
+  window.webContents.on('render-process-gone', (_e, details) => {
+    console.error('[main] renderer gone:', details.reason, 'exitCode:', details.exitCode, 'url:', window.webContents.getURL());
+    if (window.isDestroyed()) return;
+    // 'clean-exit' / 'killed' for normal close; reload only on actual crashes.
+    const recoverable = ['crashed', 'oom', 'launch-failed', 'integrity-failure', 'abnormal-exit'];
+    if (recoverable.includes(details.reason)) {
+      try { window.reload(); } catch (err) { console.error('[main] reload failed:', err); }
+    }
+  });
+  window.webContents.on('unresponsive', () => {
+    console.warn('[main] renderer unresponsive:', window.webContents.getURL());
   });
 }
 
@@ -700,6 +719,7 @@ function createOneOfAKindWindow(id: OneOfAKindWindowId, url: string, options: Wi
     window.loadURL(`file://${import.meta.dirname}/../../../../../${url}`);
 
     catchNavigation(window);
+    installCrashRecovery(window);
 
     if (options.hideInsteadOfClose) {
       window.on('close', makeHideInsteadOfCloseHandler(window));
