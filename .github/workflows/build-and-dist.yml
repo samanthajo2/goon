@@ -55,11 +55,14 @@ jobs:
           echo github.event.action: ${{ github.event.action }}
           echo github.event_name: ${{ github.event_name }}
 
-      - name: Install and Build
+      - name: Install
+        run: npm ci
+
+      - name: Build and Package
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
+          NODE_ENV: production
         run: |
-          npm ci
           npm run build
           npm run dist
 

@@ -38,6 +38,18 @@ const electronBuildOptions = {
   logOverride: { 'empty-import-meta': 'silent' },
 };
 
+// When building for production (CI / shipped builds), bake NODE_ENV='production'
+// into the renderer bundles. esbuild then dead-code-eliminates the dev variants
+// of React/scheduler at bundle time, dropping them from the output entirely
+// (otherwise both dev and prod React are bundled and the runtime if-check picks
+// one). Local `npm run build` leaves the substitution off so dev/prod can still
+// be toggled at runtime via the launch script.
+if (process.env.NODE_ENV === 'production') {
+  electronBuildOptions.define = {
+    'process.env.NODE_ENV': '"production"',
+  };
+}
+
 // Browser entry points: served by the optional HTTP server when enableWeb
 // is on. These run in a vanilla browser, so we alias Node modules to
 // browser-compatible polyfills and never bundle Electron.
