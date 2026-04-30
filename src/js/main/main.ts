@@ -85,6 +85,38 @@ const debug = debugFn('main');
 const isDevMode = process.env.NODE_ENV === 'development';
 const isOSX = process.platform === 'darwin';
 
+// When GOON_DUMP_IDLE is set, every 15s we dump what's keeping the main
+// event loop alive (timers, sockets, filesystem watchers, ...). Use this
+// to find what's firing during "idle" periods that might be triggering
+// the V8 main-process crashes.
+if (process.env.GOON_DUMP_IDLE) {
+  const summarize = (label: string, items: unknown[]): string => {
+    const counts: Record<string, number> = {};
+    for (const item of items) {
+      const named = item as { constructor?: { name?: string } } | null | undefined;
+      const ctorName = named?.constructor?.name ?? typeof item;
+      counts[ctorName] = (counts[ctorName] ?? 0) + 1;
+    }
+    const parts = Object.entries(counts).map(([k, v]) => `${k}=${v}`).join(' ');
+    return `${label}(${items.length}): ${parts || '<none>'}`;
+  };
+  setInterval(() => {
+    // _getActiveHandles / _getActiveRequests are undocumented but stable
+    // and widely used for diagnosing event-loop activity.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const proc = process as any;
+    const handles = proc._getActiveHandles?.() ?? [];
+    const requests = proc._getActiveRequests?.() ?? [];
+    const mem = process.memoryUsage();
+    console.log(
+      `[idle-dump] ${new Date().toISOString()} ` +
+      `rss=${Math.round(mem.rss / 1024 / 1024)}MiB heap=${Math.round(mem.heapUsed / 1024 / 1024)}/${Math.round(mem.heapTotal / 1024 / 1024)}MiB ` +
+      summarize('handles', handles) + ' | ' +
+      summarize('requests', requests),
+    );
+  }, 15000).unref();
+}
+
 const program = new Command();
 
 program

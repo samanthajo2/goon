@@ -17,6 +17,12 @@ const electronEntryPoints = {
 
 const electronBuildOptions = {
   entryPoints: electronEntryPoints,
+  // Disable React 19's User Timing instrumentation. In dev builds React calls
+  // performance.measure() on every render and scheduling lane, gated solely on
+  // typeof console.timeStamp === 'function'. The entries accumulate forever and
+  // after ~7 minutes V8 OOMs cloning the next measure-options object, taking
+  // the renderer with it.
+  banner: { js: 'console.timeStamp=undefined;' },
   bundle: true,
   outdir: 'out/renderer',
   outExtension: { '.js': '.cjs' },
