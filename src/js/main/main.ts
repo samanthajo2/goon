@@ -307,7 +307,7 @@ ipcMain.handle('deleteFile', async (_event, filename: string) => {
   await fs.promises.unlink(filename);
 });
 ipcMain.handle('trashItem', async (_event, filename: string) => {
-  await shell.trashItem(filename);
+  await shell.trashItem(path.resolve(filename));
 });
 ipcMain.handle('launchBrowser', async(_event, path: string) => {
   const url = new URL(`http://localhost:${serverPort}/out/vr.html`);
