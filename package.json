@@ -11,6 +11,14 @@
       "category": "public.app-category.lifestyle",
       "identity": null
     },
+    "dmg": {
+      "contents": [
+        { "x": 130, "y": 220, "type": "file" },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" },
+        { "x": 270, "y": 80, "type": "file", "path": "build/How To Run.txt" }
+      ],
+      "window": { "width": 540, "height": 480 }
+    },
     "files": [
       "package.json",
       "main.js",

@@ -1,0 +1,12 @@
+How to run Goon on macOS
+========================
+
+1. Drag the app to Applications.
+
+2. Open the Terminal.app.
+
+3. Copy and paste this command, then press Enter:
+
+   xattr -d -r com.apple.quarantine /Applications/Goon.app
+
+That's it — Goon will now open normally.
