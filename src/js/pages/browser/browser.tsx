@@ -94,10 +94,13 @@ class Browser extends React.Component<Props, State> {
   };
 
   render(): React.ReactNode {
-    const { running, urls } = this.state.server;
+    const { running } = this.state.server;
+    // Drop IPv6 URLs (bracketed host form) — phones connecting via QR code
+    // and most LAN clients use IPv4.
+    const urls = this.state.server.urls.filter(u => !u.includes('['));
     // The "primary" URL we feature with QR code: prefer a non-loopback so
     // a phone on the same wifi can reach it. Loopback is the fallback.
-    const primary = urls.find(u => !/\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/.test(u)) ?? urls[0];
+    const primary = urls.find(u => !/\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(u)) ?? urls[0];
     return (
       <div className="msg browser-server">
         <h1>Browser Server</h1>
