@@ -22,12 +22,6 @@ the rotation is sticky the UI is still in landscape.
 
 Goon fixes those issues
 
-## Why Electron?
-
-My hope was that by using Electron more people could contribute as more
-people have HTML, CSS, JavaScript experience. If there are ideas for plugins
-or features I'm all ears although code speaks louder than words.
-
 ## Why is my mouse movement messed up when I rotate the app?
 
 First off let's be clear, there are 2 kinds of rotation. 
@@ -71,65 +65,3 @@ Goon's default keys use Ctrl for previous and Shift
 for next. That's because when holding a laptop computer
 vertically those keys are easy to reach with one hand.
 Un-map those keys if want to use them as modifiers to other keys.
-
-## Plugins?
-
-I'd like to support plugins if there is a compelling use case.
-Originally I was hoping to write plugins to support various websites.
-Upon reflection I realized that's probably a bad idea. Chrome and Firefox
-are updated regularly to avoid exploits. Electron not so much so
-it seems irresponsible to use Electron to browse the web.
-
-One possible solution to that is to write some kind of extensions
-for Chrome/Firefox and have them some how communicate to Goon.
-One example might be to be able to select one or more images in
-Goon and have them uploaded to a service by passing the list of files
-to the extension and then the extension could use a regular
-more secure browser to talk to the actual website.
-
-Other ideas for plugins would be
-
-*   Archive Plugins
-
-    Support more than .ZIP and .RAR. 
-    
-    Is there really anything else out there in use?
-
-*   Image, Video Plugins
-
-    Support other image and video formats. For video see below. For images
-    is there anything else important to support? In other words does
-    any one have collections of images in other formats for which Goon
-    is a good match?
-
-## Skinning, Themes?
-
-Closely related to plugins would be themes. Other than colors I'm not
-really sure what a theme would provide since the UI is fairly dense.
-
-It's possible the current UI could be converted to various components
-and the code to glue those together separated out so themes could then more easily
-redesign the UI. Before spending time there some sketches or mockups
-of different UIs would be helpful just to see that it's worth while
-to spend the time.
-
-## When are you going to support .AVI, .DVIX, etc?
-
-The short answer is as soon as you provide the PR to enable it.
-
-Goon is based on Electron which is based on Chromium which currently only supports mp4, ogv, webm, and some mkvs.
-
-Two possible paths to add other format support are 
-
-1. enabling more codecs in Chromium
-
-   Chromium uses ffmpeg to decode video. It's compiled to only support the formats Chromium needs. It should be possible
-   to compile it to support more formats.
-
-2. porting ffmpeg or other video library to WebAssembly + Workers
-
-   It should be possible to port ffmpeg to WebAssembly. Using OffscreenCanvas it should be
-   semi performant to decode video in a worker. Audio would have to be shuttled via
-   ArrayBuffer transfer of ownership back to the main thread OR via SharedArrayBuffers.
-   Some form of delay of both video and audio would be needed to sync up the two.
-

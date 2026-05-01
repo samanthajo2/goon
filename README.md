@@ -13,7 +13,7 @@ may complain.
 
 On MacOS, double click the `Goon.<version>.dmg` and drag the app somewhere.  Then open a terminal and type
 
-```
+```sh
 xattr -d -r com.apple.quarantine /Applications/Goon.app
 ```
 
@@ -33,7 +33,7 @@ Also see [the To Do List](TODO.md)
 Install node via [nvm](https://github.com/nvm-sh/nvm) or
 [nvm-windows](https://github.com/coreybutler/nvm-windows).
 
-```
+```sh
 git clone https://github.com/samanthajo2/goon.git
 cd goon
 npm ci
