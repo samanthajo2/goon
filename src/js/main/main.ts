@@ -476,18 +476,9 @@ function broadcastBrowserServerState(): void {
 
 ipcMain.handle('browser:getServerState', () => getBrowserServerState());
 ipcMain.on('browser:startServer', () => {
-  // Manual start should also flip the pref so the choice persists.
-  if (!prefs.misc.enableWeb) {
-    prefs.misc.enableWeb = true;
-    try { fs.writeFileSync(prefsFilename, JSON.stringify(prefs, null, 2)); } catch { /* best effort */ }
-  }
   startWebServer();
 });
 ipcMain.on('browser:stopServer', () => {
-  if (prefs.misc.enableWeb) {
-    prefs.misc.enableWeb = false;
-    try { fs.writeFileSync(prefsFilename, JSON.stringify(prefs, null, 2)); } catch { /* best effort */ }
-  }
   stopWebServer();
 });
 

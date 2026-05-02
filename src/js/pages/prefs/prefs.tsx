@@ -635,7 +635,7 @@ export default class Prefs extends React.Component<PrefsProps, PrefsState> {
               {this._makeCheckbox('misc', 'showDimensions', 'Show dimensions when hovering over image')}
               {this._makeCheckbox('misc', 'promptOnDeleteFile', 'Prompt before deleting a file')}
               {this._makeCheckbox('misc', 'promptOnDeleteFolder', 'Prompt before deleting a folder')}
-              {this._makeCheckbox('misc', 'enableWeb', 'Turn on local web server')}
+              {this._makeCheckbox('misc', 'enableWeb', 'Turn on local web server on startup')}
               <EnumSelector desc="Toolbar Position" items={s_toolbarPositionModes} item={prefs.misc.toolbarPosition} onChange={this._changeToolbarPosition} />
               <div className="external-viewer-path">
                 <div>External Viewer</div>
