@@ -1,7 +1,7 @@
 {
   "name": "goon",
   "productName": "Goon",
-  "version": "0.0.43",
+  "version": "1.0.0",
   "type": "module",
   "description": "Multiple Movie/Photo Viewer",
   "build": {
@@ -13,11 +13,28 @@
     },
     "dmg": {
       "contents": [
-        { "x": 130, "y": 220, "type": "file" },
-        { "x": 410, "y": 220, "type": "link", "path": "/Applications" },
-        { "x": 270, "y": 80, "type": "file", "path": "build/How To Run.txt" }
+        {
+          "x": 130,
+          "y": 220,
+          "type": "file"
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        },
+        {
+          "x": 270,
+          "y": 80,
+          "type": "file",
+          "path": "build/How To Run.txt"
+        }
       ],
-      "window": { "width": 540, "height": 480 }
+      "window": {
+        "width": 540,
+        "height": 480
+      }
     },
     "files": [
       "package.json",
