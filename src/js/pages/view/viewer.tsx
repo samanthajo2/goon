@@ -845,7 +845,7 @@ export default class Viewer extends React.Component<Props, State> {
             <div className="view-holder">
               <div className="viewer-content" onContextMenu={this._handleContextMenu}>
                 <img style={imageStyle} className="viewer-img" draggable={false} alt="" />
-                <video style={videoStyle} className="viewer-video" autoPlay loop draggable={false}></video>
+                <video style={videoStyle} className="viewer-video" autoPlay loop playsInline draggable={false}></video>
                 <img style={brokenStyle} className="viewer-broken" src="images/broken.svg" draggable={false} alt="failed to load" />
               </div>
               <div className={infoClasses.toString()}>{filename}</div>
