@@ -134,8 +134,10 @@ class Que extends React.Component<QueProps> {
         >
           <img src={playbackRateInfo.get(videoState.playbackRate)?.icon ?? ''} />
         </button>
-        {this._makeButton('fastBackward')}
-        {this._makeButton('fastForward')}
+        <div className="button-group viewer-ff-controls">
+          {this._makeButton('fastBackward')}
+          {this._makeButton('fastForward')}
+        </div>
         {this._makeButton('setLoop')}
         <div className="volume tooltip-high" data-tooltip="volume">
           <Range
@@ -231,7 +233,7 @@ export default class ViewerToolbar extends React.Component<Props, State> {
     document.title = `view: ${this._viewId}`;
     return (
       <div className="toolbar viewertoolbar">
-        <div className="button-group">
+        <div className="button-group viewer-orientation-controls">
           {this._makeButton('gotoPrev')}
           {this._makeButton('gotoNext')}
           {this._makeButton('closeViewer')}
@@ -258,7 +260,7 @@ export default class ViewerToolbar extends React.Component<Props, State> {
             {this._makeButton('launchExternalViewer')}
           </div>
         )}
-        <div className="button-group">
+        <div className="button-group viewer-split-controls">
           {this._makeButton('toggleSlideshow')}
           {this._makeButton('splitVertical')}
           {this._makeButton('splitHorizontal')}

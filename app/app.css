@@ -16,6 +16,7 @@ html, body {
     background-color: #444;
     color: white;
     height: 100dvh;
+    overscroll-behavior: none;
 }
 video, img {
     max-width: none;
@@ -145,7 +146,41 @@ button {
 
         } /* .video-controls */
 
+        @media (max-width: 900px) {
+             .viewer-ff-controls {
+                 display: none;
+             }
+        }
+
+        @media (max-width: 840px) {
+             .zoom {
+                 display: none;
+             }
+        }
+
+        @media (max-width: 740px) {
+             .viewer-orientation-controls {
+                 display: none;
+             }
+        }
+
+        @media (max-width: 540px) {
+             .viewer-split-controls {
+                 display: none;
+             }
+        }
+
     } /* .viewertoolbar */
+
+    .imagegridstoolbar {
+
+        @media (max-width: 500px) {
+             .imagegrids-split-controls {
+                 display: none;
+             }
+        }
+
+    }
 
     .imagegrid {
 

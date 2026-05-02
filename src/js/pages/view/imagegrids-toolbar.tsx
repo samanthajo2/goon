@@ -138,7 +138,7 @@ export default class ImagegridsToolbar extends React.Component<Props> {
             onFocus={this.props.filterInputFocused}
           />
         </div>
-        <div className="button-group">
+        <div className="button-group imagegrids-split-controls">
           {this._makeButton('splitVertical')}
           {this._makeButton('splitHorizontal')}
           {this._makeButton('deletePane')}
