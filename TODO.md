@@ -9,7 +9,7 @@ High Priority
     Coming back to this code it's difficult to see what to change and where info is.
     Switching to TypeScript should help if we require types.
 
-* [ ] Try to get rid of React
+* [X] (rejected) Try to get rid of React
 
     I chose React because it seems common and likely to get more contributions.
     I also chose it because I thought there might be more libraries/widgets
@@ -21,13 +21,15 @@ High Priority
     thinks that broke fixed. Give up in frustration, revert, entire day lost,
     no progress on what I actually wanted to work on!
 
-* [ ] Fix the most obvious issues
+    LLMs solved this.
+
+* [X] Fix the most obvious issues
 
   * [X] Resizing thumbnail size messes up the thumbnails positions
 
       This just needs the right call somewhere as resizing the window fixes it.
 
-  * [ ] Consider replacing Yoga
+  * [X] Consider replacing Yoga
 
       I want this to be easier and maybe it's not too hard. Yoga is the system
       currently used to do the pane splitting system. The problem is it's confusing
@@ -47,6 +49,10 @@ High Priority
        
       It's not clear what problems will come up. We don't want visible tabs for
       example.
+
+      Yoga is replaced. It's not clear one of these more complicated systems would
+      be better. Regardless of which one you pick they don't solve the fundamental
+      issues above.
 
   * [X] Fix the stalling issues
 
@@ -123,7 +129,7 @@ High Priority
 * [X] Allow saving current collection of panes, zoom, speed, loops,
 * [ ] When sizing window keep left column same size (unless it won't fit)
 * [ ] Be able to move picture larger than screen
-* [ ] Save loops per video
+
 * [X] Save currently viewed images (entire state of app)
 
     This should really save entire state. For each pane
@@ -132,111 +138,15 @@ High Priority
     rotation, which loop settings.
 * [X] fix image flash. Issue is src and other settings happen separately?
 
-* [ ] Support VR through WebVR
-
-    run a webserver from goon - unfortunately, electron doesn't ship with WebXR
-    support and worse, Chrome's PC based WebXR support is not great. Further,
-    experiments with 8k videos make it clear it's not up to it the task.
-
-    * [ ] Display in A-Frame (or other WebVR)
-
-        I'm serving A-Frame and the demo works
-
-    * [ ] Get a single grid up that you can scroll through
-
-    * [ ] Make a single viewer work
-
-    * [ ] Figure out a UI
-
-        Not sure grids and panes make sense in VR. Maybe there should
-        just be one grid you can make appear/disappear. You can then
-        choose an image then drag that image wherever you want. Consider
-        that one pane so you can click forward/back and select slideshow
-        for that image. Bring up the grid again and pick another
-        and drag that somewhere else? Save the layout so you don't have
-        to set it up again?
-
-        Seems like you'd also want to be able to size images, and of course
-        rotate, etc..
-
-    * [ ] Support 180/360/3D videos
-
-        I'm not sure A-Frame supports this. I know it supports 360 videos.
-        I don't know if it supports 360 3D or 180 3D.
-
-        Also either need a UI to select format of video or else need
-        you to rename the files with known formats like name-180_180x180_3dh_LR.mp4.
-        Suspect you can't play videos because of WebGL overhead.
-
-        Ideally the browser would let you use 3D CSS and you could
-        just use HTML video elements. The other option is WebGL extensions
-        for handling video better.
-
-        This is kind of a killer.
-
-    * [ ] VR Issues
-
-        *   no HTTPS so not sure what stuff Chrome is going to block :(
-
-        *   Mobile can only play one video at a time
-
-            Solution might be to show multiple videos but
-            only play the last one clicked. Not even sure
-            mobile supports showing the thumbnails to multiple
-            videos but will get there when we get there.
-
-        *   Suspect gifs are not supported in AFrame and they are certainly not supported by WebGL directly.
-
-        *   Not sure about speed issues (bandwidth)
-
-        *   Not sure how to handle archives
-
-            Currently they are decompressed into a collection
-            of blobs. URLs for those blobs are only valid in
-            the Goon, not the browser. Options include:
-
-            *   Browser requests file, browser process asks thumber for data,
-                thumber provides data to browser process, browser process serves
-                data.
-
-                That sounds easiest as no new decompression code needed.
-                It also sound problematic. Certainly not good for streaming
-                video.
-
-            *   Browser requests file, browser process decompresses.
-                The decompression code should work but I don't like the idea
-                that the browser process can crash if the archive is too
-                big. Switching archive libraries might fix.
-
-            For now I should just filter out archive data on the client.
-
-        *   Security: The files have to be served. On the one hand
-            it's really only for your home network. On the other if you
-            have it running on you lap top and then walk to the cafe
-            your files are effectively public.
-
-            One solution is to add a password or PIN. You'd enter it
-            in VR when you connect. It would generate some access token
-            that is valid only for that session so if someone else
-            connects they need to know the PIN to generate their own
-            token.
-            
-    * [ ] Use Desktop VR directly in Electron
-    
-        Originaly I got a daydream. I had no hope of running this app on
-        Daydream so having Goon just serve to the browser made sense to
-        allow Daydream to view. But, ... since then I got desktop VR in which
-        case I should be able to use the built in VR support in Chromium/Electron
-        to make the app itself do something in VR.
 
 -- MVP --
 ================================================================================
 
-* [ ] fix filters . Typed a word and 4 folders showed on left but only 1 on right
+* [X] fix filters . Typed a word and 4 folders showed on left but only 1 on right
 
     it's a display issue, sizing the window makes them appear on the right
 
-* [ ] fix flashing playback, scrollbars (not sure how to repo)
+* [X] fix flashing playback, scrollbars (not sure how to repo)
 
     sometimes when playing a video the display flashes some elements
     in and out. It seems like some strange CSS bug where something is
@@ -247,7 +157,7 @@ High Priority
     giving the time a fixed width would fix it but I can't repo
     the issue on demand so I can't check the fix works.
 
-* [ ] figure out electron thrash
+* [X] figure out electron thrash
 
     when loading a large collection the collection itself loads relatively
     quickly but Electron is busy doing internal bookkeeping for several seconds
@@ -281,7 +191,7 @@ High Priority
 
     no. Just put left arrow at top of group
 
-* [ ] Show parent folders
+* [X] Show parent folders
 
     As it is only folders that have files in them get shown so if you have
 
@@ -327,7 +237,7 @@ High Priority
     So for now hacked in a showEmpty prefs but you have to refresh the view
     Otherwise can fix later.
 
-* [ ] handle scanning errors better?
+* [X] handle scanning errors better?
 
     Every time we run we scan the folders and check for changes.
     That can take a long time if there are lots of folders
@@ -337,7 +247,7 @@ High Priority
     bad. We should notice the error and stop scanning that
     folder.
 
-* [ ] fix updating folders issue
+* [X] fix updating folders issue
 
     Every time prefs changes we send new folders to the thumber.
     If those folders don't exist then thumber will delete their
@@ -345,14 +255,14 @@ High Priority
     It should not delete folders unless they've been removed
     from prefs. Fix that.
 
-* [ ] speed up delete
+* [X] speed up delete
 
     right now delete just deletes the local file and then it
     takes a few seconds to be noticed. Change it so the file
     is deleted AND delete it from the internal DB immediately
     assuming the delete succeeds
 
-* [ ] fix scanning speed
+* [X] fix scanning speed
 
     for some reason scanning gets extremely slow. Electron seems
     to be doing nothing so it's not at all clear where the time
@@ -417,7 +327,7 @@ High Priority
     to next/prev when in viewer mode and left right when in
     imagegrid mode
 
-* [ ] change viewNdx to viewFilename and change currentImageNdx to just filename
+* [X] change viewNdx to viewFilename and change currentImageNdx to just filename
 
     I feel like I did this before and took it out. Maybe I was just lazy.
     The issue right now is if images get inserted before the current index
@@ -428,10 +338,6 @@ High Priority
     image 101 but if 50 images were inserted before image 100 you're now actually
     viewing image 150 but it goes to 101.
 
-* [ ] fix archive filename encoding
-
-    archive internal filenames may not be utf-8. Maybe some
-    library exists to guess the encoding - not sure I care.
 
 * [ ] use different icon for rotate image vs rotate UI
 
@@ -464,7 +370,7 @@ High Priority
     AFAIK the viewer is confused but the thumber is not. 
     Need to figure out why
 
-* [ ] fix updating pictures.
+* [X] (need repo) fix updating pictures.
 
     Issue is I edited a picture to be a different aspect and
     for some reason it didn't get it right. It did the next
@@ -482,7 +388,7 @@ High Priority
 * [ ] explain hover stuff (made diagram, not happy with it)
 * [ ] Option to not continuously scan (default is continuous)
 
-* [ ] move menu accelerators to actions
+* [X] move menu accelerators to actions
 * [X] add context menu to viewer images
 
 * [ ] restore imagegrid to current image
@@ -500,24 +406,8 @@ High Priority
     ignore the user if they've already scrolled?)
 
 
-
-* [ ] Save View State Layouts
-
-    Note sure where in the UI this would fit but it would
-    be nice to be able to save certain layouts with certain
-    media in each layout. This is basically the (entire state of app)
-    above except it would be for one window only and added to some
-    list of saved layouts.
-
-    Maybe a layout part of the state of a collection. So when you pick
-    a collection it goes back to the state of that collection? Just
-    trying to make the UI simple. Problem is when to save that
-    state though? Always or only on request? Similarly when to load
-    that state. When selecting a collection or get prompted (set to collection's last saved layout?)
-    or ???
-
 * [ ] space shows image
-* [ ] Add auto-update
+* [X] Add auto-update
 * [ ] hidden folders
 
     *   Need to check by prefix so children are hidden
@@ -530,66 +420,7 @@ High Priority
     in folders and in imagegrids. Don't rerun filter. Also flatten
     FolderState.
 
-* [ ] Collections
 
-    I'm trying to decide if I'd use collections myself or not.
-    What I find is that if I load my entire media set it's
-    just too much to navigate. Scrolling around all the folders
-    and archives is too much.
-
-    Until recently there was no UI for adding folders. Instead
-    I'd launch from the command line and pass in the folders
-    I wanted. This would limit the amount of stuff loaded
-    to 20 or 30 folders generally.
-
-    I thought that maybe collections would be one way to handle
-    this. I could make collections of different sets of images.
-
-    The UI I imagine is basically click to make a new collection.
-    The UX for a collection looks almost exactly like the current
-    UX for thumbnails.
-
-    You could then split the view so one pane is showing your
-    collection and another pane is showing everything else
-    and drag and drop thumbnails to the collection. Drag
-    a folder heading to insert the entire folder which
-    would include subfolders.
-
-    One complication is if you're dragging individual images
-    you probably want them to show up in a single area
-    instead of separated by folder as images are now. So,
-    you'd need a way to create virtual folders in your
-    collection.
-
-    I wonder if I would use these collections. I feel like
-    each day I want a different set. Today I want A, B and C
-    Tomorrow I want B C and D. The next da y I want A C and E
-    which seems too temporal for collections.
-
-    Maybe another way is to just be able to hide trees of folders
-    A simple UI might be a checkbox next to each folder. Un-check
-    and the folder disappears. That means the folder's line in
-    the folder would disappear as well since having 500 folders
-    showing when you only want 30 is still problematic.
-    Some other button on the toolbar would show the hidden folders
-    again so you could un-hide them.
-
-    This might be better as it's more temporal. Checking a few
-    top level folders would quickly pair down the media
-
-    If I do implement collections here's a few ideas
-
-    * [ ] right click thumbnail to add
-    * [ ] right click folder/title to add folder (should add live folder and tree)
-    * [ ] While viewing right click to add.
-        Adds with current orientation, zoom, loop settings. This orientation should be
-        relative (the viewer is already relative so probably no problem)
-    * [ ] right click thumbnail to remove (unless it's "all" playlist)
-    * [ ] make sure it skips missing files
-    * [ ] drag to reorder.
-    * [ ] drag from imagegrid pane to playlist pane
-    * [ ] drag from viewer pane to playlist pane
-    * [ ] drag from imagegrid to viewer pane
 * [X] show video speed on toolbar
 * [ ] right click folder to start slideshow on just that folder tree
 * [ ] figure out how to flicker less when editing filter
@@ -598,7 +429,7 @@ High Priority
     results, or all results are in, which ever comes with in
     say 100ms or 200ms
 
-* [ ] option to use orientation for width/height search?
+* [X] option to use orientation for width/height search?
 * [ ] show zoom amount
 
     either as a flash over image OR under zoom/behind zoom slider in toolbar
@@ -611,9 +442,11 @@ High Priority
 * [ ] make zoom notched at 100%
 * [ ] Option to Reset (delete all data)
 
+    Note: You can go prefs and it will show you where your data is
+    which you can just open and delete.
+
 * [ ] Option: Thumbnail generation size
-* [ ] add icons for zoom modes
-* [ ] consider scanning for existence
+* [X] consider scanning for existence
 
     User starts viewer, then turns on share, shouldn't have to
     restart viewer?
@@ -621,60 +454,7 @@ High Priority
     Maybe just in prefs, if a folder does not exist
     then have have a "check again" button?
 
-* [ ] Plugins
 
-    I'd like this to be very plugin friendly. Ideally I'd like
-    to borrow the VSCode plugin installer if possible and just
-    point it somewhere else although I don't want to have to
-    run any servers.
-
-    It seems like at a basic level Goon should
-    just a set of services. The basic services being
-
-    1.  The thumbnail maker / DB service
-    2.  A way to query the DB server (and add queries)
-    3.  An Image / Video viewer
-    4.  The plugin system
-    5.  The preferences system (maybe like vscode just start with json)
-
-    Separate the archive support into plugins
-
-    Separate the video player into plugins so we can add other formats
-
-    Make the main viewer a plugin
-
-    1. Plugin the main viewer (3 panes, toolbar, folders, imagegrid)
-
-* [ ] Archive plugin API
-
-    * open
-    * getlist?
-    * getfile
-    * close
-
-* [ ] Video plugin API
-
-    * open
-    * seek
-    * play
-    * pause
-    * getPosition
-    * setPosition
-    * getLength
-
-* [ ] UI plugin API
-
-    * Menus?
-    * Actions
-    * Keymapper
-
-* [ ] Prefs API
-
-    * get key
-    * set key
-
-
-  * [ ] Plugins
 
 * [ ] Drag to move files/folders (rename)
 * [ ] option to go to next instead of loop for videos
@@ -717,43 +497,7 @@ High Priority
     * [ ] set padding size
     * [ ] min sizes
 
-* [ ] add default keys for Windows vs Mac vs Linux instead of just one set
 * [ ] command line clear cache
-* [ ] plugins
-
-    grab code from Atom or VSCode if possible to make it easy to install
-    published plugins.
-
-    Ideas for plugins
-
-    *   browse various sites, DL directly to your collection
-    *   browse various sites, UL from your collection
-    *   support more formats (avi/webp/tiff/tga)
-    *   support more themes
-    *   move basic support to plugins (images/videos/layout)
-    *   check for dupes simple (check by size, then by content)
-    *   check for dupes complex (check by perception)
-    *   ask google images
-        but really just want to pass the data to the browser
-    *   upload image(s) to site ABC
-    *   compress loop as webm and upload to site ABC
-
-    Note: About browsing other sites, It's NOT ok to do that in electron. Electron does not get security updates like Chrome does so if you want to visit the live internet you really should be using Chrome or maybe the new Firefox. It's possible we could use a plugin in firefox
-    or chrome and talk via IPC/RPC
-
-* [ ] generate gif thumbnails for gifs and videos?
-
-    There's a bunch of issue here. One is they take tons of memory.
-    Another is they take tons of time. Yet another is how stuff
-    is organized currently is thumbnails share an image. (though the
-    viewer doesn't care about that). Anyway, something to consider
-
-* [ ] add support for other video formats
-
-    either enable in electron source or use ffmpeg in webassembly.
-    Note: To play via ffmpeg in webassembly requires work to sync
-    video and audio. Probably requires padding audio via Web Audio API
-
 * [ ] consider folder view
 
     for comic viewers - show covers. It's not clear what the UI should be.
@@ -791,7 +535,7 @@ High Priority
 NOTES
 ================================================================================
 
-* [ ] Should we change the file watcher stuff
+* [X] Should we change the file watcher stuff
 
     It started with a per folder watcher. The problem with
     a per folder watcher is the watcher holds a lock on the
@@ -806,6 +550,8 @@ NOTES
 
     Maybe should refactor at a higher level to use the tree
     watcher instead of using fake folder watchers?
+
+    This is done
 
 DONE
 ================================================================================
@@ -1099,6 +845,301 @@ DONE
 
 Rejected
 ================================================================================
+
+* [ ] add support for other video formats
+
+    either enable in electron source or use ffmpeg in webassembly.
+    Note: To play via ffmpeg in webassembly requires work to sync
+    video and audio. Probably requires padding audio via Web Audio API
+
+    Other video formats are rare and you can always re-encode with handbrake or ffmpeg.
+
+* [ ] generate gif thumbnails for gifs and videos?
+
+    There's a bunch of issue here. One is they take tons of memory.
+    Another is they take tons of time. Yet another is how stuff
+    is organized currently is thumbnails share an image. (though the
+    viewer doesn't care about that). Anyway, something to consider
+
+    I tried this and it's just too slow
+
+* [ ] Plugins
+
+    I'd like this to be very plugin friendly. Ideally I'd like
+    to borrow the VSCode plugin installer if possible and just
+    point it somewhere else although I don't want to have to
+    run any servers.
+
+    It seems like at a basic level Goon should
+    just a set of services. The basic services being
+
+    1.  The thumbnail maker / DB service
+    2.  A way to query the DB server (and add queries)
+    3.  An Image / Video viewer
+    4.  The plugin system
+    5.  The preferences system (maybe like vscode just start with json)
+
+    Separate the archive support into plugins
+
+    Separate the video player into plugins so we can add other formats
+
+    Make the main viewer a plugin
+
+    * Plugin the main viewer (3 panes, toolbar, folders, imagegrid)
+
+    Grab code from Atom or VSCode if possible to make it easy to install
+    published plugins.
+
+    More Ideas for plugins
+
+    *   browse various sites, DL directly to your collection
+    *   browse various sites, UL from your collection
+    *   support more formats (avi/webp/tiff/tga)
+    *   support more themes
+    *   move basic support to plugins (images/videos/layout)
+    *   check for dupes simple (check by size, then by content)
+    *   check for dupes complex (check by perception)
+    *   ask google images
+        but really just want to pass the data to the browser
+    *   upload image(s) to site ABC
+    *   compress loop as webm and upload to site ABC
+
+    Note: About browsing other sites, It's NOT ok to do that in electron. Electron does not get security updates like Chrome does so if you want to visit the live internet you really should be using Chrome or maybe the new Firefox. It's possible we could use a plugin in firefox
+    or chrome and talk via IPC/RPC
+
+    * [ ] Archive plugin API
+
+        * open
+        * getlist?
+        * getfile
+        * close
+
+    * [ ] Video plugin API
+
+        * open
+        * seek
+        * play
+        * pause
+        * getPosition
+        * setPosition
+        * getLength
+
+    * [ ] UI plugin API
+
+        * Menus?
+        * Actions
+        * Keymapper
+
+    I rejected plugins but it's a lot of work for little payoff. Most people won't use them or think they will but in the
+    and they won't. For example .avi and .divx are really
+    no longer a thing in 2026. They might have been more
+    of a thing in 2016 when this project started but even
+    then they were on their way out.
+
+* [ ] Collections
+
+    I'm trying to decide if I'd use collections myself or not.
+    What I find is that if I load my entire media set it's
+    just too much to navigate. Scrolling around all the folders
+    and archives is too much.
+
+    Until recently there was no UI for adding folders. Instead
+    I'd launch from the command line and pass in the folders
+    I wanted. This would limit the amount of stuff loaded
+    to 20 or 30 folders generally.
+
+    I thought that maybe collections would be one way to handle
+    this. I could make collections of different sets of images.
+
+    The UI I imagine is basically click to make a new collection.
+    The UX for a collection looks almost exactly like the current
+    UX for thumbnails.
+
+    You could then split the view so one pane is showing your
+    collection and another pane is showing everything else
+    and drag and drop thumbnails to the collection. Drag
+    a folder heading to insert the entire folder which
+    would include subfolders.
+
+    One complication is if you're dragging individual images
+    you probably want them to show up in a single area
+    instead of separated by folder as images are now. So,
+    you'd need a way to create virtual folders in your
+    collection.
+
+    I wonder if I would use these collections. I feel like
+    each day I want a different set. Today I want A, B and C
+    Tomorrow I want B C and D. The next da y I want A C and E
+    which seems too temporal for collections.
+
+    Maybe another way is to just be able to hide trees of folders
+    A simple UI might be a checkbox next to each folder. Un-check
+    and the folder disappears. That means the folder's line in
+    the folder would disappear as well since having 500 folders
+    showing when you only want 30 is still problematic.
+    Some other button on the toolbar would show the hidden folders
+    again so you could un-hide them.
+
+    This might be better as it's more temporal. Checking a few
+    top level folders would quickly pair down the media
+
+    If I do implement collections here's a few ideas
+
+    * [ ] right click thumbnail to add
+    * [ ] right click folder/title to add folder (should add live folder and tree)
+    * [ ] While viewing right click to add.
+        Adds with current orientation, zoom, loop settings. This orientation should be
+        relative (the viewer is already relative so probably no problem)
+    * [ ] right click thumbnail to remove (unless it's "all" playlist)
+    * [ ] make sure it skips missing files
+    * [ ] drag to reorder.
+    * [ ] drag from imagegrid pane to playlist pane
+    * [ ] drag from viewer pane to playlist pane
+    * [ ] drag from imagegrid to viewer pane
+
+    I rejected this because it's another idea IMO that's a lot of work on UX clutter
+    for a feature people think they'll use but won't actually use. For one, I think
+    you can probably just use your OSes links and copy them to a folder to get this
+    to work outside the app. Even if you can't, storage is cheap and you can copy
+    images/videos into folders.
+
+* [ ] Save View State Layouts
+
+    Note sure where in the UI this would fit but it would
+    be nice to be able to save certain layouts with certain
+    media in each layout. This is basically the (entire state of app)
+    above except it would be for one window only and added to some
+    list of saved layouts.
+
+    Maybe a layout part of the state of a collection. So when you pick
+    a collection it goes back to the state of that collection? Just
+    trying to make the UI simple. Problem is when to save that
+    state though? Always or only on request? Similarly when to load
+    that state. When selecting a collection or get prompted (set to collection's last saved layout?)
+    or ???
+
+    I decided to not do this as it's another of those where you set up
+    a layout, you'll likely use it no more than 3 times, Then never use it
+    again. So it's a lot of work an UI clutter for a feature everyone
+    including myself thinks they want but wouldn't actually use. It get it,
+    I've spent 2-3 minutes setting up my perfect collection of videos
+    and it's annoying to do it again tomorrow. And yet, the day after
+    tomorrow I'm on to something else.
+
+* [ ] fix archive filename encoding
+
+    archive internal filenames may not be utf-8. Maybe some
+    library exists to guess the encoding - not sure I care.
+
+    It's rare to have a non utf-8 zip/rar in 2026. The user
+    can re-compress if they need to.
+
+* [X] Support VR through WebVR
+
+    I might revisit this but rejected because (1) no browser really supports VR on Desktop. Instead, I
+    added the launch external viewer. If you have a VR viewer that will take a path then this works. There's
+    a few out there.
+
+    run a webserver from goon - unfortunately, electron doesn't ship with WebXR
+    support and worse, Chrome's PC based WebXR support is not great. Further,
+    experiments with 8k videos make it clear it's not up to it the task.
+
+    * [ ] Display in A-Frame (or other WebVR)
+
+        I'm serving A-Frame and the demo works
+
+    * [ ] Get a single grid up that you can scroll through
+
+    * [ ] Make a single viewer work
+
+    * [ ] Figure out a UI
+
+        Not sure grids and panes make sense in VR. Maybe there should
+        just be one grid you can make appear/disappear. You can then
+        choose an image then drag that image wherever you want. Consider
+        that one pane so you can click forward/back and select slideshow
+        for that image. Bring up the grid again and pick another
+        and drag that somewhere else? Save the layout so you don't have
+        to set it up again?
+
+        Seems like you'd also want to be able to size images, and of course
+        rotate, etc..
+
+    * [ ] Support 180/360/3D videos
+
+        I'm not sure A-Frame supports this. I know it supports 360 videos.
+        I don't know if it supports 360 3D or 180 3D.
+
+        Also either need a UI to select format of video or else need
+        you to rename the files with known formats like name-180_180x180_3dh_LR.mp4.
+        Suspect you can't play videos because of WebGL overhead.
+
+        Ideally the browser would let you use 3D CSS and you could
+        just use HTML video elements. The other option is WebGL extensions
+        for handling video better.
+
+        This is kind of a killer.
+
+    * [ ] VR Issues
+
+        *   no HTTPS so not sure what stuff Chrome is going to block :(
+
+        *   Mobile can only play one video at a time
+
+            Solution might be to show multiple videos but
+            only play the last one clicked. Not even sure
+            mobile supports showing the thumbnails to multiple
+            videos but will get there when we get there.
+
+        *   Suspect gifs are not supported in AFrame and they are certainly not supported by WebGL directly.
+
+        *   Not sure about speed issues (bandwidth)
+
+        *   Not sure how to handle archives
+
+            Currently they are decompressed into a collection
+            of blobs. URLs for those blobs are only valid in
+            the Goon, not the browser. Options include:
+
+            *   Browser requests file, browser process asks thumber for data,
+                thumber provides data to browser process, browser process serves
+                data.
+
+                That sounds easiest as no new decompression code needed.
+                It also sound problematic. Certainly not good for streaming
+                video.
+
+            *   Browser requests file, browser process decompresses.
+                The decompression code should work but I don't like the idea
+                that the browser process can crash if the archive is too
+                big. Switching archive libraries might fix.
+
+            For now I should just filter out archive data on the client.
+
+        *   Security: The files have to be served. On the one hand
+            it's really only for your home network. On the other if you
+            have it running on you lap top and then walk to the cafe
+            your files are effectively public.
+
+            One solution is to add a password or PIN. You'd enter it
+            in VR when you connect. It would generate some access token
+            that is valid only for that session so if someone else
+            connects they need to know the PIN to generate their own
+            token.
+            
+    * [ ] Use Desktop VR directly in Electron
+    
+        Originaly I got a daydream. I had no hope of running this app on
+        Daydream so having Goon just serve to the browser made sense to
+        allow Daydream to view. But, ... since then I got desktop VR in which
+        case I should be able to use the built in VR support in Chromium/Electron
+        to make the app itself do something in VR.
+
+* [ ] Save loops per video
+
+    I rejected this because to be honest, it's just not that useful.
+    People will likely set a loop, use it 2 or 3 times, then move on to
+    some other favorite video.
 
 * [ ] Consider refactoring so that zoom/grid/sort/filter is per view instead of per window
 
