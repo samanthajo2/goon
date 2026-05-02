@@ -15,7 +15,7 @@ html, body {
     font-size: small;
     background-color: #444;
     color: white;
-    height: 100vh;
+    height: 100dvh;
 }
 video, img {
     max-width: none;
@@ -38,26 +38,26 @@ button {
     /* this is just here as a pair to hide */
 }
 .deg0 {
-    width: 100vw;
-    height: 100vh;
+    width: 100dvw;
+    height: 100dvh;
 }
 .deg90 {
-    width: 100vh;
-    height: 100vw;
+    width: 100dvh;
+    height: 100dvw;
     transform-origin: 0 0;
-    transform: translate(100vw, 0px) rotate(90deg);
+    transform: translate(100dvw, 0px) rotate(90deg);
 }
 .deg180 {
-    width: 100vw;
-    height: 100vh;
+    width: 100dvw;
+    height: 100dvh;
     transform-origin: 0 0;
-    transform: translate(100vw, 100vh) rotate(180deg);
+    transform: translate(100dvw, 100dvh) rotate(180deg);
 }
 .deg270 {
-    width: 100vh;
-    height: 100vw;
+    width: 100dvh;
+    height: 100dvw;
     transform-origin: 0 0;
-    transform: translate(0, 100vh) rotate(270deg);
+    transform: translate(0, 100dvh) rotate(270deg);
 }
 .disabled {
     pointer-events: none;
@@ -353,11 +353,6 @@ div::-webkit-scrollbar-corner {
 
 } /* [data-tooltip] */
 
-.browser {
-    width: 100vw;
-    height: 100vh;
-    overflow: hidden;  /* shoudn't need this. the fact that I do suggests a bug */
-}
 .folderContainer {
 }
 .gridContainer {
@@ -862,7 +857,7 @@ div::-webkit-scrollbar-corner {
 
 /* prefs */
 .prefs {
-    height: 100vh;
+    min-height: 100dvh;
     font-size: large;
     background: #222;
     max-width: 800px;
@@ -1028,43 +1023,44 @@ div::-webkit-scrollbar-corner {
 }
 
 .browser-server {
-  min-width: 480px;
-  padding: 16px;
-}
-.browser-server .row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 12px 0;
-}
-.browser-server .status {
-  color: #ccc;
-}
-.browser-server .qr {
-  display: flex;
-  justify-content: center;
-  margin: 12px 0;
-  padding: 12px;
-  background: #fff;
-  border-radius: 4px;
-}
-.browser-server .urls {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.browser-server .url-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.browser-server .url-row code {
-  flex: 1 1 auto;
-  background: #222;
-  padding: 4px 8px;
-  border-radius: 3px;
-  user-select: all;
-  word-break: break-all;
+    min-width: 480px;
+    padding: 16px;
+
+    .row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 12px 0;
+    }
+    .status {
+        color: #ccc;
+    }
+    .qr {
+        display: flex;
+        justify-content: center;
+        margin: 12px 0;
+        padding: 12px;
+        background: #fff;
+        border-radius: 4px;
+    }
+    .urls {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    .url-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .url-row code {
+        flex: 1 1 auto;
+        background: #222;
+        padding: 4px 8px;
+        border-radius: 3px;
+        user-select: all;
+        word-break: break-all;
+    }
 }
 
 .disconnected-overlay {
@@ -1119,8 +1115,8 @@ div::-webkit-scrollbar-corner {
             text-align: center;
 
             .fullscreen {
-                width: 100vw;
-                height: 100vh;
+                width: 100dvw;
+                height: 100dvh;
                 background: #666;
                 display: flex;
                 flex-direction: column;
