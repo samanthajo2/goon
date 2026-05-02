@@ -28,6 +28,7 @@ type Props = Record<string, never>;
 
 type State = {
   server: ServerState;
+  qrUrl: string | null;
 };
 
 function qrCodeSvg(text: string, sizePx: number): React.ReactElement {
@@ -60,6 +61,7 @@ function qrCodeSvg(text: string, sizePx: number): React.ReactElement {
 class Browser extends React.Component<Props, State> {
   state: State = {
     server: { running: false, port: 0, urls: [] },
+    qrUrl: null,
   };
 
   private _onState = (_e: unknown, server: ServerState): void => {
@@ -93,6 +95,10 @@ class Browser extends React.Component<Props, State> {
     navigator.clipboard.writeText(url).catch((err) => { console.error(err); });
   };
 
+  private _setQr = (url: string): void => {
+    this.setState({ qrUrl: url });
+  };
+
   render(): React.ReactNode {
     const { running } = this.state.server;
     // Drop IPv6 URLs (bracketed host form) — phones connecting via QR code
@@ -101,6 +107,9 @@ class Browser extends React.Component<Props, State> {
     // The "primary" URL we feature with QR code: prefer a non-loopback so
     // a phone on the same wifi can reach it. Loopback is the fallback.
     const primary = urls.find(u => !/\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(u)) ?? urls[0];
+    // User-selected QR target wins, but fall back to primary if it's no
+    // longer in the list (server restarted with different interfaces).
+    const qrUrl = (this.state.qrUrl && urls.includes(this.state.qrUrl)) ? this.state.qrUrl : primary;
     return (
       <div className="msg browser-server">
         <h1>Browser Server</h1>
@@ -110,21 +119,31 @@ class Browser extends React.Component<Props, State> {
           </button>
           <span className="status">{running ? `running on port ${this.state.server.port}` : 'stopped'}</span>
         </div>
-        {running && primary && (
+        {running && qrUrl && (
           <>
-            <div className="qr">{qrCodeSvg(primary, 240)}</div>
+            <div className="qr">
+              {qrCodeSvg(qrUrl, 240)}
+              <div className="qr-url">{qrUrl}</div>
+            </div>
             <div className="urls">
               {urls.map((url) => (
                 <div key={url} className="url-row">
                   <code>{url}</code>
                   <button type="button" onClick={() => { this._launch(url); }}>Launch Browser</button>
                   <button type="button" onClick={() => { this._copy(url); }}>Copy</button>
+                  <button
+                    type="button"
+                    className={url === qrUrl ? 'qr-current' : ''}
+                    onClick={() => { this._setQr(url); }}
+                  >
+                    QR
+                  </button>
                 </div>
               ))}
             </div>
           </>
         )}
-        {running && !primary && (
+        {running && !qrUrl && (
           <div className="status">server is starting…</div>
         )}
       </div>

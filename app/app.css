@@ -1072,11 +1072,20 @@ div::-webkit-scrollbar-corner {
     }
     .qr {
         display: flex;
+        flex-direction: column;
+        align-items: center;
         justify-content: center;
         margin: 12px 0;
         padding: 12px;
         background: #fff;
         border-radius: 4px;
+    }
+    .qr .qr-url {
+        margin-top: 8px;
+        color: var(--text-color);
+        text-align: center;
+        font-family: monospace;
+        word-break: break-all;
     }
     .urls {
         display: flex;
@@ -1095,6 +1104,10 @@ div::-webkit-scrollbar-corner {
         border-radius: 3px;
         user-select: all;
         word-break: break-all;
+    }
+    .url-row button.qr-current {
+        background: var(--progress-color);
+        color: white;
     }
 }
 
