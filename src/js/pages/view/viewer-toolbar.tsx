@@ -229,7 +229,7 @@ export default class ViewerToolbar extends React.Component<Props, State> {
   render(): React.ReactNode {
     this._logger('render');
     const { viewerState } = this.state;
-    const isVideo = filters.isMimeVideo(viewerState.mimeType) || filters.isAudioExtension(viewerState.mimeType);
+    const isVideoOrAudio = filters.isMimeVideo(viewerState.mimeType) || filters.isMimeAudio(viewerState.mimeType);
     document.title = `view: ${this._viewId}`;
     return (
       <div className="toolbar viewertoolbar">
@@ -249,7 +249,7 @@ export default class ViewerToolbar extends React.Component<Props, State> {
           />
         </div>
         <Que
-          active={isVideo}
+          active={isVideoOrAudio}
           actions={this.props.actions}
           videoState={viewerState.videoState}
           outEventBus={this.props.outEventBus}
