@@ -480,6 +480,40 @@ describe('SimpleFolderWatcher', () => {
     assert.strictEqual(onDirMtime.callCount, 0, 'onDirMtime not called when dir stat failed');
   });
 
+  it('survives an underlying watcher error (e.g. SMB disconnect) without throwing', async () => {
+    const { watcher, mockWatcherEE, resolveReaddir, resolveStat } = setupWatcher();
+
+    const remove = sinon.spy();
+    const end = sinon.spy();
+    watcher.on('remove', remove);
+    watcher.on('end', end);
+
+    await wait();
+
+    // Initial scan: foo.jpg exists and gets cached
+    resolveReaddir(['foo.jpg']);
+    resolveStat('foo.jpg', makeStat(1000, 1700000000000));
+    await wait();
+
+    // Reset spies so the assertions below scope to post-error behavior only
+    // (the initial scan already emitted its own 'end').
+    end.resetHistory();
+
+    // Underlying filesystem watcher errors out — simulate an SMB share
+    // disconnect mid-scan. Pre-fix this synchronously rethrew out of the
+    // EventEmitter listener and aborted the process; the EventEmitter.emit
+    // call below would propagate the exception back to us.
+    const err = Object.assign(new Error('socket disconnected'), { code: 'ENOTCONN' });
+    assert.doesNotThrow(() => {
+      mockWatcherEE.emit('error', err);
+    }, 'watcher error must not bubble out as an uncaught throw');
+
+    assert.strictEqual(remove.callCount, 1, 'cached entry was reported as removed');
+    assert.strictEqual(remove.firstCall.args[0], path.join(TEST_DIR, 'foo.jpg'), 'remove emits full path');
+    assert.strictEqual(end.callCount, 1, 'end fired');
+    assert.strictEqual(mockWatcherEE.close.callCount, 1, 'underlying watcher was closed');
+  });
+
   it('emits end after initial scan completes', async () => {
     const { watcher, resolveReaddir, resolveStat } = setupWatcher();
 

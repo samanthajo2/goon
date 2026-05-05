@@ -162,15 +162,17 @@ export default class SimpleFolderWatcher extends EventEmitter {
     this._checkFile(filename, undefined, this._sendEndAfterTimeout);
   }
 
-  // TODO add this back in?
   _handleError(err: NodeJS.ErrnoException) {
-    this._logger('ONERROR:', this._filePath);
-    // not really sure what errors to check for here
-    if (err && err.code === 'EPERM') {
-      this._removeAll();
-    } else {
-      throw err;
-    }
+    this._logger('ONERROR:', this._filePath, err?.code, err?.message);
+    // The underlying filesystem watcher errored. EPERM is the original case
+    // (permission lost on the dir), but the same shape applies to EIO /
+    // ENOTCONN / ETIMEDOUT etc. when a network share (SMB/NFS) disconnects
+    // mid-scan. Treat all of them the same: assume entries are gone and
+    // close the watcher. Re-attaching is the consumer's responsibility on a
+    // manual refresh or app restart. This must never throw — the call site
+    // is a node:events listener, and an uncaught throw here aborts the
+    // process.
+    this._removeAll();
   }
 
   _scan(addOrCreate: 'add' | 'create', force = false) {
