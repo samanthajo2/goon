@@ -45,6 +45,7 @@ export default function createMediaLoader(options: {
   maxSeekTime: number,
 }): MediaLoaderFn {
   const video = document.createElement('video');
+  const audio = document.createElement('audio');
   const image = document.createElement('img');
   const logger = createLogger('MediaLoader', ++g_id);
   const maxSeekTime = options.maxSeekTime;
@@ -53,11 +54,15 @@ export default function createMediaLoader(options: {
     metaData: MediaMetaData,
     release: () => void,
   }) => void) | undefined;
-  let rejectFn: ((elem: HTMLVideoElement | HTMLImageElement) => void) | undefined;
+  let rejectFn: ((elem: HTMLMediaElement | HTMLImageElement) => void) | undefined;
   let busy = false;
+  // When loading audio we show a generated image but report the audio's duration.
+  let audioBaseName = '';
+  let audioDuration: number | undefined;
 
   function release() {
     video.removeAttribute('src');
+    audio.removeAttribute('src');
     image.removeAttribute('src');
     busy = false;
   }
@@ -69,7 +74,7 @@ export default function createMediaLoader(options: {
     fn?.({ elem, metaData, release });
   }
 
-  function reject(elem: HTMLVideoElement | HTMLImageElement) {
+  function reject(elem: HTMLMediaElement | HTMLImageElement) {
     const fn = rejectFn;
     resolveFn = undefined;
     rejectFn = undefined;
@@ -103,10 +108,24 @@ export default function createMediaLoader(options: {
     reject(videoElement);
   });
 
+  audio.addEventListener('loadedmetadata', (e: Event) => {
+    const audioElement = e.target as HTMLAudioElement;
+    logger('audio loadedmetadata: duration =', audioElement.duration);
+    audioDuration = audioElement.duration;
+    image.setAttribute('src', createImageFromString(audioBaseName));
+  });
+  audio.addEventListener('error', (e) => {
+    const audioElement = e.target as HTMLAudioElement;
+    console.warn('could not load:', audioElement.src, e.message);
+    audioElement.removeAttribute('src');
+    audioElement.load();
+    reject(audioElement);
+  });
+
   image.addEventListener('load', (e) => {
     const imageElement = e.target as HTMLImageElement;
     logger('loaded:', imageElement.src);
-    resolve(imageElement, { width: imageElement.naturalWidth, height: imageElement.naturalHeight });
+    resolve(imageElement, { width: imageElement.naturalWidth, height: imageElement.naturalHeight, duration: audioDuration });
   });
   image.addEventListener('error', (e) => {
     const imageElement = e.target as HTMLImageElement;
@@ -124,12 +143,15 @@ export default function createMediaLoader(options: {
       rejectFn = reject;
     });
     video.pause();
+    audioDuration = undefined;
     const url = urlFromFilename(filename);
     if (filters.isMimeVideo(type)) {
       video.setAttribute('src', url);
       video.load();
     } else if (filters.isMimeAudio(type)) {
-      image.setAttribute('src', createImageFromString(path.basename(filename)));
+      audioBaseName = path.basename(filename);
+      audio.setAttribute('src', url);
+      audio.load();
     } else {
       image.setAttribute('src', url);
     }
