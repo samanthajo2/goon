@@ -1,7 +1,7 @@
 import {hsl} from './css-utils.js';
 
 const w = 256;
-const h = 64;
+const h = 128;
 
 const canvas = document.createElement('canvas');
 

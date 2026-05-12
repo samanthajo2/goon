@@ -800,7 +800,8 @@ div::-webkit-scrollbar-corner {
     content: "gif";
 }
 
-.mime-video:before {
+.mime-video:before,
+.mime-audio:before {
     content: attr(data-duration);
 }
 
