@@ -25,6 +25,8 @@ import pkg from '../../../../package.json' with { type: 'json' };
 const { version } = pkg;
 import '../../lib/title.js';
 
+console.log('page: help');
+
 type StartArgs = {
   userDataDir: string;
 };

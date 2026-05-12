@@ -28,6 +28,8 @@ import App from './app.js';
 import '../../lib/stacktrace-log.js';
 import '../../lib/title.js';
 
+console.log('page: view');
+
 const platform = createElectronPlatform();
 
 const isDevMode = process.env.NODE_ENV === 'development';

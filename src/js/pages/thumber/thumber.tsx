@@ -48,6 +48,8 @@ import { Preferences } from '../prefs/default-prefs.js';
 import { watchVolumes } from '../../lib/volume-watcher.js';
 import '../../lib/title.js';
 
+console.log('page: thumber');
+
 const isDevMode = process.env.NODE_ENV === 'development';
 
 // Prevent the thumber process from crashing when a volume disappears.

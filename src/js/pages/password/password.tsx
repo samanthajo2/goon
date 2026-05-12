@@ -29,6 +29,8 @@ import {cssArray} from '../../lib/css-utils.js';
 import {checkPassword} from '../../lib/password-utils.js';
 import Modal from '../../lib/ui/modal.js';
 
+console.log('page: password');
+
 // const isDevMode = process.env.NODE_ENV === 'development';
 interface PasswordState {
   error: boolean;

@@ -26,6 +26,8 @@ import Prefs from './prefs.js';
 import '../../lib/stacktrace-log.js';   
 import '../../lib/title.js';
 
+console.log('page: preferences');
+
 type StartArgs = {
   userDataDir: string;
   _?: string[];

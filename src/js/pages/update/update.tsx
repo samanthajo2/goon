@@ -29,6 +29,8 @@ import '../../lib/title.js';
 import Modal from '../../lib/ui/modal.js';
 import ListenerManager from '../../lib/listener-manager.js';
 
+console.log('page: update');
+
 type StateKey = 'idle' | 'requested' | 'checking' | 'available' | 'downloading' | 'error' | 'noUpdate' | 'readyToUpdate' | 'quitting';
 
 type StateInfo = {

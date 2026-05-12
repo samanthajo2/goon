@@ -36,4 +36,6 @@ you can just make a single window giant and have pretty much as
 much room as you need for as many videos as you want.
 */
 
+console.log('page: web');
+
 export {};

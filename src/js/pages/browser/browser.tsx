@@ -18,6 +18,8 @@ import { QrCode, Ecc } from '../../lib/qrcodegen.js';
 import '../../lib/stacktrace-log.js';
 import '../../lib/title.js';
 
+console.log('page: browser');
+
 type ServerState = {
   running: boolean;
   port: number;

@@ -15,6 +15,8 @@ import { createWebPlatform, loadStartState } from '../../lib/web-platform.js';
 import '../../lib/stacktrace-log.js';
 import '../../lib/title.js';
 
+console.log('page: external-view');
+
 async function main(): Promise<void> {
   const platform = await createWebPlatform();
   const startState = loadStartState();
