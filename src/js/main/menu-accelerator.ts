@@ -44,7 +44,7 @@ function scoreBinding(accel: string): number {
 }
 
 export function actionAccelerator(actionId: ActionId, keyConfig: KeyConfig[]): string | undefined {
-  const matches = keyConfig.filter(k => k.action === actionId && isMenuable(k.accelerator));
+  const matches = keyConfig.filter(k => k.action === actionId && typeof k.accelerator === 'string' && isMenuable(k.accelerator));
   if (matches.length === 0) return undefined;
   if (matches.length === 1) return matches[0].accelerator;
   // Pick highest-scoring binding for this OS

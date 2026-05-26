@@ -75,7 +75,7 @@ export type Preferences = {
   keyConfig: KeyConfig[],
 };
 
-const s_prefsVersion = 2;
+const s_prefsVersion = 3;
 
 const defaultPrefs: Preferences = {
   version: s_prefsVersion,
@@ -218,10 +218,22 @@ function convertVersion1To2OrThrow(prefs: Preferences): Preferences {
   return prefs;
 }
 
+// v3: keyConfig switched from {keyCode, modifiers} to {accelerator}. Old
+// entries can't be auto-translated, so reset keyConfig to defaults.
+function convertVersion2To3OrThrow(prefs: Preferences): Preferences {
+  assert(prefs.version === 2);
+  applyDefaults(prefs, defaultPrefs);
+  applyDefaults(prefs.misc, defaultPrefs.misc);
+  prefs.keyConfig = cloneDeep(defaultPrefs.keyConfig);
+  prefs.version = 3;
+  return prefs;
+}
+
 
 const versionConverters = new Map<number, (prefs: Preferences) => Preferences>([
   [0, convertVersion0To1OrThrow],
   [1, convertVersion1To2OrThrow],
+  [2, convertVersion2To3OrThrow],
 ]);
 
 function loadPrefs(prefsPath: string, fs: {
