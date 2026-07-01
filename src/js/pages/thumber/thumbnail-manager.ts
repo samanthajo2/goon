@@ -443,8 +443,8 @@ export default class ThumbnailManager extends EventEmitter {
 
   // Proactively remove a single file and update listeners without waiting for
   // a filesystem watcher event. Used by the trash flow so the thumbnail
-  // disappears immediately (important on network drives where chokidar may
-  // not fire). Returns true if the file was found and removed.
+  // disappears immediately (important on network drives where the filesystem
+  // watcher may not fire). Returns true if the file was found and removed.
   removeFile(filePath: string): boolean {
     this.#logger('removeFile:', filePath);
     // Check if this file is an archive entry tracked at the top level

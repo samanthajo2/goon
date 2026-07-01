@@ -30,10 +30,10 @@ import path from 'node:path';
 import { throttle, CancelableFn } from '../utils.js';
 import debug from '../debug.js';
 import WinTreeWatcher from './win-tree-watcher.js';
-import ChokidarTreeWatcher from './chokidar-tree-watcher.js';
+import ParcelTreeWatcher from './parcel-tree-watcher.js';
 import FileChangeType, { RawFileChange } from './file-change-types.js';
 
-type RawWatcher = WinTreeWatcher | ChokidarTreeWatcher;
+type RawWatcher = WinTreeWatcher | ParcelTreeWatcher;
 
  
 
@@ -54,7 +54,7 @@ export default class TreeWatcher extends EventEmitter {
     const verbose = false;
     this._rawWatcher = process.platform.startsWith('win')
       ? new WinTreeWatcher(folderpath, filter, this._onStart.bind(this), this._onRawEvent.bind(this), this._onError.bind(this), verbose)
-      : new ChokidarTreeWatcher(folderpath, filter, this._onStart.bind(this), this._onRawEvent.bind(this), this._onError.bind(this), verbose);
+      : new ParcelTreeWatcher(folderpath, filter, this._onStart.bind(this), this._onRawEvent.bind(this), this._onError.bind(this), verbose);
   }
 
   get folderPath(): string {

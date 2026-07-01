@@ -188,7 +188,7 @@ export default class NativeFolder extends EventEmitter implements BaseFolder {
 
   // Proactively remove a single file and notify listeners without waiting
   // for a filesystem watcher event. Used when trashing a file so the thumbnail
-  // disappears immediately even if chokidar doesn't fire (e.g. network drives).
+  // disappears immediately even if the watcher doesn't fire (e.g. network drives).
   removeFileAndNotify(filePath: string) {
     this._removeFiles([filePath]);
     this._sendImagesAndVideos();

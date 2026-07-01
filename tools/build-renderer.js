@@ -33,7 +33,9 @@ const electronBuildOptions = {
   // Electron built-in modules — must remain as bare require() at runtime.
   // The npm "electron" package is just a path to the binary; the real API
   // is only available via require("electron") inside the Electron runtime.
-  external: ['electron'],
+  // @parcel/watcher is a native (.node) module: it can't be bundled, so it
+  // stays a runtime require() resolved from node_modules (unpacked from asar).
+  external: ['electron', '@parcel/watcher'],
   logLevel: 'info',
   logOverride: { 'empty-import-meta': 'silent' },
 };
