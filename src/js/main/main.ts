@@ -687,6 +687,18 @@ function installCrashRecovery(window: BrowserWindow) {
   window.webContents.on('unresponsive', () => {
     console.warn('[main] renderer unresponsive:', window.webContents.getURL());
   });
+  // Surface renderer-side failures in the main process log. Without this,
+  // uncaught errors in a renderer (e.g. a module failing to load in a packaged
+  // build) are only visible in that window's DevTools console — invisible when
+  // running the shipped app from a terminal, making such bugs very hard to find.
+  window.webContents.on('console-message', (details) => {
+    if (details.level === 'error' || details.level === 'warning') {
+      console.error(`[renderer:${details.level}] ${window.webContents.getURL()}: ${details.message} (${details.sourceId}:${details.lineNumber})`);
+    }
+  });
+  window.webContents.on('did-fail-load', (_e, errorCode, errorDescription, validatedURL) => {
+    console.error(`[main] did-fail-load: ${errorCode} ${errorDescription} url: ${validatedURL}`);
+  });
 }
 
 function makeHideInsteadOfCloseHandler(window: BrowserWindow) {

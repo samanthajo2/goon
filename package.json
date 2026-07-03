@@ -8,7 +8,7 @@
     "appId": "com.samanthajo.goon",
     "asar": true,
     "asarUnpack": [
-      "**/node_modules/@parcel/watcher*/**"
+      "**/*.node"
     ],
     "mac": {
       "category": "public.app-category.lifestyle",
