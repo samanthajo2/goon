@@ -71,7 +71,7 @@ const actions = {
   refreshFolders:     { hint: 'refresh',         icon: 'images/buttons/refresh.svg',         desc: 'Refresh Folders', },
   selectAll:          { hint: 'select all',      icon: 'images/buttons/noop.svg',            desc: 'Select All Visible', },
   clearSelection:     { hint: 'clear selection', icon: 'images/buttons/noop.svg',            desc: 'Clear Selection', },
-  trashSelected:      { hint: 'trash selected',  icon: 'images/buttons/noop.svg',            desc: 'Trash Selected...', },
+  trashSelected:      { hint: 'delete selected', icon: 'images/buttons/noop.svg',            desc: 'Delete Selected...', },
 } as const;
 
 export type ActionId = keyof typeof actions;

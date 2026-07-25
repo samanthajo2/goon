@@ -109,9 +109,6 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
   const [showDeleteFilePrompt, setShowDeleteFilePrompt] = useState(false);
   const [pendingDeleteItems, setPendingDeleteItems] = useState<DeleteItem[]>([]);
   const [showDeleteFolderPrompt, setShowDeleteFolderPrompt] = useState(false);
-  const [showForceDelete, setShowForceDelete] = useState(false);
-  const [forceDeleteFilename, setForceDeleteFilename] = useState('');
-  const [forceDeleteIsFolder, setForceDeleteIsFolder] = useState(false);
   // Failed-trash items accumulated to show as a single batched force-delete prompt.
   const [showForceDeleteFiles, setShowForceDeleteFiles] = useState(false);
   const [forceDeleteItems, setForceDeleteItems] = useState<DeleteItem[]>([]);
@@ -175,7 +172,7 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
 
   // ── Folder data pipeline ───────────────────────────────────────────
   const showEmpty = !!(prefs.misc?.showEmpty);
-  const { root, totalFiles, folderDB } = useFolderPipeline({
+  const { root, totalFiles } = useFolderPipeline({
     thumberStream,
     compositeFilter,
     sortMode: winState.sortMode,
@@ -250,15 +247,23 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
     if (trashingFiles.has(filename)) return;
     addTrashingFile(filename);
     closeViewerIfShowingFile(filename);
-    if (!thumberStream) {
+    if (!thumberStream || !platform.deleteFile) {
       removeTrashingFile(filename);
       return;
     }
     // Give the browser a frame to release the file handle after clearing img/video src
-    setTimeout(() => {
-      thumberStream.send('trashFile', filename);
+    setTimeout(async () => {
+      try {
+        // Permanent delete (fs.unlink) — no OS trash.
+        await platform.deleteFile!(filename);
+        thumberStream.send('removeFile', filename);
+      } catch (err) {
+        logger(err);
+      } finally {
+        removeTrashingFile(filename);
+      }
     }, 100);
-  }, [thumberStream, closeViewerIfShowingFile]);
+  }, [thumberStream, closeViewerIfShowingFile, platform, logger]);
 
   const deleteFile = useCallback(() => {
     setShowDeleteFilePrompt(false);
@@ -277,36 +282,24 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
 
   const deleteFolder = useCallback(async () => {
     setShowDeleteFolderPrompt(false);
-    const filename = contextFolderInfo?.filename;
-    if (!filename || !platform.trashItem) return;
+    const info = contextFolderInfo;
+    const filename = info?.filename;
+    if (!filename) return;
     try {
-      await platform.trashItem(filename);
-    } catch {
-      setShowForceDelete(true);
-      setForceDeleteFilename(filename);
-      setForceDeleteIsFolder(!contextFolderInfo?.archive);
-    }
-  }, [contextFolderInfo, platform]);
-
-  const forceDelete = useCallback(async () => {
-    setShowForceDelete(false);
-    if (!forceDeleteFilename) return;
-    if (forceDeleteIsFolder) {
-      if (!platform.deleteFolder) return;
-      try {
-        await platform.deleteFolder(forceDeleteFilename);
-      } catch (e) {
-        logger(e);
+      if (info.archive) {
+        // An archive is a single file on disk — permanently delete it (fs.unlink).
+        if (platform.deleteFile) {
+          await platform.deleteFile(filename);
+          thumberStream?.send('removeFile', filename);
+        }
+      } else if (platform.deleteFolder) {
+        // Permanently delete the folder and its contents — no OS trash.
+        await platform.deleteFolder(filename);
       }
-    } else if (platform.deleteFile) {
-      try {
-        await platform.deleteFile(forceDeleteFilename);
-        thumberStream?.send('removeFile', forceDeleteFilename);
-      } catch (err) {
-        logger(err);
-      }
+    } catch (e) {
+      logger(e);
     }
-  }, [forceDeleteFilename, forceDeleteIsFolder, thumberStream, logger, platform]);
+  }, [contextFolderInfo, platform, thumberStream, logger]);
 
   const forceDeleteFiles = useCallback(async () => {
     setShowForceDeleteFiles(false);
@@ -572,14 +565,6 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
     platform.openNewWindow('prefs');
   }, [platform]);
 
-  const getForceDeleteMsg = (): string => {
-    if (forceDeleteIsFolder) {
-      const children = folderDB.getAllChildren(forceDeleteFilename);
-      return `Could not move ${forceDeleteFilename} to Trash. Really Delete ${forceDeleteFilename} and ${children.length}+ file(s) and subfolder(s) inside including ${children.join(', ')}`;
-    }
-    return `Could not move ${forceDeleteFilename} to Trash. Really Delete ${forceDeleteFilename}`;
-  };
-
   const getToolbar = (): React.ReactNode => {
     if (!(winState.showUI & 1)) {
       return undefined;
@@ -700,7 +685,8 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
         {showDeleteFilePrompt && pendingDeleteItems.length > 0 && (
           <DeletePrompt
             parent={containerRef.current ?? undefined}
-            okay="Trash"
+            okay="Delete"
+            headline={`Permanently delete ${pendingDeleteItems.length} item${pendingDeleteItems.length === 1 ? '' : 's'}? This cannot be undone.`}
             items={pendingDeleteItems}
             onOkay={deleteFile}
             onCancel={() => {
@@ -712,19 +698,12 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
         {showDeleteFolderPrompt && contextFolderInfo && (
           <OkayCancel
             parent={containerRef.current ?? undefined}
-            okay={contextFolderInfo.archive ? 'Trash Archive' : 'Trash Folder'}
-            msg={`Trash ${contextFolderInfo.filename}?`}
+            okay={contextFolderInfo.archive ? 'Delete Archive' : 'Delete Folder'}
+            msg={contextFolderInfo.archive
+              ? `Permanently delete ${contextFolderInfo.filename}? This cannot be undone.`
+              : `Permanently delete ${contextFolderInfo.filename} and everything inside it? This cannot be undone.`}
             onOkay={deleteFolder}
             onCancel={() => { setShowDeleteFolderPrompt(false); }}
-          />
-        )}
-        {showForceDelete && (
-          <OkayCancel
-            parent={containerRef.current ?? undefined}
-            okay={forceDeleteIsFolder ? 'Really Delete Folder' : 'Really Delete File'}
-            msg={getForceDeleteMsg()}
-            onOkay={forceDelete}
-            onCancel={() => { setShowForceDelete(false); }}
           />
         )}
         {showForceDeleteFiles && forceDeleteItems.length > 0 && (

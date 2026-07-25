@@ -73,9 +73,9 @@ export default class FolderContextMenu extends React.Component<Props> {
         {canShowInFinder && (
           <MenuItem onClick={this._handleOpen}>Show in Finder/Explorer</MenuItem>
         )}
-        {platform.trashItem && (
+        {platform.deleteFolder && (
           <MenuItem onClick={this._handleDelete}>
-            Trash {this.props.folder ? this.props.folder.filename : ''}
+            Delete {this.props.folder ? this.props.folder.filename : ''}
           </MenuItem>
         )}
         {platform.showItemInFolder && (

@@ -78,12 +78,12 @@ export default class FileContextMenu extends React.Component<Props> {
   };
 
   private _deleteMenuItem(): React.ReactNode {
-    if (!this.context.platform.trashItem) return undefined;
+    if (!this.context.platform.deleteFile) return undefined;
     if (this.props.file && this.props.file.filename) {
       const sel = getSelected();
       const label = sel.has(this.props.file.filename) && sel.size > 1
-        ? `Trash ${sel.size} selected items`
-        : `Trash ${this.props.file.archiveName ?? this.props.file.filename}`;
+        ? `Delete ${sel.size} selected items`
+        : `Delete ${this.props.file.archiveName ?? this.props.file.filename}`;
       return (
         <MenuItem onClick={this._handleDelete}>
           {label}
