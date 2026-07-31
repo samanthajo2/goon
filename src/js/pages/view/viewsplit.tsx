@@ -582,16 +582,30 @@ export default class ViewSplit extends React.Component<Props, State> {
     newLeaf.initialState = state;
     this._treeRoot = this._findRoot();
     this._bumpTreeVersion();
+    // Move focus to the newly-created pane. The view the user was watching keeps
+    // playing in place (its VPair is untouched); the new pane is the fresh copy,
+    // so making it active means Split-then-Delete-Pane removes the just-added
+    // pane rather than the one being watched. newLeaf's VPair mounts on the
+    // render triggered above, so switch to it once it exists.
+    setTimeout(() => {
+      if (this._vpairs[newLeaf.id]) {
+        this._setCurrentVPairById(newLeaf.id);
+      }
+    }, 0);
   }
 
+  // The new pane goes on the second (right/bottom) side so the view being
+  // watched stays put (left/top) and the fresh pane appears after it. The *Alt
+  // variants place the new pane first (left/top) — used by the directional
+  // split arrows so ➡/⬇ add to the right/bottom and ⬅/⬆ add to the left/top.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private _splitHorizontal = (fe: any): void => { fe.stopPropagation(); this._doSplit('v', false); };
+  private _splitHorizontal = (fe: any): void => { fe.stopPropagation(); this._doSplit('v', true); };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private _splitHorizontalAlt = (fe: any): void => { fe.stopPropagation(); this._doSplit('v', true); };
+  private _splitHorizontalAlt = (fe: any): void => { fe.stopPropagation(); this._doSplit('v', false); };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private _splitVertical = (fe: any): void => { fe.stopPropagation(); this._doSplit('h', false); };
+  private _splitVertical = (fe: any): void => { fe.stopPropagation(); this._doSplit('h', true); };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private _splitVerticalAlt = (fe: any): void => { fe.stopPropagation(); this._doSplit('h', true); };
+  private _splitVerticalAlt = (fe: any): void => { fe.stopPropagation(); this._doSplit('h', false); };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _deletePane = (fe: any): void => {
