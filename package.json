@@ -1,7 +1,7 @@
 {
   "name": "goon",
   "productName": "Goon",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "type": "module",
   "description": "Multiple Movie/Photo Viewer",
   "build": {
