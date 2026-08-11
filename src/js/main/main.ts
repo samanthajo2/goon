@@ -51,6 +51,7 @@ import { ProgOptions } from './program-options.js';
 import {windowTrackerInit, windowTrackerIsAnyWindowFullScreen} from '../lib/remote-helpers.cjs';
 import { startWebSocketBridge } from './ws-bridge.js';
 
+process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
 
 initRelay();
 
