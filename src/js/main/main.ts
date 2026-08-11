@@ -934,6 +934,7 @@ function setupMenus() {
     { type: 'separator' },
     actionItem('zoomIn'),
     actionItem('zoomOut'),
+    actionItem('resetZoom'),
     { type: 'separator' },
     actionItem('splitHorizontal'),
     actionItem('splitVertical'),

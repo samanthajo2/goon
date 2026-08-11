@@ -34,6 +34,7 @@ const actions = {
   closeViewer:        { hint: 'close',           icon: 'images/buttons/close.svg',           desc: 'Close Viewer', },
   zoomIn:             { hint: 'zoom in',         icon: 'images/buttons/zoomin.svg',          desc: 'Zoom In', },
   zoomOut:            { hint: 'zoom out',        icon: 'images/buttons/zoomout.svg',         desc: 'Zoom Out', },
+  resetZoom:          { hint: 'reset zoom',      icon: 'images/buttons/noop.svg',            desc: 'Reset Zoom', },
   setLoop:            { hint: 'loop',            icon: 'images/buttons/loop.svg',            desc: 'Set Loop (1st = start, 2nd = end, 3rd = clear)', },
   view:               { hint: 'view',            icon: 'images/buttons/???.svg',             desc: 'View Current Selection', },
   gotoPrev:           { hint: 'next',            icon: 'images/buttons/prev.svg',            desc: 'Previous Item', },

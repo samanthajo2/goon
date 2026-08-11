@@ -32,7 +32,7 @@ import Player from './player.js';
 import * as filters from '../../lib/filters.js';
 import { CSSArray } from '../../lib/css-utils.js';
 import { px, euclideanModulo } from '../../lib/utils.js';
-import { getOrientationInfo } from '../../lib/rotatehelper.js';
+import { getOrientationInfo, getRotatedXY } from '../../lib/rotatehelper.js';
 import { createImageFromString } from '../../lib/string-image.js';
 import MediaManagerClient from '../../lib/media-manager-client.js';
 import { VideoState, ViewerState, TimeUpdateEvent } from './viewer-events.js';
@@ -71,6 +71,14 @@ function assert(cond: unknown, msg: string): asserts cond {
 function isRotated90(rotation: number): boolean {
   assert(rotation >= 0 && rotation <= 7, 'rotation must be between 0 and 7');
   return rotation % 2 === 1;
+}
+
+// Wheel-zoom bounds (multiplier where 1 == the current stretch-mode fit).
+const MIN_ZOOM = 0.1;
+const MAX_ZOOM = 40;
+
+function clamp(v: number, lo: number, hi: number): number {
+  return v < lo ? lo : v > hi ? hi : v;
 }
 
 type FileInfo = {
@@ -181,14 +189,20 @@ function getFlip(rotation: number): [number, number] {
 
 function setTransform(
   t: TransformInfo,
-  { containerSize, rotation, baseScale }: { containerSize: Size; rotation: number; zoom?: number; baseScale: [number, number] },
+  { containerSize, rotation, baseScale, pan }: { containerSize: Size; rotation: number; zoom?: number; baseScale: [number, number]; pan?: { x: number; y: number } },
   style: Record<string, string | number>,
 ): void {
   const scrollLeft = 0;
   const scrollTop  = 0;
   adjustToCenter(t, 'x', 'w', containerSize.width,  scrollLeft);
   adjustToCenter(t, 'y', 'h', containerSize.height, scrollTop);
-  const translationPart = `translate(${px(t.x + scrollLeft)},${px(t.y + scrollTop)})`;
+  // `translate` is the outermost transform, so its values are plain screen
+  // pixels (unaffected by the rotate/scale that follow). Adding the pan here
+  // shifts the whole image by that many screen px — used for pointer-anchored
+  // wheel zoom. Pan is pre-clamped by the caller to the image's overflow.
+  const panX = pan?.x ?? 0;
+  const panY = pan?.y ?? 0;
+  const translationPart = `translate(${px(t.x + scrollLeft + panX)},${px(t.y + scrollTop + panY)})`;
   const scalePart = `scale(${Math.max(t.scale)})`;
   const rotatePart = `rotate(${rotation % 4 * 90}deg)`;
   const flipPart = `scale(${getFlip(rotation).map((s, i) => s * baseScale[i]).join(',')})`;
@@ -255,6 +269,20 @@ export default class Viewer extends React.Component<Props, State> {
   private _slideshow: boolean;
   private _slideshowId: ReturnType<typeof setTimeout> | undefined;
   private _processWheelTick: (delta: number) => boolean | 0;
+  // Pan offset in screen pixels from the centered position, for pointer-anchored
+  // wheel zoom and drag-to-pan. Reset to 0 (centered) when the media, rotation,
+  // or fit changes; clamped to the image's overflow each render in _adjustSize.
+  private _panX = 0;
+  private _panY = 0;
+  // True when the (zoomed) image overflows the container, i.e. there's room to
+  // pan. Recomputed each render in _adjustSize; drives the grab cursor.
+  private _canPan = false;
+  // Drag-to-pan state.
+  private _dragPointerId: number | null = null;
+  private _dragStartX = 0;
+  private _dragStartY = 0;
+  private _dragStartPanX = 0;
+  private _dragStartPanY = 0;
 
   constructor(props: Props) {
     super(props);
@@ -350,6 +378,7 @@ export default class Viewer extends React.Component<Props, State> {
     actionListener.on('closeViewer', () => { this._hideImage(); });
     actionListener.on('zoomIn', () => { this._zoom(0.1); });
     actionListener.on('zoomOut', () => { this._zoom(-0.1); });
+    actionListener.on('resetZoom', () => { this._resetZoom(); });
     actionListener.on('setLoop', () => { this._loop(); });
     actionListener.on('gotoPrev', () => { this._gotoPrev(); });
     actionListener.on('gotoNext', () => { this._gotoNext(); });
@@ -489,6 +518,21 @@ export default class Viewer extends React.Component<Props, State> {
 
   private _handleWheel = (event: Event): void => {
     const e = event as WheelEvent;
+
+    // Vertical wheel zooms in/out, centered on the pointer. Scroll up (deltaY < 0)
+    // zooms in. Take this branch when the gesture is more vertical than horizontal
+    // so trackpad horizontal swipes still scrub.
+    if (Math.abs(e.deltaY) >= Math.abs(e.deltaX)) {
+      if (e.deltaY !== 0) {
+        e.preventDefault();
+        // Smooth exponential step: ~1.15x per typical 100px notch.
+        const factor = Math.pow(1.0014, -e.deltaY);
+        this._zoomAtPoint(factor, e.clientX, e.clientY);
+      }
+      return;
+    }
+
+    // Horizontal wheel scrubs the video (cue) / steps images.
     const delta = e.deltaX;
     const threshold = 5;
     const deltaRange = 100;
@@ -525,7 +569,17 @@ export default class Viewer extends React.Component<Props, State> {
     const t = computeTransformAtCenter({ fileInfo, size, containerSize, rotation, zoom });
     moveIfOffScreen(t, 'x');
     moveIfOffScreen(t, 'y');
-    setTransform(t, { containerSize, rotation, zoom, baseScale }, style);
+    // Clamp the pan to the amount the (zoomed) image overflows the container, so
+    // you can't pan the image off into empty space. t.s.w/h are the displayed
+    // size in screen px (scale includes zoom); rotation swaps the screen axes.
+    const screenW = isRotated90(rotation) ? t.s.h : t.s.w;
+    const screenH = isRotated90(rotation) ? t.s.w : t.s.h;
+    const slackX = Math.max(0, (screenW - containerSize.width) / 2);
+    const slackY = Math.max(0, (screenH - containerSize.height) / 2);
+    this._panX = clamp(this._panX, -slackX, slackX);
+    this._panY = clamp(this._panY, -slackY, slackY);
+    this._canPan = slackX > 0 || slackY > 0;
+    setTransform(t, { containerSize, rotation, zoom, baseScale, pan: { x: this._panX, y: this._panY } }, style);
     style.width = px(fileInfo.width);
     style.height = px(fileInfo.height);
   }
@@ -533,16 +587,97 @@ export default class Viewer extends React.Component<Props, State> {
   private _changeStretchMode = (): void => {
     const newModeNdx = (modeNames.indexOf(this.props.viewerState.stretchMode as StretchMode) + 1) % modeNames.length;
     this.props.viewerState.stretchMode = modeNames[newModeNdx];
+    // Changing the stretch mode is a re-framing action; reset zoom (which is a
+    // multiplier relative to the fit) and pan so the new mode is shown cleanly
+    // rather than masked by a leftover zoom/offset.
+    this.props.viewerState.zoom = 1;
+    this._resetPan();
     this.forceUpdate();
+    this._dispatchViewerStateChanged();
   };
 
   private _rotate = (): void => {
     this.props.viewerState.rotation = (this.props.viewerState.rotation + 1) % 8;
+    this._resetPan();
     this.forceUpdate();
+  };
+
+  private _resetPan(): void {
+    this._panX = 0;
+    this._panY = 0;
+  }
+
+  // Reset to the default view: fit (zoom 1) and centered (no pan).
+  private _resetZoom(): void {
+    this.props.viewerState.zoom = 1;
+    this._resetPan();
+    this.forceUpdate();
+    this._dispatchViewerStateChanged();
+  }
+
+  // ── Drag-to-pan ─────────────────────────────────────────────────
+  // Only pans while the image overflows the container (_canPan). Uses pointer
+  // capture so the drag keeps tracking even if the pointer leaves the element.
+  private _handlePanPointerDown = (e: React.PointerEvent<HTMLDivElement>): void => {
+    if (e.button !== 0 || !this._canPan) return;
+    // Track pointer motion in content space so panning stays correct when the
+    // window is rotated (rotateMode). getRotatedXY remaps the raw client coords.
+    const pos = getRotatedXY(e.nativeEvent, 'client', this.props.rotateMode);
+    this._dragPointerId = e.pointerId;
+    this._dragStartX = pos.x;
+    this._dragStartY = pos.y;
+    this._dragStartPanX = this._panX;
+    this._dragStartPanY = this._panY;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    this.forceUpdate(); // switch to the grabbing cursor
+  };
+
+  private _handlePanPointerMove = (e: React.PointerEvent<HTMLDivElement>): void => {
+    if (this._dragPointerId !== e.pointerId) return;
+    e.preventDefault();
+    // Deltas in content space; _adjustSize clamps to the image bounds on render.
+    const pos = getRotatedXY(e.nativeEvent, 'client', this.props.rotateMode);
+    this._panX = this._dragStartPanX + (pos.x - this._dragStartX);
+    this._panY = this._dragStartPanY + (pos.y - this._dragStartY);
+    this.forceUpdate();
+  };
+
+  private _handlePanPointerUp = (e: React.PointerEvent<HTMLDivElement>): void => {
+    if (this._dragPointerId !== e.pointerId) return;
+    this._dragPointerId = null;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    this.forceUpdate(); // back to the grab cursor
   };
 
   private _zoom(z: number): void {
     this.props.viewerState.zoom += z;
+    this.forceUpdate();
+    this._dispatchViewerStateChanged();
+  }
+
+  // Zoom by `factor` (multiplicative) while keeping the image point under
+  // (clientX, clientY) fixed on screen — the classic pointer-anchored zoom.
+  private _zoomAtPoint(factor: number, clientX: number, clientY: number): void {
+    const vs = this.props.viewerState;
+    const oldZoom = vs.zoom;
+    const newZoom = clamp(oldZoom * factor, MIN_ZOOM, MAX_ZOOM);
+    const k = newZoom / oldZoom;
+    if (k === 1) return;
+    // Pointer position relative to the container center (the pivot when pan=0),
+    // expressed in the same content space as the pan. The container center is
+    // rotation-invariant (window rotation is about center), so we take the
+    // screen-space offset from that center and rotate it into content space.
+    const rect = this._viewerElem.getBoundingClientRect();
+    const sdx = clientX - (rect.left + rect.width / 2);
+    const sdy = clientY - (rect.top + rect.height / 2);
+    const p = getRotatedXY({ clientX: sdx, clientY: sdy }, 'client', this.props.rotateMode);
+    // Keep the content under the pointer fixed: newPan = p - (p - pan) * k.
+    this._panX = p.x - (p.x - this._panX) * k;
+    this._panY = p.y - (p.y - this._panY) * k;
+    vs.zoom = newZoom;
+    // Pan is clamped to the image bounds in _adjustSize during the render below.
     this.forceUpdate();
     this._dispatchViewerStateChanged();
   }
@@ -787,6 +922,7 @@ export default class Viewer extends React.Component<Props, State> {
     const filename = fileInfo.filename;
     if (this._currentFilename !== filename) {
       this._currentFilename = filename;
+      this._resetPan();
       this.props.mediaManager.requestMedia(fileInfo, (err, info) => {
         this._showNewMedia(err, info, fileInfo);
       });
@@ -843,7 +979,15 @@ export default class Viewer extends React.Component<Props, State> {
           >
             <div className="back" onClick={() => { this.props.setCurrentView(); }}></div>
             <div className="view-holder">
-              <div className="viewer-content" onContextMenu={this._handleContextMenu}>
+              <div
+                className="viewer-content"
+                style={{ cursor: this._dragPointerId !== null ? 'grabbing' : (this._canPan ? 'grab' : 'default') }}
+                onContextMenu={this._handleContextMenu}
+                onPointerDown={this._handlePanPointerDown}
+                onPointerMove={this._handlePanPointerMove}
+                onPointerUp={this._handlePanPointerUp}
+                onPointerCancel={this._handlePanPointerUp}
+              >
                 <img style={imageStyle} className="viewer-img" draggable={false} alt="" />
                 <video style={videoStyle} className="viewer-video" autoPlay loop playsInline draggable={false}></video>
                 <img style={brokenStyle} className="viewer-broken" src="images/broken.svg" draggable={false} alt="failed to load" />
