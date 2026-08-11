@@ -37,6 +37,8 @@ const filterTable: Record<string, FilterTableEntry> = {
   basename: { fn: makeFilenameFilter, type: 'filename', },
   date:     { fn: makeDateFilter,     type: 'date', },
   size:     { fn: makeSizeFilter,     type: 'size', },
+  length:   { fn: makeDurationFilter, type: 'duration', },
+  duration: { fn: makeDurationFilter, type: 'duration', },
   glob:     { fn: makeGlobFilter,     type: 'glob', },
   type:     { fn: makeTypeFilter,     type: 'type', },
   bad:      { fn: makeBadFilter,      type: 'bad', },
@@ -309,6 +311,80 @@ function makeSizeFilter(str: string) {
   return {
     error,
     filter: (filename: string, fileInfo: DBFileInfo) => fileInfo.size !== 0 && filter(fileInfo.size),
+  };
+}
+
+// Parse a duration into seconds. Returns null if invalid.
+//
+// Accepted forms (case-insensitive):
+//   bare number        -> seconds            (90        -> 90)
+//   unit-suffixed       -> h/m/s summed       (3m        -> 180, 1m2s -> 62, 1.5h -> 5400)
+//   clock (colons)      -> right-aligned to seconds by default
+//                          (1:2 / 1:02        -> 62,  1:2:3 -> 3723)
+//   clock + unit suffix -> the suffix sets the unit of the rightmost part,
+//                          each part to its left is one unit higher
+//                          (1:2s -> 62,  1:2m -> 3720 i.e. 1h2m)
+//
+// Mixed/repeated units are treated leniently by summing (1m2m -> 180, 1s2m -> 121).
+function parseDuration(str: string): number | null {
+  const s = str.trim().toLowerCase();
+  if (s === '') return null;
+
+  const unitSeconds = [1, 60, 3600]; // s, m, h
+
+  if (s.includes(':')) {
+    // Clock notation. An optional trailing h/m/s sets the rightmost part's unit.
+    let base = 0;
+    let body = s;
+    const last = s[s.length - 1];
+    if (last === 's' || last === 'm' || last === 'h') {
+      base = last === 'h' ? 2 : last === 'm' ? 1 : 0;
+      body = s.slice(0, -1);
+    }
+    const parts = body.split(':');
+    let total = 0;
+    let unit = unitSeconds[base];
+    for (let i = parts.length - 1; i >= 0; --i) {
+      if (!/^\d+(?:\.\d+)?$/.test(parts[i])) return null;
+      total += parseFloat(parts[i]) * unit;
+      unit *= 60;
+    }
+    return total;
+  }
+
+  // Bare number = seconds.
+  if (/^\d+(?:\.\d+)?$/.test(s)) return parseFloat(s);
+
+  // One or more <number><h|m|s> tokens, summed.
+  if (!/^(?:\d+(?:\.\d+)?[hms])+$/.test(s)) return null;
+  const mult: Record<string, number> = { h: 3600, m: 60, s: 1 };
+  const tokenRE = /(\d+(?:\.\d+)?)([hms])/g;
+  let total = 0;
+  let m: RegExpExecArray | null;
+  while ((m = tokenRE.exec(s)) !== null) {
+    total += parseFloat(m[1]) * mult[m[2]];
+  }
+  return total;
+}
+
+const durationExpressionRE = /^([!<>=]+)(.*)$/;
+function makeDurationFilter(str: string) {
+  const parts = durationExpressionRE.exec(str.trim());
+  if (!parts) {
+    return { filter: allPass, error: `unknown expression: ${str}` };
+  }
+  const [, expression, valueStr] = parts;
+  const expressionFn = expressionFnTable[expression as keyof typeof expressionFnTable];
+  if (!expressionFn) {
+    return { filter: allPass, error: `unknown expression: ${expression}` };
+  }
+  const seconds = parseDuration(valueStr);
+  if (seconds === null) {
+    return { filter: allPass, error: `invalid duration: ${valueStr}` };
+  }
+  // Images (and anything without a duration) count as length 0.
+  return {
+    filter: (filename: string, fileInfo: DBFileInfo) => expressionFn(fileInfo.duration ?? 0, seconds),
   };
 }
 

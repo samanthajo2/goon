@@ -43,8 +43,9 @@ l       set loop. 1st press sets start
 3       set video playback speed to .5x
 4       set video playback speed to .33x
 5       set video playback speed to .25x
-F1      zoom in
-F2      zoom out
+F1      zoom in (also mouse wheel)
+F2      zoom out (also mouse wheel)
+R       reset zoom
 F3      make next pane active
 F4      make prev pane active
 F5      cycle UI. No toolbar, No folders, Neither, Both
@@ -116,13 +117,16 @@ words that end in a colon `:` are considered a special filter.
 *   `height:`
 *   `aspect:`
 *   `size:`
+*   `duration:`
+*   `length:`
 
 all of these take a comparison and a number. Examples
 
     width:>1000
     height:<=512
     aspect:>1
-    size:20k
+    size:>20k
+    duration:>=1m
 
 `aspect` can also be `aspect:landscape` and `aspect:portrait`
 which are just synonyms for `aspect:>1` and `aspect:<1` respectively.
@@ -138,6 +142,22 @@ examples
 
     size:>100mb
     size:>1.5gb
+
+`length` and `duration` default to seconds and can take
+
+*   `s`: seconds
+*   `m`: minutes
+*   `h`: hours
+
+examples
+
+    length:>3s    more than 3 seconds
+    length:>3m    more than 3 minutes
+    length:>1:2   more than 1 minute 2 seconds
+    length:>1:2s  more than 1 minute 2 seconds
+    length:>1:02  more than 1 minute 2 seconds
+    length:>1:2m  more than 1 hour 2 minutes
+    length:>1m2s  more than 1 minute 2 seconds
 
 *   `date:`
 
@@ -182,7 +202,7 @@ show all videos and `type:image/gif` would show all gifs.
 *    `!==` not equal to
 
 Comparison operators only work with `width:`, `height:`,
-`aspect:`, `size:`, and `date:`.
+`aspect:`, `size:`, `length:`, `duration:`, and `date:`.
 
 
 

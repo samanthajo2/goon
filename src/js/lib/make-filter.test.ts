@@ -37,6 +37,7 @@ type TestFileInfo = {
   lowercaseName?: string;
   orientation?: number;
   bad?: boolean;
+  duration?: number;
 };
 
 type TestFiles = Record<string, TestFileInfo>;
@@ -124,6 +125,42 @@ describe('makeFilter', () => {
     };
     assert.hasAllKeys(testFilter(makeFilter('height:>150'), orientedFiles), ['def']);
     assert.hasAllKeys(testFilter(makeFilter('width:>150'), orientedFiles), ['abc']);
+  });
+
+  it('handles length and duration', () => {
+    const files: TestFiles = {
+      'img':   {},               // no duration -> counts as length 0
+      'sec3':  { duration: 3 },
+      'sec62': { duration: 62 },  // 1:02
+      'min3':  { duration: 180 },
+      'hr':    { duration: 3720 }, // 1h2m
+    };
+    // seconds default + unit suffixes
+    assert.hasAllKeys(testFilter(makeFilter('length:>3s'), files), ['sec62', 'min3', 'hr']);
+    assert.hasAllKeys(testFilter(makeFilter('length:>90'), files), ['min3', 'hr']); // bare number = seconds
+    assert.hasAllKeys(testFilter(makeFilter('length:>3m'), files), ['hr']);
+    // clock notation
+    assert.hasAllKeys(testFilter(makeFilter('length:>1:2'), files), ['min3', 'hr']);  // >62
+    assert.hasAllKeys(testFilter(makeFilter('length:>1:2s'), files), ['min3', 'hr']);
+    assert.hasAllKeys(testFilter(makeFilter('length:>1:02'), files), ['min3', 'hr']);
+    // clock + unit suffix shifts the units: 1:2m == 1h2m == 3720s
+    assert.isEmpty(testFilter(makeFilter('length:>1:2m'), files));              // >3720
+    assert.hasAllKeys(testFilter(makeFilter('length:>=1:2m'), files), ['hr']);  // >=3720
+    // compound + lenient summing
+    assert.hasAllKeys(testFilter(makeFilter('length:>1m2s'), files), ['min3', 'hr']); // >62
+    assert.hasAllKeys(testFilter(makeFilter('length:>=1m2m'), files), ['min3', 'hr']); // 180s
+    // duration is a synonym
+    assert.hasAllKeys(testFilter(makeFilter('duration:>=180'), files), ['min3', 'hr']);
+    // images (no duration) count as 0
+    assert.hasAllKeys(testFilter(makeFilter('length:=0'), files), ['img']);
+    assert.hasAllKeys(testFilter(makeFilter('length:>0'), files), ['sec3', 'sec62', 'min3', 'hr']);
+    // errors
+    assert.isOk(makeFilter('length:').error);
+    assert.isOk(makeFilter('length:3s').error);    // missing operator
+    assert.isOk(makeFilter('length:>abc').error);  // invalid duration
+    // both names map to the same filter type
+    assert.deepEqual(makeFilter('length:>0').filterTypesUsed, {'duration': true});
+    assert.deepEqual(makeFilter('duration:>0').filterTypesUsed, {'duration': true});
   });
 
   it('handles aspect', () => {
