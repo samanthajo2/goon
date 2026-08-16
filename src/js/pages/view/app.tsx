@@ -36,7 +36,7 @@ import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher.j
 import type { AppEventMap } from './app-event-map.js';
 import ForwardableEvent from '../../lib/forwardable-event.js';
 import { trashingFiles, addTrashingFile, removeTrashingFile } from './trashing-state.js';
-import { getSelected, clearSelection } from './selection-state.js';
+import { getSelectedFilenames, selectionCount, clearSelection } from './selection-state.js';
 import DeletePrompt, { DeleteItem } from './delete-prompt.js';
 import KeyRouter from '../../lib/keyrouter.js';
 import debug from '../../lib/debug.js';
@@ -102,54 +102,20 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
   // ── Window state (sort mode, grid mode, zoom, rotation, split, UI) ──
   const { winState, updateWinState } = useWinState(platform, startState?.winState);
 
-  // ── UI state (declared early so handleTrashFailed can reference the setters) ──
+  // ── UI state ──
   const [contextFileInfo, setContextFileInfo] = useState<DBFileInfo | null>(null);
   const [contextFolderInfo, setContextFolderInfo] = useState<FolderContextInfo | null>(null);
   const [fileInfo, setFileInfo] = useState<FileInfoData>(null);
   const [showDeleteFilePrompt, setShowDeleteFilePrompt] = useState(false);
   const [pendingDeleteItems, setPendingDeleteItems] = useState<DeleteItem[]>([]);
   const [showDeleteFolderPrompt, setShowDeleteFolderPrompt] = useState(false);
-  // Failed-trash items accumulated to show as a single batched force-delete prompt.
-  const [showForceDeleteFiles, setShowForceDeleteFiles] = useState(false);
-  const [forceDeleteItems, setForceDeleteItems] = useState<DeleteItem[]>([]);
-  const forceDeleteBufferRef = useRef<DeleteItem[]>([]);
-  const forceDeleteFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── IPC streams (thumber + prefs) ──────────────────────────────────
-  // Buffer trashFailed events for ~250ms so a batch of failures shows
-  // up as a single prompt rather than one per failed file.
-  const handleTrashFailed = useCallback((filename: string) => {
-    removeTrashingFile(filename);
-    // Look up FileInfo so we can show a thumbnail.
-    let info: DeleteItem['info'] | undefined;
-    // rootRef is declared below; the callback closure resolves it at call time.
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
-    for (const folder of rootRef.current.folders) {
-      for (const file of folder.files) {
-        if (file.info.filename === filename) {
-          info = file.info;
-          break;
-        }
-      }
-      if (info) break;
-    }
-    if (info) {
-      forceDeleteBufferRef.current.push({ filename, info });
-    }
-    if (forceDeleteFlushTimerRef.current) {
-      clearTimeout(forceDeleteFlushTimerRef.current);
-    }
-    forceDeleteFlushTimerRef.current = setTimeout(() => {
-      const items = forceDeleteBufferRef.current;
-      forceDeleteBufferRef.current = [];
-      forceDeleteFlushTimerRef.current = null;
-      if (items.length === 0) return;
-      setForceDeleteItems(items);
-      setShowForceDeleteFiles(true);
-    }, 250);
-  }, []);
-
-  const { thumberStream, prefs, prefsReceived, disconnected } = useIPCStreams(platform, { onTrashFailed: handleTrashFailed });
+  // The thumber performs deletions and acks with `filesDeleted` so we can clear
+  // the per-file "deleting" overlay (whether or not the delete succeeded).
+  const { thumberStream, prefs, prefsReceived, disconnected } = useIPCStreams(platform, {
+    onFilesDeleted: (filenames: string[]) => filenames.forEach(removeTrashingFile),
+  });
   const [externalViewerAvailable, setExternalViewerAvailable] = useState(false);
 
   // ── Filter state ───────────────────────────────────────────────────
@@ -243,78 +209,42 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
     }
   }, []);
 
-  const deleteOneFile = useCallback((filename: string) => {
-    if (trashingFiles.has(filename)) return;
-    addTrashingFile(filename);
-    closeViewerIfShowingFile(filename);
-    if (!thumberStream || !platform.deleteFile) {
-      removeTrashingFile(filename);
-      return;
-    }
-    // Give the browser a frame to release the file handle after clearing img/video src
-    setTimeout(async () => {
-      try {
-        // Permanent delete (fs.unlink) — no OS trash.
-        await platform.deleteFile!(filename);
-        thumberStream.send('removeFile', filename);
-      } catch (err) {
-        logger(err);
-      } finally {
-        removeTrashingFile(filename);
-      }
+  // Ask the thumber to permanently delete these files. The thumber does the fs
+  // work (via main), updates its folder data, and acks `filesDeleted` so we can
+  // clear the "deleting" overlay. The view holds files open in its <img>/<video>,
+  // so close the viewer and give the browser a frame to release the handle before
+  // the thumber deletes (matters on Windows).
+  const deleteFilenames = useCallback((filenames: string[]) => {
+    if (!thumberStream) return;
+    const toDelete = filenames.filter(f => !trashingFiles.has(f));
+    if (toDelete.length === 0) return;
+    toDelete.forEach(addTrashingFile);
+    toDelete.forEach(closeViewerIfShowingFile);
+    setTimeout(() => {
+      thumberStream.send('deleteFiles', toDelete);
     }, 100);
-  }, [thumberStream, closeViewerIfShowingFile, platform, logger]);
+  }, [thumberStream, closeViewerIfShowingFile]);
 
   const deleteFile = useCallback(() => {
     setShowDeleteFilePrompt(false);
     const items = pendingDeleteItems;
     setPendingDeleteItems([]);
-    // Skip archive entries — they're not real files on disk and can't be trashed.
-    const realItems = items.filter(it => !it.info.archiveName);
-    for (const item of realItems) {
-      deleteOneFile(item.filename);
-    }
+    // Skip archive entries — they're not real files on disk and can't be deleted.
+    deleteFilenames(items.filter(it => !it.info.archiveName).map(it => it.filename));
     // Clear the multi-select once the action is confirmed
     if (items.length > 1) {
       clearSelection();
     }
-  }, [pendingDeleteItems, deleteOneFile]);
+  }, [pendingDeleteItems, deleteFilenames]);
 
-  const deleteFolder = useCallback(async () => {
+  const deleteFolder = useCallback(() => {
     setShowDeleteFolderPrompt(false);
-    const info = contextFolderInfo;
-    const filename = info?.filename;
+    const filename = contextFolderInfo?.filename;
     if (!filename) return;
-    try {
-      if (info.archive) {
-        // An archive is a single file on disk — permanently delete it (fs.unlink).
-        if (platform.deleteFile) {
-          await platform.deleteFile(filename);
-          thumberStream?.send('removeFile', filename);
-        }
-      } else if (platform.deleteFolder) {
-        // Permanently delete the folder and its contents — no OS trash.
-        await platform.deleteFolder(filename);
-      }
-    } catch (e) {
-      logger(e);
-    }
-  }, [contextFolderInfo, platform, thumberStream, logger]);
-
-  const forceDeleteFiles = useCallback(async () => {
-    setShowForceDeleteFiles(false);
-    const items = forceDeleteItems;
-    setForceDeleteItems([]);
-    if (!platform.deleteFile) return;
-    for (const item of items) {
-      try {
-        await platform.deleteFile(item.filename);
-        thumberStream?.send('removeFile', item.filename);
-      } catch (err) {
-        logger(err);
-      }
-    }
-  }, [forceDeleteItems, thumberStream, logger, platform]);
+    // The thumber disambiguates real dir (recursive delete) vs archive (unlink the
+    // archive file) and performs the deletion.
+    thumberStream?.send('deleteFolder', filename);
+  }, [contextFolderInfo, thumberStream]);
 
   // ── Stable refs for callbacks that reference mutable state ────────
   // (declared before the one-time useEffect so lint can see they're defined)
@@ -326,6 +256,8 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
   deleteFileRef.current = deleteFile;
   const deleteFolderRef = useRef(deleteFolder);
   deleteFolderRef.current = deleteFolder;
+  const deleteFilenamesRef = useRef(deleteFilenames);
+  deleteFilenamesRef.current = deleteFilenames;
 
   // ── One-time setup: event bus listeners, key handler, prefs, etc. ──
   useEffect(() => {
@@ -379,10 +311,10 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
       setContextFileInfo(fileInfoArg);
       // If the triggered file is part of a multi-selection, delete the whole selection.
       // Otherwise just delete the one file.
-      const sel = getSelected();
+      const selectedFilenames = getSelectedFilenames();
       let filenames: string[];
-      if (sel.has(fileInfoArg.filename) && sel.size > 1) {
-        filenames = Array.from(sel);
+      if (selectedFilenames.includes(fileInfoArg.filename) && selectionCount() > 1) {
+        filenames = selectedFilenames;
       } else {
         filenames = [fileInfoArg.filename];
       }
@@ -404,7 +336,7 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
       if (items.length === 0) return;
       if (items.length === 1 && !prefsRef.current.misc?.promptOnDeleteFile) {
         // Single file with prompt disabled — go straight to delete
-        deleteOneFile(items[0].filename);
+        deleteFilenamesRef.current([items[0].filename]);
         setPendingDeleteItems([]);
       } else {
         setShowDeleteFilePrompt(true);
@@ -475,11 +407,11 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
     actionListener.on('showHelp', () => { platform.openNewWindow('help'); });
     actionListener.on('refreshFolders', () => { eventBus.dispatch(new ForwardableEvent('refreshFolders')); });
     actionListener.on('trashSelected', () => {
-      const sel = getSelected();
-      if (sel.size === 0) return;
+      const selectedFilenames = getSelectedFilenames();
+      if (selectedFilenames.length === 0) return;
       // Find the FileInfo of the first selected file and dispatch deleteFile.
       // The deleteFile handler already detects multi-select and uses the whole set.
-      const firstFilename = sel.values().next().value as string;
+      const firstFilename = selectedFilenames[0];
       for (const folder of rootRef.current.folders) {
         for (const file of folder.files) {
           if (file.info.filename === firstFilename) {
@@ -704,19 +636,6 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
               : `Permanently delete ${contextFolderInfo.filename} and everything inside it? This cannot be undone.`}
             onOkay={deleteFolder}
             onCancel={() => { setShowDeleteFolderPrompt(false); }}
-          />
-        )}
-        {showForceDeleteFiles && forceDeleteItems.length > 0 && (
-          <DeletePrompt
-            parent={containerRef.current ?? undefined}
-            okay="Permanently Delete"
-            items={forceDeleteItems}
-            headline={`Couldn't trash ${forceDeleteItems.length} file${forceDeleteItems.length === 1 ? '' : 's'}. Delete permanently?`}
-            onOkay={forceDeleteFiles}
-            onCancel={() => {
-              setShowForceDeleteFiles(false);
-              setForceDeleteItems([]);
-            }}
           />
         )}
         {fileInfo && (

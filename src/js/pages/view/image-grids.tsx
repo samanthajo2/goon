@@ -35,7 +35,7 @@ import gridModes, { GridMode } from './grid-modes.js';
 import { setRAF } from '../../lib/wait.js';
 import { FolderStateRoot, FolderStateFolder, SortInfo } from './folder-state-helper.js';
 import { AppContext } from './contexts.js';
-import { toggleSelection, shiftToggleSelection, selectFiles, clearSelection } from './selection-state.js';
+import { toggleSelection, shiftToggleSelection, selectEntries, clearSelection, SelectionEntry } from './selection-state.js';
 
 let g_imageGridsRenderCount = 0;
 let g_renderCount = 0;
@@ -249,6 +249,7 @@ class ImageGrid extends React.Component<ImageGridProps> {
         <Thumbnail
           key={id}
           info={info}
+          folderKey={folder.filename}
           position={pos}
           showDates={prefs.misc.showDates}
           showDimensions={prefs.misc.showDimensions}
@@ -481,11 +482,11 @@ export default class ImageGrids extends React.Component<Props, State> {
 
   // Returns the flat ordered list of all filenames across all folders in this
   // grid, in the same order they're rendered. Used by shift-range selection.
-  private _getOrderedFilenames(): string[] {
-    const result: string[] = [];
+  private _getOrderedEntries(): SelectionEntry[] {
+    const result: SelectionEntry[] = [];
     for (const folder of this.props.root.folders) {
       for (const file of folder.files) {
-        result.push(file.info.filename);
+        result.push({ folderKey: folder.filename, filename: file.info.filename });
       }
     }
     return result;
@@ -493,19 +494,20 @@ export default class ImageGrids extends React.Component<Props, State> {
 
   private _handleToggleSelection = (
     _event: ForwardableEvent,
+    folderKey: string,
     filename: string,
     shift: boolean,
   ): void => {
     if (shift) {
-      shiftToggleSelection(filename, this._getOrderedFilenames());
+      shiftToggleSelection({ folderKey, filename }, this._getOrderedEntries());
     } else {
-      toggleSelection(filename);
+      toggleSelection(folderKey, filename);
     }
   };
 
-  // Returns filenames whose thumbnails currently overlap the viewport.
-  private _getVisibleFilenames(): string[] {
-    const result: string[] = [];
+  // Returns entries whose thumbnails currently overlap the viewport.
+  private _getVisibleEntries(): SelectionEntry[] {
+    const result: SelectionEntry[] = [];
     if (!this._imagegrids) return result;
     const viewportTop = this._imagegrids.scrollTop;
     const viewportBottom = viewportTop + this._imagegrids.clientHeight;
@@ -536,7 +538,7 @@ export default class ImageGrids extends React.Component<Props, State> {
         const absTop = folderTop + g_folderHeaderHeight + pos.y;
         const absBottom = absTop + pos.height;
         if (absBottom >= viewportTop && absTop <= viewportBottom) {
-          result.push(info.filename);
+          result.push({ folderKey: folder.filename, filename: info.filename });
         }
       }
 
@@ -546,7 +548,7 @@ export default class ImageGrids extends React.Component<Props, State> {
   }
 
   private _selectAllVisible = (): void => {
-    selectFiles(this._getVisibleFilenames());
+    selectEntries(this._getVisibleEntries());
   };
 
   private _clearSelection = (): void => {

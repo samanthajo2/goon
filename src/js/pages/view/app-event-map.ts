@@ -43,7 +43,7 @@ export type AppEventMap = {
   showFileInfo: [fileInfo: DBFileInfo];
 
   // Selection
-  toggleSelection: [filename: string, shift: boolean];
+  toggleSelection: [folderKey: string, filename: string, shift: boolean];
 
   // Viewer navigation
   view: [fileInfo: DBFileInfo];

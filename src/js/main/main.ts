@@ -307,8 +307,8 @@ ipcMain.on('dragStart', (event, fileOrFiles: string | string[]) => {
 ipcMain.handle('deleteFile', async (_event, filename: string) => {
   await fs.promises.unlink(filename);
 });
-ipcMain.handle('trashItem', async (_event, filename: string) => {
-  await shell.trashItem(path.resolve(filename));
+ipcMain.handle('deleteFolder', async (_event, dir: string) => {
+  await fs.promises.rm(path.resolve(dir), { recursive: true, force: true });
 });
 ipcMain.handle('launchBrowser', async(_event, path: string) => {
   const url = new URL(`http://localhost:${serverPort}/out/vr.html`);

@@ -270,18 +270,34 @@ function start(args: ProgOptions) {
     stream.on('refreshFolders', () => {
       refreshFolders();
     });
-    stream.on('removeFile', (filePath: string) => {
-      g.thumbnailManager.removeFile(filePath);
+    // Permanently delete real files. The thumber owns deletion: it does the fs
+    // work (via main), proactively updates its folder data so the thumbnails
+    // disappear without waiting for the watcher (important on network drives),
+    // and acks `filesDeleted` so the view can clear its "deleting" overlay.
+    stream.on('deleteFiles', async (filenames: string[]) => {
+      for (const filePath of filenames) {
+        try {
+          await ipcRenderer.invoke('deleteFile', filePath);
+          g.thumbnailManager.removeFile(filePath);
+        } catch (err) {
+          log('deleteFile failed:', filePath, err);
+        }
+      }
+      stream.send('filesDeleted', filenames);
     });
-    stream.on('trashFile', async (filePath: string) => {
+    // Delete a folder-like entry. The thumber disambiguates: a directory is
+    // recursively removed; anything else (an archive is a single file on disk)
+    // is unlinked and proactively removed from the data.
+    stream.on('deleteFolder', async (folderKey: string) => {
       try {
-        await ipcRenderer.invoke('trashItem', filePath);
-        // Proactively remove from data structures so the thumbnail disappears
-        // immediately without waiting for the filesystem watcher to fire.
-        g.thumbnailManager.removeFile(filePath);
+        if (fs.statSync(folderKey).isDirectory()) {
+          await ipcRenderer.invoke('deleteFolder', folderKey);
+        } else {
+          await ipcRenderer.invoke('deleteFile', folderKey);
+          g.thumbnailManager.removeFile(folderKey);
+        }
       } catch (err) {
-        log('trashFile failed:', filePath, err);
-        stream.send('trashFailed', filePath, String(err));
+        log('deleteFolder failed:', folderKey, err);
       }
     });
     // Pull-based init: the renderer asks for the current snapshot once it

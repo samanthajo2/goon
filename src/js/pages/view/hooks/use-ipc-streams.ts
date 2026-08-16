@@ -27,7 +27,9 @@ import { Preferences } from '../../prefs/default-prefs.js';
 const RETRY_DELAY_MS = 2000;
 
 type Callbacks = {
-  onTrashFailed: (filename: string) => void;
+  // The thumber acks a delete request with the filenames it processed, so the
+  // view can clear the per-file "deleting" overlay.
+  onFilesDeleted: (filenames: string[]) => void;
 };
 
 export function useIPCStreams(platform: Platform, callbacks: Callbacks): {
@@ -76,7 +78,7 @@ export function useIPCStreams(platform: Platform, callbacks: Callbacks): {
         }
         thumberStreamLocal = tStream;
         prefsStreamLocal = pStream;
-        tStream.on('trashFailed', (filename: string) => callbacksRef.current.onTrashFailed(filename));
+        tStream.on('filesDeleted', (filenames: string[]) => callbacksRef.current.onFilesDeleted(filenames));
         tStream.on('disconnect', handleDisconnect);
         pStream.on('prefs', (newPrefs: Preferences) => {
           setPrefs(newPrefs);

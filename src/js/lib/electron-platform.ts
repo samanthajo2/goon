@@ -36,9 +36,6 @@ export function createElectronPlatform(): Platform {
       ipcRenderer.on('action', wrapper);
       return () => { ipcRenderer.removeListener('action', wrapper); };
     },
-    trashItem(filename: string) {
-      return ipcRenderer.invoke('trashItem', filename) as Promise<void>;
-    },
     deleteFile(filename: string) {
       return ipcRenderer.invoke('deleteFile', filename) as Promise<void>;
     },

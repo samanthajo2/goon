@@ -26,7 +26,7 @@ import debug from '../../lib/debug.js';
 import ForwardableEvent from '../../lib/forwardable-event.js';
 import { DBFileInfo } from './folder-db.js';
 import { AppContext } from './contexts.js';
-import { getSelected } from './selection-state.js';
+import { selectionCount, getSelectedFilenames } from './selection-state.js';
 
 const logger = debug('FileContextMenu');
 
@@ -80,9 +80,9 @@ export default class FileContextMenu extends React.Component<Props> {
   private _deleteMenuItem(): React.ReactNode {
     if (!this.context.platform.deleteFile) return undefined;
     if (this.props.file && this.props.file.filename) {
-      const sel = getSelected();
-      const label = sel.has(this.props.file.filename) && sel.size > 1
-        ? `Delete ${sel.size} selected items`
+      const count = selectionCount();
+      const label = getSelectedFilenames().includes(this.props.file.filename) && count > 1
+        ? `Delete ${count} selected items`
         : `Delete ${this.props.file.archiveName ?? this.props.file.filename}`;
       return (
         <MenuItem onClick={this._handleDelete}>

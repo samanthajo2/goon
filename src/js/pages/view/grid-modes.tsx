@@ -47,6 +47,7 @@ class TrashingOverlay extends React.Component<{filename: string}> {
 // Checkbox in the upper-left of each thumbnail. Subscribes to selection state
 // and re-renders just itself when this file's selection changes.
 type SelectionCheckboxProps = {
+  folderKey: string;
   filename: string;
   onClick: (e: React.MouseEvent) => void;
 };
@@ -54,9 +55,9 @@ class SelectionCheckbox extends React.Component<SelectionCheckboxProps> {
   _unsubscribe?: () => void;
   _wasChecked = false;
   componentDidMount() {
-    this._wasChecked = isSelected(this.props.filename);
+    this._wasChecked = isSelected(this.props.folderKey, this.props.filename);
     this._unsubscribe = subscribeSelection(() => {
-      const checked = isSelected(this.props.filename);
+      const checked = isSelected(this.props.folderKey, this.props.filename);
       if (checked !== this._wasChecked) {
         this._wasChecked = checked;
         this.forceUpdate();
@@ -67,7 +68,7 @@ class SelectionCheckbox extends React.Component<SelectionCheckboxProps> {
     this._unsubscribe?.();
   }
   render() {
-    const checked = isSelected(this.props.filename);
+    const checked = isSelected(this.props.folderKey, this.props.filename);
     const className = checked ? 'thumb-check thumb-check-checked' : 'thumb-check';
     return (
       <div className={className} onClick={this.props.onClick}>
@@ -240,6 +241,9 @@ export type ThumbnailProps = {
   showDimensions: boolean;
   gridMode: GridMode;
   info: DBFileInfo;
+  // The key of the folder row this thumbnail is rendered under (real folder path
+  // or, later, a virtual-folder key). Selection is per (folderKey, filename) entry.
+  folderKey: string;
 };
 
 // Thumbnail injects this into ThumbnailProps when calling the style/render
@@ -387,7 +391,7 @@ function renderNoFrame(props: ThumbnailRenderProps, onClick: () => void, onConte
       <div className="thumbinfo">
         <div className="name">{renderName(props, info)}</div>
       </div>
-      <SelectionCheckbox filename={info.filename} onClick={onCheckboxClick} />
+      <SelectionCheckbox folderKey={props.folderKey} filename={info.filename} onClick={onCheckboxClick} />
       <TrashingOverlay filename={info.filename} />
     </div>
   );
@@ -413,7 +417,7 @@ function renderWithFrame(props: ThumbnailRenderProps, onClick: () => void, onCon
         <div className="thumbinfo">
           <div className="name">{renderName(props, info)}</div>
         </div>
-        <SelectionCheckbox filename={info.filename} onClick={onCheckboxClick} />
+        <SelectionCheckbox folderKey={props.folderKey} filename={info.filename} onClick={onCheckboxClick} />
         <TrashingOverlay filename={info.filename} />
       </div>
     </div>

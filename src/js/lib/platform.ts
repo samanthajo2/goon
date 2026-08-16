@@ -49,9 +49,9 @@ export type Platform = {
   onAction(handler: (actionId: ActionId) => void): () => void;
 
   // ── Optional (desktop-only) ─────────────────────────────────────────
-  trashItem?(filename: string): Promise<void>;
+  // Presence of deleteFile/deleteFolder gates the "Delete" menu items; the
+  // actual deletion is performed by the thumber (which owns folder data).
   deleteFile?(filename: string): Promise<void>;
-  // Force-delete a folder (used as a last resort when trashItem fails).
   deleteFolder?(filename: string): Promise<void>;
   showItemInFolder?(filename: string): void;
   openPath?(filename: string): void;

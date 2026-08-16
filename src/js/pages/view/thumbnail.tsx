@@ -23,7 +23,7 @@ import React from 'react';
 import ForwardableEvent from '../../lib/forwardable-event.js';
 import gridModes, { ThumbnailProps } from './grid-modes.js';
 import { AppContext } from './contexts.js';
-import { isSelected, getSelected } from './selection-state.js';
+import { isSelected, selectionCount, getSelectedFilenames } from './selection-state.js';
 
 type Props = ThumbnailProps & {
   count: number;
@@ -63,8 +63,9 @@ export default class Thumbnail extends React.PureComponent<Props> {
     const filename = this.props.info.filename;
     // If the dragged item is part of the selection, drag the whole selection.
     // Otherwise drag just this one file (matches Finder/Explorer behavior).
-    if (isSelected(filename) && getSelected().size > 1) {
-      startDrag(Array.from(getSelected()));
+    // Dragging out hands file paths to the OS, so use the unique selected paths.
+    if (isSelected(this.props.folderKey, filename) && selectionCount() > 1) {
+      startDrag(getSelectedFilenames());
     } else {
       startDrag(filename);
     }
@@ -75,6 +76,7 @@ export default class Thumbnail extends React.PureComponent<Props> {
     event.preventDefault();
     this.context.eventBus.dispatch(
       new ForwardableEvent('toggleSelection'),
+      this.props.folderKey,
       this.props.info.filename,
       event.shiftKey,
     );
