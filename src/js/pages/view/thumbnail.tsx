@@ -51,7 +51,7 @@ export default class Thumbnail extends React.PureComponent<Props> {
 
   private _handleContextMenu = (event: MouseEvent | React.MouseEvent): void => {
     const domEvent = (event instanceof MouseEvent) ? event : event.nativeEvent;
-    this.context.eventBus.dispatch(new ForwardableEvent('fileContextMenu', domEvent), this.props.info);
+    this.context.eventBus.dispatch(new ForwardableEvent('fileContextMenu', domEvent), this.props.info, this.props.folderKey);
   };
 
   private _handleDragStart = (event: DragEvent | React.DragEvent): void => {

@@ -26,10 +26,17 @@ import { Preferences } from '../../prefs/default-prefs.js';
 
 const RETRY_DELAY_MS = 2000;
 
+export type VirtualFolderList = {
+  list: { id: string; name: string }[];
+  recent: { id: string; name: string }[];
+};
+
 type Callbacks = {
   // The thumber acks a delete request with the filenames it processed, so the
   // view can clear the per-file "deleting" overlay.
   onFilesDeleted: (filenames: string[]) => void;
+  // The thumber broadcasts the current virtual-folder list + recents.
+  onVirtualFolders: (vf: VirtualFolderList) => void;
 };
 
 export function useIPCStreams(platform: Platform, callbacks: Callbacks): {
@@ -79,6 +86,8 @@ export function useIPCStreams(platform: Platform, callbacks: Callbacks): {
         thumberStreamLocal = tStream;
         prefsStreamLocal = pStream;
         tStream.on('filesDeleted', (filenames: string[]) => callbacksRef.current.onFilesDeleted(filenames));
+        tStream.on('virtualFolders', (vf: VirtualFolderList) => callbacksRef.current.onVirtualFolders(vf));
+        tStream.send('requestVirtualFolders');
         tStream.on('disconnect', handleDisconnect);
         pStream.on('prefs', (newPrefs: Preferences) => {
           setPrefs(newPrefs);

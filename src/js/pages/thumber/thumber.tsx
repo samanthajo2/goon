@@ -34,6 +34,8 @@ import ThumbnailManager from './thumbnail-manager.js';
 import ThumbnailRenderer from './thumbnail-renderer.js';
 import NativeFolder from './native-folder.js';
 import ArchiveFolder from './archive-folder.js';
+import VirtualFolder from './virtual-folder.js';
+import { isVirtualFolderKey, virtualFolderIdFromKey } from './virtual-folder-key.js';
 import appdata from '../../lib/appdata.js';
 import debug from '../../lib/debug.js';
 import * as sizing from '../../lib/sizing.js';
@@ -192,7 +194,10 @@ function start(args: ProgOptions) {
     watcherFactory: createWatcher,
     nativeFolderFactory: (filepath, options) => new NativeFolder(filepath, options),
     archiveFolderFactory: (filepath, options) => new ArchiveFolder(filepath, options),
+    virtualFolderFactory: (id, options) => new VirtualFolder(id, options),
   });
+  // Instantiate any virtual folders the user has previously created.
+  g.thumbnailManager.loadVirtualFolders();
   const updateFilesEventForwarder = makeEventForwarder('updateFiles');
   g.thumbnailManager.on('updateFiles', (folders, ...args) => {
     updateFilesEventForwarder(folders, ...args);
@@ -251,6 +256,20 @@ function start(args: ProgOptions) {
     };
   }
 
+  function virtualFolderState() {
+    return {
+      list: g.thumbnailManager.listVirtualFolders(),
+      recent: g.thumbnailManager.getRecentVirtualFolders(),
+    };
+  }
+
+  // Broadcast the current virtual-folder list + recents to every connected view so
+  // the picker/sidebar stay in sync after a create/add/delete.
+  function sendVirtualFolders() {
+    const state = virtualFolderState();
+    targets.forEach((target) => target.send('virtualFolders', state));
+  }
+
   g.mediaManagerServer = new MediaManagerServer();
 
   g.channel = otherWindowIPC.createChannel('thumber');
@@ -270,25 +289,38 @@ function start(args: ProgOptions) {
     stream.on('refreshFolders', () => {
       refreshFolders();
     });
-    // Permanently delete real files. The thumber owns deletion: it does the fs
-    // work (via main), proactively updates its folder data so the thumbnails
-    // disappear without waiting for the watcher (important on network drives),
-    // and acks `filesDeleted` so the view can clear its "deleting" overlay.
-    stream.on('deleteFiles', async (filenames: string[]) => {
-      for (const filePath of filenames) {
-        try {
-          await ipcRenderer.invoke('deleteFile', filePath);
-          g.thumbnailManager.removeFile(filePath);
-        } catch (err) {
-          log('deleteFile failed:', filePath, err);
+    // Act on (folderKey, filename) entries. The thumber routes each: a `vfolder:`
+    // key removes the entry from that virtual folder (the real file is untouched);
+    // a real key permanently deletes the file (fs, via main) and proactively updates
+    // folder data so thumbnails disappear without waiting for the watcher — which
+    // also drops it from any virtual folders that referenced it. Acks `filesDeleted`
+    // so the view can clear its "deleting" overlay.
+    stream.on('deleteEntries', async (entries: { folderKey: string; filename: string }[]) => {
+      for (const { folderKey, filename } of entries) {
+        if (isVirtualFolderKey(folderKey)) {
+          const id = virtualFolderIdFromKey(folderKey);
+          if (id) g.thumbnailManager.removeFileFromVirtualFolder(id, filename);
+        } else {
+          try {
+            await ipcRenderer.invoke('deleteFile', filename);
+            g.thumbnailManager.removeFile(filename);
+          } catch (err) {
+            log('deleteFile failed:', filename, err);
+          }
         }
       }
-      stream.send('filesDeleted', filenames);
+      stream.send('filesDeleted', entries.map(e => e.filename));
     });
-    // Delete a folder-like entry. The thumber disambiguates: a directory is
-    // recursively removed; anything else (an archive is a single file on disk)
-    // is unlinked and proactively removed from the data.
+    // Delete a folder-like entry. Virtual folders delete themselves; otherwise the
+    // thumber disambiguates: a directory is recursively removed; anything else (an
+    // archive is a single file on disk) is unlinked and proactively removed.
     stream.on('deleteFolder', async (folderKey: string) => {
+      if (isVirtualFolderKey(folderKey)) {
+        const id = virtualFolderIdFromKey(folderKey);
+        if (id) g.thumbnailManager.deleteVirtualFolder(id);
+        sendVirtualFolders();
+        return;
+      }
       try {
         if (fs.statSync(folderKey).isDirectory()) {
           await ipcRenderer.invoke('deleteFolder', folderKey);
@@ -299,6 +331,24 @@ function start(args: ProgOptions) {
       } catch (err) {
         log('deleteFolder failed:', folderKey, err);
       }
+    });
+    // ── Virtual folder management (view → thumber) ──────────────────────
+    stream.on('requestVirtualFolders', () => stream.send('virtualFolders', virtualFolderState()));
+    stream.on('createVirtualFolder', (name: string) => {
+      g.thumbnailManager.createVirtualFolder(name);
+      sendVirtualFolders();
+    });
+    stream.on('addToVirtualFolder', (id: string, paths: string[]) => {
+      g.thumbnailManager.addFilesToVirtualFolder(id, paths);
+      sendVirtualFolders();
+    });
+    stream.on('addToNewVirtualFolder', (name: string, paths: string[]) => {
+      const id = g.thumbnailManager.createVirtualFolder(name);
+      g.thumbnailManager.addFilesToVirtualFolder(id, paths);
+      sendVirtualFolders();
+    });
+    stream.on('removeFromVirtualFolder', (id: string, filePath: string) => {
+      g.thumbnailManager.removeFileFromVirtualFolder(id, filePath);
     });
     // Pull-based init: the renderer asks for the current snapshot once it
     // has its 'updateFiles' listener attached. Pushing on connect would race

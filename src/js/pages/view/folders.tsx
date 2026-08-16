@@ -24,6 +24,7 @@ import * as path from '../../lib/path-helpers.js';
 import { getRotatedXY } from '../../lib/rotatehelper.js';
 import ForwardableEvent from '../../lib/forwardable-event.js';
 import { cssArray } from '../../lib/css-utils.js';
+import { isVirtualFolderKey } from '../thumber/virtual-folder-key.js';
 import { FolderStateRoot, FolderStateFolder } from './folder-state-helper.js';
 import { AppContext } from './contexts.js';
 
@@ -55,19 +56,23 @@ function baseDirFn(baseFolders: string[]): (filename: string) => string {
 // Compute display names that collapse empty parent folders.
 // E.g. if "animals" has files and "animals/dogs/shepherds" has files
 // but "animals/dogs" does NOT, we display "dogs/shepherds" indented under "animals".
-function computeIndentedNames(baseFolders: string[], filenames: string[]): string[] {
+export function computeIndentedNames(baseFolders: string[], filenames: string[]): string[] {
   const visiblePaths = new Set(filenames);
   const baseDir = baseDirFn(baseFolders);
 
   return filenames.map(filename => {
     const base = baseDir(filename);
 
-    // Walk up from folder to base, collecting parent paths
+    // Walk up from folder to base, collecting parent paths. Guard against
+    // path.dirname reaching a fixed point (e.g. '.') so a non-path key like a
+    // virtual folder's `vfolder:<id>` can't spin forever.
     const parents: string[] = [];
     let p = path.dirname(filename);
     while (p.length > base.length) {
       parents.unshift(p);
-      p = path.dirname(p);
+      const next = path.dirname(p);
+      if (next === p) break;
+      p = next;
     }
 
     // Find the deepest visible ancestor
@@ -97,6 +102,8 @@ function computeIndentedNames(baseFolders: string[], filenames: string[]): strin
 // dispatches a valid goToImage.
 type FolderEntry = {
   filename: string;
+  // Display name (used directly for virtual folders, whose key isn't a real path).
+  name: string;
   numFiles: number;
   realFolder?: FolderStateFolder;
   realFolderNdx: number;
@@ -104,13 +111,14 @@ type FolderEntry = {
   checking: boolean;
 };
 
-function buildFolderEntries(
+export function buildFolderEntries(
   baseFolders: string[],
   realFolders: FolderStateFolder[],
   withVirtualAncestors: boolean,
 ): FolderEntry[] {
   const realEntries: FolderEntry[] = realFolders.map((folder, ndx) => ({
     filename: folder.filename,
+    name: folder.name,
     numFiles: folder.files.length,
     realFolder: folder,
     realFolderNdx: ndx,
@@ -123,19 +131,31 @@ function buildFolderEntries(
   const result: FolderEntry[] = [];
   const emitted = new Set<string>();
   realEntries.forEach((entry) => {
+    // Virtual folders are flat top-level entries — they have no real-path ancestors.
+    if (isVirtualFolderKey(entry.filename)) {
+      if (!emitted.has(entry.filename)) {
+        emitted.add(entry.filename);
+        result.push(entry);
+      }
+      return;
+    }
     const base = baseDir(entry.filename);
-    // Collect ancestor paths between base (exclusive) and folder (exclusive).
+    // Collect ancestor paths between base (exclusive) and folder (exclusive). Guard
+    // against path.dirname reaching a fixed point (defensive; see computeIndentedNames).
     const ancestors: string[] = [];
     let p = path.dirname(entry.filename);
     while (p.length > base.length) {
       ancestors.unshift(p);
-      p = path.dirname(p);
+      const next = path.dirname(p);
+      if (next === p) break;
+      p = next;
     }
     for (const ancestor of ancestors) {
       if (!emitted.has(ancestor)) {
         emitted.add(ancestor);
         result.push({
           filename: ancestor,
+          name: path.basename(ancestor),
           numFiles: 0,
           realFolderNdx: entry.realFolderNdx,
           scanning: false,
@@ -192,7 +212,10 @@ class Folder extends React.Component<FolderProps> {
       'folder',
       entry.scanning ? 'scanning' : undefined,
       entry.checking ? 'checking' : undefined,
+      // `virtual` here means a synthesized empty-ancestor row (a different concept);
+      // `virtual-folder` is a user-curated virtual folder.
       !entry.realFolder ? 'virtual' : undefined,
+      isVirtualFolderKey(entry.filename) ? 'virtual-folder' : undefined,
     );
     return (
       <div
@@ -254,9 +277,11 @@ export default class Folders extends React.Component<Props> {
       root.folders,
       !!prefs.misc.showEmptyIfChildNotEmpty,
     );
-    const displayNames = prefs.misc.indentByFolderDepth
+    const rawNames = prefs.misc.indentByFolderDepth
       ? computeIndentedNames(prefs.folders, entries.map(e => e.filename))
       : entries.map(e => path.basename(e.filename));
+    // Virtual folders use their own display name (their key isn't a real path).
+    const displayNames = entries.map((e, i) => isVirtualFolderKey(e.filename) ? e.name : rawNames[i]);
     return entries.map((entry, ndx) => {
       const id = `folder-${entry.filename}`;
       const ref = React.createRef<Folder>();

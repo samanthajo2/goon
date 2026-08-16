@@ -35,9 +35,12 @@ import { sortModes } from './folder-state-helper.js';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher.js';
 import type { AppEventMap } from './app-event-map.js';
 import ForwardableEvent from '../../lib/forwardable-event.js';
-import { trashingFiles, addTrashingFile, removeTrashingFile } from './trashing-state.js';
-import { getSelectedFilenames, selectionCount, clearSelection } from './selection-state.js';
+import { addTrashingFile, removeTrashingFile } from './trashing-state.js';
+import { getSelectedFilenames, getSelectedEntries, selectionCount, clearSelection } from './selection-state.js';
+import { isVirtualFolderKey } from '../thumber/virtual-folder-key.js';
 import DeletePrompt, { DeleteItem } from './delete-prompt.js';
+import VirtualFolderPicker from './virtual-folder-picker.js';
+import type { VirtualFolderList } from './hooks/use-ipc-streams.js';
 import KeyRouter from '../../lib/keyrouter.js';
 import debug from '../../lib/debug.js';
 import { rotateModes } from '../../lib/rotatehelper.js';
@@ -104,17 +107,25 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
 
   // ── UI state ──
   const [contextFileInfo, setContextFileInfo] = useState<DBFileInfo | null>(null);
+  // Folder key of the row the file context menu was opened in (real path or vfolder key).
+  const [contextFolderKey, setContextFolderKey] = useState<string>('');
   const [contextFolderInfo, setContextFolderInfo] = useState<FolderContextInfo | null>(null);
   const [fileInfo, setFileInfo] = useState<FileInfoData>(null);
   const [showDeleteFilePrompt, setShowDeleteFilePrompt] = useState(false);
-  const [pendingDeleteItems, setPendingDeleteItems] = useState<DeleteItem[]>([]);
+  // Items include their folderKey so delete can route real-delete vs remove-from-vfolder.
+  const [pendingDeleteItems, setPendingDeleteItems] = useState<(DeleteItem & { folderKey: string })[]>([]);
   const [showDeleteFolderPrompt, setShowDeleteFolderPrompt] = useState(false);
+  // "Add to Virtual Folder" picker.
+  const [showAddToVFolder, setShowAddToVFolder] = useState(false);
+  const [pendingAddPaths, setPendingAddPaths] = useState<string[]>([]);
+  const [virtualFolders, setVirtualFolders] = useState<VirtualFolderList>({ list: [], recent: [] });
 
   // ── IPC streams (thumber + prefs) ──────────────────────────────────
   // The thumber performs deletions and acks with `filesDeleted` so we can clear
   // the per-file "deleting" overlay (whether or not the delete succeeded).
   const { thumberStream, prefs, prefsReceived, disconnected } = useIPCStreams(platform, {
     onFilesDeleted: (filenames: string[]) => filenames.forEach(removeTrashingFile),
+    onVirtualFolders: (vf) => setVirtualFolders(vf),
   });
   const [externalViewerAvailable, setExternalViewerAvailable] = useState(false);
 
@@ -214,14 +225,17 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
   // clear the "deleting" overlay. The view holds files open in its <img>/<video>,
   // so close the viewer and give the browser a frame to release the handle before
   // the thumber deletes (matters on Windows).
-  const deleteFilenames = useCallback((filenames: string[]) => {
-    if (!thumberStream) return;
-    const toDelete = filenames.filter(f => !trashingFiles.has(f));
-    if (toDelete.length === 0) return;
-    toDelete.forEach(addTrashingFile);
-    toDelete.forEach(closeViewerIfShowingFile);
+  // Ask the thumber to act on these (folderKey, filename) entries. The thumber
+  // routes each: a `vfolder:` folderKey removes the entry from that virtual folder
+  // (real file untouched); a real folderKey deletes the file on disk. Only real
+  // deletions get the "deleting" overlay and the release-handle delay.
+  const deleteEntries = useCallback((entries: { folderKey: string; filename: string }[]) => {
+    if (!thumberStream || entries.length === 0) return;
+    const realFilenames = entries.filter(e => !isVirtualFolderKey(e.folderKey)).map(e => e.filename);
+    realFilenames.forEach(addTrashingFile);
+    realFilenames.forEach(closeViewerIfShowingFile);
     setTimeout(() => {
-      thumberStream.send('deleteFiles', toDelete);
+      thumberStream.send('deleteEntries', entries);
     }, 100);
   }, [thumberStream, closeViewerIfShowingFile]);
 
@@ -229,13 +243,13 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
     setShowDeleteFilePrompt(false);
     const items = pendingDeleteItems;
     setPendingDeleteItems([]);
-    // Skip archive entries — they're not real files on disk and can't be deleted.
-    deleteFilenames(items.filter(it => !it.info.archiveName).map(it => it.filename));
+    // Skip archive entries — they route through deleteFolder, not here.
+    deleteEntries(items.filter(it => !it.info.archiveName).map(it => ({ folderKey: it.folderKey, filename: it.filename })));
     // Clear the multi-select once the action is confirmed
     if (items.length > 1) {
       clearSelection();
     }
-  }, [pendingDeleteItems, deleteFilenames]);
+  }, [pendingDeleteItems, deleteEntries]);
 
   const deleteFolder = useCallback(() => {
     setShowDeleteFolderPrompt(false);
@@ -256,8 +270,8 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
   deleteFileRef.current = deleteFile;
   const deleteFolderRef = useRef(deleteFolder);
   deleteFolderRef.current = deleteFolder;
-  const deleteFilenamesRef = useRef(deleteFilenames);
-  deleteFilenamesRef.current = deleteFilenames;
+  const deleteEntriesRef = useRef(deleteEntries);
+  deleteEntriesRef.current = deleteEntries;
 
   // ── One-time setup: event bus listeners, key handler, prefs, etc. ──
   useEffect(() => {
@@ -273,13 +287,14 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
     };
     eventBus.on('action', handleActions);
 
-    const handleFileContextMenu = (forwardableEvent: ForwardableEvent, fileInfoArg: DBFileInfo) => {
+    const handleFileContextMenu = (forwardableEvent: ForwardableEvent, fileInfoArg: DBFileInfo, folderKey: string) => {
       const event = forwardableEvent.domEvent as MouseEvent & { touches?: TouchList };
       event.preventDefault();
       event.stopPropagation();
       const x = event.clientX || (event.touches?.[0]?.pageX ?? 0);
       const y = event.clientY || (event.touches?.[0]?.pageY ?? 0);
       setContextFileInfo(fileInfoArg);
+      setContextFolderKey(folderKey);
       hideMenu();
       showMenu({ position: { x, y }, rotateMode: winStateRef.current.rotateMode, id: 'fileContextMenu' });
     };
@@ -307,42 +322,67 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
     };
     eventBus.on('refreshFolders', handleRefreshFolders);
 
-    const handleDeleteFile = (_event: ForwardableEvent, fileInfoArg: DBFileInfo) => {
+    const handleDeleteFile = (_event: ForwardableEvent, fileInfoArg: DBFileInfo, folderKey: string) => {
       setContextFileInfo(fileInfoArg);
-      // If the triggered file is part of a multi-selection, delete the whole selection.
-      // Otherwise just delete the one file.
+      // If the triggered file is part of a multi-selection, act on the whole
+      // selection (each entry carries its own folderKey). Otherwise just this one,
+      // in the row it was clicked in.
       const selectedFilenames = getSelectedFilenames();
-      let filenames: string[];
-      if (selectedFilenames.includes(fileInfoArg.filename) && selectionCount() > 1) {
-        filenames = selectedFilenames;
-      } else {
-        filenames = [fileInfoArg.filename];
-      }
-      // Build DeleteItem[] by looking up FileInfo from root.
+      const entries = (selectedFilenames.includes(fileInfoArg.filename) && selectionCount() > 1)
+        ? getSelectedEntries()
+        : [{ folderKey, filename: fileInfoArg.filename }];
+      // Attach FileInfo for the prompt thumbnails; drop archive entries (not deletable).
       const fileInfoByName = new Map<string, DeleteItem['info']>();
       for (const folder of rootRef.current.folders) {
         for (const file of folder.files) {
           fileInfoByName.set(file.info.filename, file.info);
         }
       }
-      const items: DeleteItem[] = [];
-      for (const fn of filenames) {
-        const info = fileInfoByName.get(fn);
-        if (info) items.push({ filename: fn, info });
-      }
-      // Always show the modal now (with thumbnails) so the user can verify.
-      // The prompt-on-delete pref is honored — if disabled and only one item, skip.
-      setPendingDeleteItems(items);
+      const items = entries
+        .map(e => ({ folderKey: e.folderKey, filename: e.filename, info: fileInfoByName.get(e.filename) }))
+        .filter((it): it is DeleteItem & { folderKey: string } => !!it.info && !it.info.archiveName);
       if (items.length === 0) return;
+
+      // Removing entries from a virtual folder is non-destructive — do it
+      // immediately with no confirmation. Only real-file deletions prompt.
+      const anyRealDelete = items.some(it => !isVirtualFolderKey(it.folderKey));
+      if (!anyRealDelete) {
+        deleteEntriesRef.current(items.map(it => ({ folderKey: it.folderKey, filename: it.filename })));
+        if (entries.length > 1) clearSelection();
+        return;
+      }
+
+      setPendingDeleteItems(items);
       if (items.length === 1 && !prefsRef.current.misc?.promptOnDeleteFile) {
-        // Single file with prompt disabled — go straight to delete
-        deleteFilenamesRef.current([items[0].filename]);
+        // Single real file with prompt disabled — go straight to delete
+        deleteEntriesRef.current(items.map(it => ({ folderKey: it.folderKey, filename: it.filename })));
         setPendingDeleteItems([]);
       } else {
         setShowDeleteFilePrompt(true);
       }
     };
     eventBus.on('deleteFile', handleDeleteFile);
+
+    const handleAddToVirtualFolder = (_event: ForwardableEvent, fileInfoArg: DBFileInfo) => {
+      // Act on the whole multi-selection if the clicked file is part of it.
+      const selectedFilenames = getSelectedFilenames();
+      const filenames = (selectedFilenames.includes(fileInfoArg.filename) && selectionCount() > 1)
+        ? selectedFilenames
+        : [fileInfoArg.filename];
+      // Only real files can be added (skip archive entries).
+      const infoByName = new Map<string, DeleteItem['info']>();
+      for (const folder of rootRef.current.folders) {
+        for (const file of folder.files) infoByName.set(file.info.filename, file.info);
+      }
+      const paths = filenames.filter(fn => {
+        const info = infoByName.get(fn);
+        return !!info && !info.archiveName;
+      });
+      if (paths.length === 0) return;
+      setPendingAddPaths(paths);
+      setShowAddToVFolder(true);
+    };
+    eventBus.on('addToVirtualFolder', handleAddToVirtualFolder);
 
     const handleDeleteFolder = (_event: ForwardableEvent, folderInfo: FolderContextInfo) => {
       setContextFolderInfo(folderInfo);
@@ -407,15 +447,15 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
     actionListener.on('showHelp', () => { platform.openNewWindow('help'); });
     actionListener.on('refreshFolders', () => { eventBus.dispatch(new ForwardableEvent('refreshFolders')); });
     actionListener.on('trashSelected', () => {
-      const selectedFilenames = getSelectedFilenames();
-      if (selectedFilenames.length === 0) return;
-      // Find the FileInfo of the first selected file and dispatch deleteFile.
-      // The deleteFile handler already detects multi-select and uses the whole set.
-      const firstFilename = selectedFilenames[0];
+      const entries = getSelectedEntries();
+      if (entries.length === 0) return;
+      // Dispatch deleteFile for the first selected entry (with its folderKey). The
+      // handler detects the multi-selection and acts on the whole set.
+      const first = entries[0];
       for (const folder of rootRef.current.folders) {
         for (const file of folder.files) {
-          if (file.info.filename === firstFilename) {
-            eventBus.dispatch(new ForwardableEvent('deleteFile'), file.info as unknown as DBFileInfo);
+          if (file.info.filename === first.filename) {
+            eventBus.dispatch(new ForwardableEvent('deleteFile'), file.info as unknown as DBFileInfo, first.folderKey);
             return;
           }
         }
@@ -613,6 +653,7 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
         <FileContextMenu
           rotateMode={rotateMode}
           file={contextFileInfo!}
+          folderKey={contextFolderKey}
         />
         {showDeleteFilePrompt && pendingDeleteItems.length > 0 && (
           <DeletePrompt
@@ -636,6 +677,27 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
               : `Permanently delete ${contextFolderInfo.filename} and everything inside it? This cannot be undone.`}
             onOkay={deleteFolder}
             onCancel={() => { setShowDeleteFolderPrompt(false); }}
+          />
+        )}
+        {showAddToVFolder && (
+          <VirtualFolderPicker
+            parent={containerRef.current ?? undefined}
+            count={pendingAddPaths.length}
+            folders={virtualFolders.list}
+            onPick={(id) => {
+              thumberStream?.send('addToVirtualFolder', id, pendingAddPaths);
+              setShowAddToVFolder(false);
+              setPendingAddPaths([]);
+            }}
+            onCreate={(name) => {
+              thumberStream?.send('addToNewVirtualFolder', name, pendingAddPaths);
+              setShowAddToVFolder(false);
+              setPendingAddPaths([]);
+            }}
+            onCancel={() => {
+              setShowAddToVFolder(false);
+              setPendingAddPaths([]);
+            }}
           />
         )}
         {fileInfo && (

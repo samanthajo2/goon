@@ -29,15 +29,18 @@ export type AppEventMap = {
   // Dispatched as ActionEvent; payload is on event.action
   action: [];
 
-  // Context menu triggers — domEvent is on forwardableEvent.domEvent
-  fileContextMenu: [fileInfo: DBFileInfo];
+  // Context menu triggers — domEvent is on forwardableEvent.domEvent.
+  // folderKey is the key of the row the file was clicked in (a real folder path
+  // or a `vfolder:<id>` key), so delete can route real-delete vs remove-from-vfolder.
+  fileContextMenu: [fileInfo: DBFileInfo, folderKey: string];
   folderContextMenu: [folderInfo: FolderContextInfo];
 
   // File operations (all bubble up to app.tsx handlers)
   refreshFolder: [folderPath: string];
   refreshFolders: [];
-  deleteFile: [fileInfo: DBFileInfo];
+  deleteFile: [fileInfo: DBFileInfo, folderKey: string];
   deleteFolder: [folderInfo: FolderContextInfo];
+  addToVirtualFolder: [fileInfo: DBFileInfo];
   copyFile: [fileInfo: DBFileInfo];
   copyFolder: [folderInfo: FolderContextInfo];
   showFileInfo: [fileInfo: DBFileInfo];

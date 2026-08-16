@@ -65,11 +65,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import EventEmitter from 'node:events';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { throttle, arrayDifference } from '../../lib/utils.js';
+import { makeVirtualFolderKey } from './virtual-folder-key.js';
 import bind from '../../lib/bind.js';
 import debug from '../../lib/debug.js';
 import NativeFolder from './native-folder.js';
 import ArchiveFolder from './archive-folder.js';
+import VirtualFolder from './virtual-folder.js';
+import VirtualFolderData from './virtual-folder-data.js';
+import VirtualFolderIndex, { VirtualFolderEntry } from './virtual-folder-index.js';
 import type { BaseFolder } from './base-folder.js';
 import createThumbnailsForFolder, { ThumbnailPageMakerFn } from './folder-thumbnail-maker.js';
 import createThumbnailsForArchive from './archive-thumbnail-maker.js';
@@ -90,6 +95,7 @@ function arrayInANotB<T>(a: T[], b: T[]) {
 
 type NativeFolderInst = InstanceType<typeof NativeFolder>;
 type ArchiveFolderInst = InstanceType<typeof ArchiveFolder>;
+type VirtualFolderInst = InstanceType<typeof VirtualFolder>;
 
 type FolderInfo = {
   folder: BaseFolder;
@@ -115,7 +121,7 @@ type FsApi = {
   readFileAsStringSync: (path: string) => string;
   unlinkSync: (path: string) => void;
   writeFileSync: (path: string, data: string | Buffer) => void;
-  statSync: (path: string) => { mtimeMs: number };
+  statSync: (path: string) => { size: number; mtimeMs: number; isDirectory: () => boolean };
   stat: (path: string, callback: (err: Error | null, stats: { size: number; mtimeMs: number; isDirectory: () => boolean }) => void) => void;
 };
 
@@ -126,6 +132,8 @@ type SentFolder = {
     checking?: boolean;
     scannedTime?: number;
     archive?: boolean;
+    virtual?: boolean;
+    name?: string;
   };
   [k: string]: unknown;
 };
@@ -146,10 +154,15 @@ export default class ThumbnailManager extends EventEmitter {
   #archiveThumbnailPageMakerFn: (filepath: string, baseFilename: string) => Promise<FilesByPath>;
   #nativeFolderFactory: Factory<typeof NativeFolder>;
   #archiveFolderFactory: Factory<typeof ArchiveFolder>;
+  #virtualFolderFactory: Factory<typeof VirtualFolder>;
+  #virtualFolderIndex: VirtualFolderIndex;
 
   // not private for testing. Should fix.
   _folders: Record<string, FolderInfo> = {};
   _archives: Record<string, FolderInfo> = {};
+  // Virtual folders keyed by id (their view key is `vfolder:<id>`). They are a flat,
+  // top-level set — not part of the _rootFolder tree.
+  _virtualFolders: Record<string, VirtualFolderInst> = {};
   _rootFolder: RootFolderInfo = { folders: {}, archives: {} };
 
   constructor(options: {
@@ -158,6 +171,7 @@ export default class ThumbnailManager extends EventEmitter {
     watcherFactory: (filePath: string) => FolderWatcherInterface | null;
     nativeFolderFactory: Factory<typeof NativeFolder>;
     archiveFolderFactory: Factory<typeof ArchiveFolder>;
+    virtualFolderFactory: Factory<typeof VirtualFolder>;
     thumbnailPageMakerManager: LimitedResourceManager<MakeThumbnailPagesFn>;
   }) {
     super();
@@ -166,6 +180,8 @@ export default class ThumbnailManager extends EventEmitter {
     this.#watcherFactory = options.watcherFactory;
     this.#nativeFolderFactory = options.nativeFolderFactory;
     this.#archiveFolderFactory = options.archiveFolderFactory;
+    this.#virtualFolderFactory = options.virtualFolderFactory;
+    this.#virtualFolderIndex = new VirtualFolderIndex({ fs: this.#fs, dataDir: this.#dataDir });
     this._folders = {};
     this._archives = {};
     this.#rootFolderNames = [];
@@ -184,6 +200,7 @@ export default class ThumbnailManager extends EventEmitter {
       '_updateFiles',
       '_updateArchives',
       '_emitUpdateFiles',
+      '_propagateToVirtualFolders',
       'refreshFolder',
     );
     this._emitUpdateFiles = throttle(this._emitUpdateFiles.bind(this), 500);
@@ -205,6 +222,10 @@ export default class ThumbnailManager extends EventEmitter {
 
   sendAll(stream: StreamLike) {
     this._sendFolder(this._rootFolder, stream);
+    // Virtual folders are flat/top-level, not part of the tree.
+    for (const vf of Object.values(this._virtualFolders)) {
+      stream.send('updateFiles', this._prepFilesForSending(vf.filename, vf.getData()));
+    }
   }
 
   refreshFolder(folderName: string) {
@@ -279,8 +300,38 @@ export default class ThumbnailManager extends EventEmitter {
       nativeFolder.on('updateFiles', this._updateFiles);
       nativeFolder.on('updateFolders', this._updateFolders);
       nativeFolder.on('updateArchives', this._updateArchives);
+      nativeFolder.on('filesChanged', this._propagateToVirtualFolders);
     }
     return folder;
+  }
+
+  // A real folder reported files changed/removed on disk. Fan those out to every
+  // virtual folder that references them so their own thumbnails stay in sync — the
+  // hub the native watcher and virtual folders meet at. (Volume-offline removals
+  // never reach here: the watcher suppresses them, so offline files stay put.)
+  _propagateToVirtualFolders(changes: { changed: string[]; removed: string[] }) {
+    const vfolders = Object.values(this._virtualFolders);
+    if (vfolders.length === 0) {
+      return;
+    }
+    for (const filePath of changes.removed) {
+      for (const vf of vfolders) {
+        if (vf.references(filePath)) {
+          vf.removeFileAndNotify(filePath);
+        }
+      }
+    }
+    const toRefresh = new Set<VirtualFolderInst>();
+    for (const filePath of changes.changed) {
+      for (const vf of vfolders) {
+        if (vf.references(filePath)) {
+          toRefresh.add(vf);
+        }
+      }
+    }
+    for (const vf of toRefresh) {
+      vf.refresh();
+    }
   }
 
   _removeFolder(filename: string, deleteMetaData?: boolean) {
@@ -441,24 +492,118 @@ export default class ThumbnailManager extends EventEmitter {
     });
   }
 
+  // ── Virtual folders ────────────────────────────────────────────────
+  // A virtual folder is a user-curated list of real file paths shown like a folder
+  // under a synthetic `vfolder:<id>` key. Owned entirely here (not in prefs): the
+  // index JSON is the source of truth, each folder's membership is a vfolder-*.json.
+
+  _createVirtualFolder(id: string): VirtualFolderInst {
+    // The index is the authoritative source of the display name; make sure the
+    // definition (which getData() reports as status.name) matches it.
+    const name = this.#virtualFolderIndex.getName(id);
+    const def = new VirtualFolderData(id, { fs: this.#fs, dataDir: this.#dataDir, name });
+    if (name && def.name !== name) {
+      def.setName(name);
+    }
+    // The thumbnail cache is a separate FolderData with a distinct prefix so it
+    // doesn't collide with the definition JSON or with real folders' caches.
+    const cache = new FolderData(id, { fs: this.#fs, dataDir: this.#dataDir, prefix: 'vfolder-cache' });
+    const vf = this.#virtualFolderFactory(id, {
+      def,
+      cache,
+      thumbnailPageMakerFn: this.#folderThumbnailPageMakerFn,
+      fs: this.#fs,
+    });
+    this._virtualFolders[id] = vf;
+    vf.on('updateFiles', this._updateFiles);
+    return vf;
+  }
+
+  // Instantiate everything already registered in the index (call at startup).
+  loadVirtualFolders() {
+    for (const { id } of this.#virtualFolderIndex.list()) {
+      if (!this._virtualFolders[id]) {
+        this._createVirtualFolder(id);
+      }
+    }
+  }
+
+  listVirtualFolders(): VirtualFolderEntry[] {
+    return this.#virtualFolderIndex.list();
+  }
+
+  getRecentVirtualFolders(): VirtualFolderEntry[] {
+    return this.#virtualFolderIndex.getRecent();
+  }
+
+  createVirtualFolder(name: string): string {
+    const id = randomUUID();
+    this.#virtualFolderIndex.add(id, name);
+    this._createVirtualFolder(id);
+    return id;
+  }
+
+  deleteVirtualFolder(id: string) {
+    const vf = this._virtualFolders[id];
+    if (vf) {
+      vf.deleteData();
+      vf.close();
+      vf.removeAllListeners();
+      delete this._virtualFolders[id];
+      delete this.#updateFilesPendingFolders[makeVirtualFolderKey(id)];
+    }
+    this.#virtualFolderIndex.remove(id);
+    // Tell the view the folder is gone.
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+    const folders: Record<string, {}> = {};
+    folders[makeVirtualFolderKey(id)] = {};
+    this.emit('updateFiles', folders);
+  }
+
+  addFilesToVirtualFolder(id: string, paths: string[]) {
+    const vf = this._virtualFolders[id];
+    if (!vf) {
+      this.#logger('no such virtual folder:', id);
+      return;
+    }
+    vf.addFiles(paths);
+    this.#virtualFolderIndex.noteRecent(id);
+  }
+
+  removeFileFromVirtualFolder(id: string, filePath: string) {
+    const vf = this._virtualFolders[id];
+    if (vf) {
+      vf.removeFiles([filePath]);
+    }
+  }
+
   // Proactively remove a single file and update listeners without waiting for
-  // a filesystem watcher event. Used by the trash flow so the thumbnail
+  // a filesystem watcher event. Used by the delete flow so the thumbnail
   // disappears immediately (important on network drives where the filesystem
   // watcher may not fire). Returns true if the file was found and removed.
   removeFile(filePath: string): boolean {
     this.#logger('removeFile:', filePath);
+    let removed = false;
     // Check if this file is an archive entry tracked at the top level
     if (this._archives[filePath]) {
       this._removeArchive(filePath, false);
-      return true;
+      removed = true;
+    } else {
+      // Otherwise it lives inside a watched native folder
+      const folderInfo = this._folders[path.dirname(filePath)];
+      if (folderInfo) {
+        (folderInfo.folder as NativeFolderInst).removeFileAndNotify(filePath);
+        removed = true;
+      }
     }
-    // Otherwise it lives inside a watched native folder
-    const folderPath = path.dirname(filePath);
-    const folderInfo = this._folders[folderPath];
-    if (folderInfo) {
-      (folderInfo.folder as NativeFolderInst).removeFileAndNotify(filePath);
-      return true;
+    // The real file is gone — drop it from every virtual folder that references it,
+    // without waiting for anything (mirrors the native force-removal above).
+    for (const vf of Object.values(this._virtualFolders)) {
+      if (vf.references(filePath)) {
+        vf.removeFileAndNotify(filePath);
+        removed = true;
+      }
     }
-    return false;
+    return removed;
   }
 }

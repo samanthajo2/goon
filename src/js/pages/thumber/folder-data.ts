@@ -86,6 +86,10 @@ export default class FolderData {
     fs: LocalFsAPI;
     dataDir: string;
     readOnly?: boolean;
+    // Cache-file prefix. Defaults to 'folder' (folder-<hash>.json / _N.png). Virtual
+    // folders pass a distinct prefix so their thumbnail cache doesn't collide with
+    // real folders or with the virtual-folder *definition* JSON (vfolder-<hash>.json).
+    prefix?: string;
   }) {
     this.#logger = debug('FolderData', filepath);
     this.#filepath = filepath;
@@ -98,7 +102,7 @@ export default class FolderData {
       this._save = () => {};
     }
     this.#fileExists = false;
-    this.#baseFilename = createBasename(options.dataDir, 'folder', this.#filepath);
+    this.#baseFilename = createBasename(options.dataDir, options.prefix ?? 'folder', this.#filepath);
     this.#jsonFilename = `${this.#baseFilename}.json`;
     this.#data = {
       version: s_folderVersion,

@@ -25,6 +25,7 @@ import debug from '../../lib/debug.js';
 import ForwardableEvent from '../../lib/forwardable-event.js';
 import { FolderContextInfo } from './viewer-events.js';
 import { AppContext } from './contexts.js';
+import { isVirtualFolderKey } from '../thumber/virtual-folder-key.js';
 
 const logger = debug('FolderContextMenu');
 
@@ -67,7 +68,10 @@ export default class FolderContextMenu extends React.Component<Props> {
 
   render(): React.ReactNode {
     const { platform } = this.context;
-    const canShowInFinder = platform.showItemInFolder || platform.openPath;
+    // A virtual folder has no real path — Finder/Copy-Path don't apply, and its
+    // "delete" removes the virtual folder itself (not any files on disk).
+    const isVirtual = isVirtualFolderKey(this.props.folder?.filename ?? '');
+    const canShowInFinder = !isVirtual && (platform.showItemInFolder || platform.openPath);
     return (
       <ContextMenu id="folderContextMenu" rotateMode={this.props.rotateMode}>
         {canShowInFinder && (
@@ -75,14 +79,14 @@ export default class FolderContextMenu extends React.Component<Props> {
         )}
         {platform.deleteFolder && (
           <MenuItem onClick={this._handleDelete}>
-            Delete {this.props.folder ? this.props.folder.filename : ''}
+            {isVirtual ? 'Delete Virtual Folder' : `Delete ${this.props.folder ? this.props.folder.filename : ''}`}
           </MenuItem>
         )}
-        {platform.showItemInFolder && (
+        {!isVirtual && platform.showItemInFolder && (
           <MenuItem onClick={this._handleCopy}>Copy Folder Path</MenuItem>
         )}
         <MenuItem onClick={this._handleRefreshFolder}>Refresh</MenuItem>
-        <MenuItem onClick={this._handleSyncFolderView}>Sync Folder View</MenuItem>
+        {!isVirtual && <MenuItem onClick={this._handleSyncFolderView}>Sync Folder View</MenuItem>}
       </ContextMenu>
     );
   }

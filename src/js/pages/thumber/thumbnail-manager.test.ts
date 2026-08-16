@@ -34,12 +34,24 @@ describe('ThumbnailManager', () => {
     getData: sinon.SinonStub;
     refresh: sinon.SinonSpy;
     getSeparateFilenames: sinon.SinonStub;
+    removeFileAndNotify: sinon.SinonSpy;
   }>;
   let mockArchives: Record<string, EventEmitter & {
     filename: string;
     close: sinon.SinonSpy;
     deleteData: sinon.SinonStub;
     update: sinon.SinonSpy;
+  }>;
+  let mockVirtualFolders: Record<string, EventEmitter & {
+    filename: string;
+    close: sinon.SinonSpy;
+    deleteData: sinon.SinonStub;
+    getData: sinon.SinonStub;
+    refresh: sinon.SinonSpy;
+    references: sinon.SinonStub;
+    addFiles: sinon.SinonSpy;
+    removeFiles: sinon.SinonSpy;
+    removeFileAndNotify: sinon.SinonSpy;
   }>;
 
   function createMockNativeFolder(filename: string) {
@@ -50,6 +62,7 @@ describe('ThumbnailManager', () => {
     folder.getData = sinon.stub().returns({ files: {}, status: {} });
     folder.refresh = sinon.spy();
     folder.getSeparateFilenames = sinon.stub().returns({ folders: [], archives: [] });
+    folder.removeFileAndNotify = sinon.spy();
     return folder;
   }
 
@@ -61,6 +74,31 @@ describe('ThumbnailManager', () => {
     folder.update = sinon.spy();
     return folder;
   }
+
+  function createMockVirtualFolder(id: string) {
+    const folder = new EventEmitter() as EventEmitter & typeof mockVirtualFolders[string];
+    folder.filename = `vfolder:${id}`;
+    folder.close = sinon.spy();
+    folder.deleteData = sinon.stub().returns({ folders: [], archives: [] });
+    folder.getData = sinon.stub().returns({ files: {}, status: { virtual: true } });
+    folder.refresh = sinon.spy();
+    folder.references = sinon.stub().returns(false);
+    folder.addFiles = sinon.spy();
+    folder.removeFiles = sinon.spy();
+    folder.removeFileAndNotify = sinon.spy();
+    return folder;
+  }
+
+  // Capture the VirtualFolderData the manager builds so tests can assert it got the
+  // right display name.
+  const virtualFolderDefsById: Record<string, { name: string }> = {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const virtualFolderFactory = (id: string, options: any) => {
+    const mock = createMockVirtualFolder(id);
+    virtualFolderDefsById[id] = options?.def;
+    mockVirtualFolders[id] = mock;
+    return mock;
+  };
 
   function createMockFs() {
     return {
@@ -77,6 +115,7 @@ describe('ThumbnailManager', () => {
   beforeEach(() => {
     mockFolders = {};
     mockArchives = {};
+    mockVirtualFolders = {};
 
     const nativeFolderFactory = (filename: string) => {
       const mock = createMockNativeFolder(filename);
@@ -101,6 +140,8 @@ describe('ThumbnailManager', () => {
       nativeFolderFactory: nativeFolderFactory as any,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       archiveFolderFactory: archiveFolderFactory as any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      virtualFolderFactory: virtualFolderFactory as any,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       thumbnailPageMakerManager: {} as any,
     });
@@ -323,6 +364,8 @@ describe('ThumbnailManager', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       archiveFolderFactory: archiveFolderFactory as any,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      virtualFolderFactory: virtualFolderFactory as any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       thumbnailPageMakerManager: {} as any,
     });
   }
@@ -392,6 +435,97 @@ describe('ThumbnailManager', () => {
         mockFolders['/mnt/drive'].deleteData.called,
         'deleteData NOT called when root folder is missing (unmounted drive)',
       );
+    });
+  });
+
+  describe('virtual folders', () => {
+    it('createVirtualFolder registers it and sendAll includes it', () => {
+      const id = manager.createVirtualFolder('Favorites');
+      assert.ok(mockVirtualFolders[id], 'virtual folder created via factory');
+      assert.strictEqual(virtualFolderDefsById[id].name, 'Favorites', 'definition carries the display name (not the id)');
+      const vfolders = (manager as unknown as { _virtualFolders: Record<string, unknown> })._virtualFolders;
+      assert.ok(vfolders[id], 'tracked in _virtualFolders');
+
+      const sent: unknown[] = [];
+      manager.sendAll({ send: (_e, data) => sent.push(data) });
+      const sentVirtual = (sent as Record<string, unknown>[]).some(d => `vfolder:${id}` in d);
+      assert.isTrue(sentVirtual, 'sendAll includes the virtual folder');
+    });
+
+    it('addFilesToVirtualFolder delegates and notes it recent', () => {
+      const id = manager.createVirtualFolder('VF');
+      manager.addFilesToVirtualFolder(id, ['/x/a.jpg', '/x/b.jpg']);
+      assert.ok(mockVirtualFolders[id].addFiles.calledWith(['/x/a.jpg', '/x/b.jpg']));
+      assert.deepEqual(manager.getRecentVirtualFolders().map(e => e.id), [id]);
+    });
+
+    it('removeFileFromVirtualFolder delegates (folder-only removal)', () => {
+      const id = manager.createVirtualFolder('VF');
+      manager.removeFileFromVirtualFolder(id, '/x/a.jpg');
+      assert.ok(mockVirtualFolders[id].removeFiles.calledWith(['/x/a.jpg']));
+    });
+
+    it('deleteVirtualFolder tears it down and emits removal', () => {
+      const id = manager.createVirtualFolder('VF');
+      const updateFilesSpy = sinon.spy();
+      manager.on('updateFiles', updateFilesSpy);
+
+      manager.deleteVirtualFolder(id);
+
+      assert.ok(mockVirtualFolders[id].deleteData.called, 'deleteData called');
+      assert.ok(mockVirtualFolders[id].close.called, 'close called');
+      const vfolders = (manager as unknown as { _virtualFolders: Record<string, unknown> })._virtualFolders;
+      assert.isUndefined(vfolders[id], 'removed from registry');
+      const removalCall = updateFilesSpy.getCalls().find(c => `vfolder:${id}` in c.args[0]);
+      assert.ok(removalCall, 'emitted removal');
+      assert.deepEqual(removalCall!.args[0][`vfolder:${id}`], {}, 'empty data for removed virtual folder');
+    });
+
+    // Behavior 4: user force-deletes the real file c. After fs.unlink succeeds the
+    // thumber calls removeFile(c); it must forcefully drop c from the NativeFolder AND
+    // every VirtualFolder that references it — without waiting for a watcher.
+    it('removeFile force-removes the real file from native folder AND referencing virtual folders', () => {
+      manager.setFolders(['/vol']);
+      const id = manager.createVirtualFolder('VF');
+      manager.addFilesToVirtualFolder(id, ['/vol/c.jpg']);
+      mockVirtualFolders[id].references.returns(true);
+
+      const removed = manager.removeFile('/vol/c.jpg');
+
+      assert.isTrue(removed);
+      assert.ok(mockFolders['/vol'].removeFileAndNotify.calledWith('/vol/c.jpg'), 'native force-removed');
+      assert.ok(mockVirtualFolders[id].removeFileAndNotify.calledWith('/vol/c.jpg'), 'virtual force-removed');
+    });
+
+    it('removeFile does not touch virtual folders that do not reference the file', () => {
+      manager.setFolders(['/vol']);
+      const id = manager.createVirtualFolder('VF');
+      mockVirtualFolders[id].references.returns(false);
+      manager.removeFile('/vol/c.jpg');
+      assert.isFalse(mockVirtualFolders[id].removeFileAndNotify.called, 'unrelated virtual folder untouched');
+    });
+
+    // Automatic propagation: a NativeFolder reports real changes/removals; the manager
+    // routes them to referencing virtual folders (changed → refresh, removed → remove).
+    it('routes native filesChanged to referencing virtual folders', () => {
+      manager.setFolders(['/vol']);
+      const id = manager.createVirtualFolder('VF');
+      mockVirtualFolders[id].references.returns(true);
+
+      mockFolders['/vol'].emit('filesChanged', { changed: ['/vol/c.jpg'], removed: [] });
+      assert.ok(mockVirtualFolders[id].refresh.called, 'changed → virtual folder refreshed');
+
+      mockFolders['/vol'].emit('filesChanged', { changed: [], removed: ['/vol/c.jpg'] });
+      assert.ok(mockVirtualFolders[id].removeFileAndNotify.calledWith('/vol/c.jpg'), 'removed → virtual folder dropped it');
+    });
+
+    it('does not route filesChanged to non-referencing virtual folders', () => {
+      manager.setFolders(['/vol']);
+      const id = manager.createVirtualFolder('VF');
+      mockVirtualFolders[id].references.returns(false);
+      mockFolders['/vol'].emit('filesChanged', { changed: ['/vol/c.jpg'], removed: ['/vol/d.jpg'] });
+      assert.isFalse(mockVirtualFolders[id].refresh.called);
+      assert.isFalse(mockVirtualFolders[id].removeFileAndNotify.called);
     });
   });
 

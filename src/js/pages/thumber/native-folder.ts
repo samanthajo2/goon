@@ -62,12 +62,16 @@ export default class NativeFolder extends EventEmitter implements BaseFolder {
   emit(event: 'updateFiles', filename: string, data: ReturnType<NativeFolder['getData']>): boolean;
   emit(event: 'updateFolders', filename: string, folders: FilesByPath): boolean;
   emit(event: 'updateArchives', filename: string, archives: FilesByPath, archivesThatNeedUpdate: string[]): boolean;
+  // Granular per-path diff (absolute paths), so other folders that reference the
+  // same files (e.g. virtual folders) can react to real changes/removals.
+  emit(event: 'filesChanged', changes: { changed: string[]; removed: string[] }): boolean;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   emit(event: string, ...args: any[]): boolean { return super.emit(event, ...args); }
 
   on(event: 'updateFiles', fn: (filename: string, data: ReturnType<NativeFolder['getData']>) => void): this;
   on(event: 'updateFolders', fn: (filename: string, folders: FilesByPath) => void): this;
   on(event: 'updateArchives', fn: (filename: string, archives: FilesByPath, archivesThatNeedUpdate: string[]) => void): this;
+  on(event: 'filesChanged', fn: (changes: { changed: string[]; removed: string[] }) => void): this;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   on(event: string, fn: (...args: any[]) => void): this { return super.on(event, fn); }
   #logger: Logger
@@ -221,6 +225,11 @@ export default class NativeFolder extends EventEmitter implements BaseFolder {
     const newBins = separateFiles(newFiles);
     const diffNames = getDifferentFilenames(oldFiles, newFiles);
     this._removeFiles(diffNames.removed);
+    // Announce the real per-path changes so folders that reference these same
+    // files (virtual folders) can react. Fires only for actual changes/removals.
+    if (diffNames.changed.length || diffNames.removed.length) {
+      this.emit('filesChanged', { changed: diffNames.changed, removed: diffNames.removed });
+    }
     // check if any data has changed
     if (!areFilesSame(oldFiles, newFiles)) {
       this._updateThumbnails(oldBins.imagesAndVideos, newBins.imagesAndVideos);

@@ -27,11 +27,14 @@ import ForwardableEvent from '../../lib/forwardable-event.js';
 import { DBFileInfo } from './folder-db.js';
 import { AppContext } from './contexts.js';
 import { selectionCount, getSelectedFilenames } from './selection-state.js';
+import { isVirtualFolderKey } from '../thumber/virtual-folder-key.js';
 
 const logger = debug('FileContextMenu');
 
 type Props = {
   file: DBFileInfo;
+  // Key of the folder row this file was clicked in (real path or `vfolder:<id>`).
+  folderKey: string;
   rotateMode: number;
 };
 
@@ -52,6 +55,17 @@ export default class FileContextMenu extends React.Component<Props> {
     this.context.eventBus.dispatch(new ForwardableEvent('showFileInfo'), this.props.file);
   };
 
+  private _handleAddToVirtualFolder = (): void => {
+    this.context.eventBus.dispatch(new ForwardableEvent('addToVirtualFolder'), this.props.file);
+  };
+
+  // Virtual folders reference real files; archive entries aren't real files, and the
+  // feature needs the desktop thumber (gated by deleteFile like the delete action).
+  private _addToVirtualFolderMenuItem(): React.ReactNode {
+    if (!this.context.platform.deleteFile || !this.props.file || this.props.file.archiveName) return undefined;
+    return <MenuItem onClick={this._handleAddToVirtualFolder}>Add to Virtual Folder…</MenuItem>;
+  }
+
   private _handleDelete = (): void => {
     if (this.props.file.archiveName) {
       this.context.eventBus.dispatch(new ForwardableEvent('deleteFolder'), {
@@ -59,7 +73,10 @@ export default class FileContextMenu extends React.Component<Props> {
         archive: true,
       });
     } else {
-      this.context.eventBus.dispatch(new ForwardableEvent('deleteFile'), this.props.file);
+      // deleteFile carries the folder key so app.tsx can route: removing from a
+      // virtual folder drops only the entry, while deleting in a real folder
+      // deletes the file on disk.
+      this.context.eventBus.dispatch(new ForwardableEvent('deleteFile'), this.props.file, this.props.folderKey);
     }
   };
 
@@ -81,9 +98,12 @@ export default class FileContextMenu extends React.Component<Props> {
     if (!this.context.platform.deleteFile) return undefined;
     if (this.props.file && this.props.file.filename) {
       const count = selectionCount();
-      const label = getSelectedFilenames().includes(this.props.file.filename) && count > 1
-        ? `Delete ${count} selected items`
-        : `Delete ${this.props.file.archiveName ?? this.props.file.filename}`;
+      const isMulti = getSelectedFilenames().includes(this.props.file.filename) && count > 1;
+      // In a virtual folder "delete" means remove the entry, not delete the file.
+      const verb = isVirtualFolderKey(this.props.folderKey) ? 'Remove' : 'Delete';
+      const label = isMulti
+        ? `${verb} ${count} selected items`
+        : `${verb} ${this.props.file.archiveName ?? this.props.file.filename}`;
       return (
         <MenuItem onClick={this._handleDelete}>
           {label}
@@ -101,6 +121,7 @@ export default class FileContextMenu extends React.Component<Props> {
           <MenuItem onClick={this._handleOpen}>Show in Finder/Explorer</MenuItem>
         )}
         <MenuItem onClick={this._handleInfo}>Get Info</MenuItem>
+        {this._addToVirtualFolderMenuItem()}
         {this._deleteMenuItem()}
         <MenuItem onClick={this._handleRefreshFolder}>Refresh</MenuItem>
         {platform.showItemInFolder && (

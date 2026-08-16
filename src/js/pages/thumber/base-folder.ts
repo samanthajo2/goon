@@ -33,6 +33,12 @@ export type FolderStatus = {
   checking?: boolean;
   scannedTime?: number;
   archive?: boolean;
+  // Marks a virtual folder (user-curated list) so the view can badge it and offer
+  // "Remove from Virtual Folder" instead of a real delete.
+  virtual?: boolean;
+  // Display name for a virtual folder (its key is a synthetic `vfolder:<id>`, so the
+  // view can't derive a readable name from the key).
+  name?: string;
 };
 
 export type FolderDataResult = {
