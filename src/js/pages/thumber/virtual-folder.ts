@@ -36,7 +36,7 @@ import EventEmitter from 'node:events';
 import path from 'node:path';
 import debug, { Logger } from '../../lib/debug.js';
 import bind from '../../lib/bind.js';
-import { areFilesSame, getDifferentFilenames } from '../../lib/utils.js';
+import { areFilesSame, createBasename } from '../../lib/utils.js';
 import { FileInfo, FilesByPath } from '../../lib/fileinfo.js';
 import {
   getImagesAndVideos,
@@ -47,8 +47,17 @@ import {
 import { ThumbnailPageMakerFn } from './folder-thumbnail-maker.js';
 import type FolderData from './folder-data.js';
 import type VirtualFolderData from './virtual-folder-data.js';
+import { archiveRefPath } from './virtual-folder-data.js';
 import type { BaseFolder } from './base-folder.js';
 import { makeVirtualFolderKey } from './virtual-folder-key.js';
+
+// Regenerates thumbnails for specific media entries inside an archive, keyed by
+// each entry's composite path (path.join(archiveName, entryName)).
+export type ArchiveThumbnailPageMakerFn = (
+  archiveName: string,
+  baseFilename: string,
+  entryNames: string[],
+) => Promise<FilesByPath>;
 
 type LocalFsAPI = {
   statSync: (p: string) => { size: number; mtimeMs: number; isDirectory: () => boolean };
@@ -76,6 +85,7 @@ export default class VirtualFolder extends EventEmitter implements BaseFolder {
   #def: VirtualFolderData;
   #cache: FolderData;
   #thumbnailPageMakerFn: ThumbnailPageMakerFn;
+  #archiveThumbnailPageMakerFn: ArchiveThumbnailPageMakerFn;
   #fs: LocalFsAPI;
   #isMakingThumbnails = false;
   #pendingRefresh = false;
@@ -84,6 +94,7 @@ export default class VirtualFolder extends EventEmitter implements BaseFolder {
     def: VirtualFolderData;
     cache: FolderData;
     thumbnailPageMakerFn: ThumbnailPageMakerFn;
+    archiveThumbnailPageMakerFn: ArchiveThumbnailPageMakerFn;
     fs: LocalFsAPI;
   }) {
     super();
@@ -93,6 +104,7 @@ export default class VirtualFolder extends EventEmitter implements BaseFolder {
     this.#def = options.def;
     this.#cache = options.cache;
     this.#thumbnailPageMakerFn = options.thumbnailPageMakerFn;
+    this.#archiveThumbnailPageMakerFn = options.archiveThumbnailPageMakerFn;
     this.#fs = options.fs;
     bind(this, 'refresh');
 
@@ -149,6 +161,14 @@ export default class VirtualFolder extends EventEmitter implements BaseFolder {
     }
   }
 
+  // Add referenced archive entries (each `{archiveName, entryName}`) to this virtual
+  // folder, then reconcile + generate thumbnails from the archive.
+  addArchiveFiles(refs: { archiveName: string; entryName: string }[]): void {
+    if (this.#def.addArchiveFiles(refs)) {
+      this.refresh();
+    }
+  }
+
   // Remove referenced files from this virtual folder only (never deletes the real
   // file on disk). Updates the display immediately — no rescan/regeneration, same
   // as NativeFolder.removeFileAndNotify (the page PNG keeps a now-unused sub-rect
@@ -166,9 +186,24 @@ export default class VirtualFolder extends EventEmitter implements BaseFolder {
     this.removeFiles([filePath]);
   }
 
-  // True if this virtual folder references the given real file path.
+  // True if this virtual folder references the given file — either a real file path
+  // or an archive entry's composite path (path.join(archiveName, entryName)).
   references(filePath: string): boolean {
-    return this.#def.files.includes(filePath);
+    return this.#def.files.includes(filePath)
+      || this.#def.archives.some(ref => archiveRefPath(ref) === filePath);
+  }
+
+  // True if this virtual folder references any entry inside the given archive file.
+  referencesArchive(archiveName: string): boolean {
+    return this.#def.archives.some(ref => ref.archiveName === archiveName);
+  }
+
+  // Change the display name (from a user rename) and re-broadcast so the view
+  // relabels the folder immediately.
+  setName(name: string): void {
+    if (this.#def.setName(name)) {
+      this._emitCurrent();
+    }
   }
 
   _emitCurrent() {
@@ -182,6 +217,7 @@ export default class VirtualFolder extends EventEmitter implements BaseFolder {
       return;
     }
 
+    // ── Native files ──
     // Stat every referenced path. Present files get a fresh stat entry; missing
     // files are pruned only if their containing directory is present (so a file on
     // an offline/unmounted volume is kept, not dropped).
@@ -197,17 +233,15 @@ export default class VirtualFolder extends EventEmitter implements BaseFolder {
         // else: volume/parent unavailable → keep the cached entry (offline).
       }
     }
-
     if (trulyGone.length) {
       this.#logger('pruning gone files:', trulyGone);
       this.#def.removeFiles(trulyGone);
     }
 
-    // The complete desired media set for the cache: freshly-stat'd present media,
-    // plus offline media kept from cache exactly as-is (so the page maker copies
-    // their thumbnails forward instead of dropping them).
-    const oldMedia = separateFiles(this.#cache.files).imagesAndVideos;
-    const desired: FilesByPath = { ...separateFiles(present).imagesAndVideos };
+    // The desired native media set: freshly-stat'd present media, plus offline media
+    // kept from cache exactly as-is (so the page maker copies their thumbnails
+    // forward instead of dropping them). Stat-only entries get their thumbnails made.
+    const nativeDesired: FilesByPath = { ...separateFiles(present).imagesAndVideos };
     const presentOrGone = new Set([...Object.keys(present), ...trulyGone]);
     for (const p of this.#def.files) {
       if (presentOrGone.has(p)) {
@@ -215,20 +249,85 @@ export default class VirtualFolder extends EventEmitter implements BaseFolder {
       }
       const cached = this.#cache.files[p];
       if (cached) {
-        desired[p] = cached; // offline — unchanged, copied forward
+        nativeDesired[p] = cached; // offline — unchanged, copied forward
       }
     }
 
-    // Drop cache entries that are no longer wanted (removed from the folder or gone).
-    const diff = getDifferentFilenames(oldMedia, desired);
-    if (diff.removed.length) {
-      this.#cache.removeFiles(diff.removed);
+    // ── Archive entries ──
+    // For each referenced archive: if present, keep cache entries whose archiveMtime
+    // still matches (up to date), and mark the rest stale for regeneration. If the
+    // archive is confirmed gone, prune its entries; if merely offline, keep cache.
+    const archiveKeep: FilesByPath = {};
+    const archiveGone: string[] = [];
+    const toRegen = new Map<string, { entryNames: string[]; mtime: number }>();
+    const refsByArchive = new Map<string, { archiveName: string; entryName: string }[]>();
+    for (const ref of this.#def.archives) {
+      const list = refsByArchive.get(ref.archiveName) ?? [];
+      list.push(ref);
+      refsByArchive.set(ref.archiveName, list);
+    }
+    for (const [archiveName, refs] of refsByArchive) {
+      let mtime: number | undefined;
+      try {
+        mtime = this.#fs.statSync(archiveName).mtimeMs;
+      } catch {
+        mtime = undefined;
+      }
+      if (mtime === undefined) {
+        if (this.#fs.existsSync(path.dirname(archiveName))) {
+          for (const ref of refs) archiveGone.push(archiveRefPath(ref)); // confirmed gone
+        } else {
+          for (const ref of refs) { // offline — keep whatever we cached
+            const cp = archiveRefPath(ref);
+            if (this.#cache.files[cp]) archiveKeep[cp] = this.#cache.files[cp];
+          }
+        }
+        continue;
+      }
+      const stale: string[] = [];
+      for (const ref of refs) {
+        const cp = archiveRefPath(ref);
+        const cached = this.#cache.files[cp];
+        if (cached && cached.archiveMtime === mtime) {
+          archiveKeep[cp] = cached; // up to date
+        } else {
+          stale.push(ref.entryName);
+        }
+      }
+      if (stale.length) toRegen.set(archiveName, { entryNames: stale, mtime });
+    }
+    if (archiveGone.length) {
+      this.#logger('pruning gone archive entries:', archiveGone);
+      this.#def.removeFiles(archiveGone);
     }
 
-    if (areFilesSame(oldMedia, desired)) {
+    // ── Reconcile against the cache ──
+    const oldMedia = separateFiles(this.#cache.files).imagesAndVideos;
+    const oldNativeMedia: FilesByPath = {};
+    for (const [k, v] of Object.entries(oldMedia)) {
+      if (!v.archiveName) oldNativeMedia[k] = v;
+    }
+    const regenPaths = new Set<string>();
+    for (const [archiveName, { entryNames }] of toRegen) {
+      for (const entryName of entryNames) regenPaths.add(path.join(archiveName, entryName));
+    }
+    // Drop cache media no longer wanted (removed from the folder, gone, or stale).
+    const desiredKeys = new Set([
+      ...Object.keys(nativeDesired),
+      ...Object.keys(archiveKeep),
+      ...regenPaths,
+    ]);
+    const removed = Object.keys(oldMedia).filter(k => !desiredKeys.has(k));
+    if (removed.length) {
+      this.#cache.removeFiles(removed);
+    }
+
+    const nativeNeedsWork = !areFilesSame(oldNativeMedia, nativeDesired);
+    const archiveNeedsWork = toRegen.size > 0;
+    if (!nativeNeedsWork && !archiveNeedsWork) {
       this._emitCurrent();
     } else {
-      await this._makeThumbnails(oldMedia, desired);
+      await this._makeThumbnails(oldNativeMedia, nativeDesired, nativeNeedsWork, toRegen);
     }
 
     if (this.#pendingRefresh) {
@@ -237,12 +336,33 @@ export default class VirtualFolder extends EventEmitter implements BaseFolder {
     }
   }
 
-  async _makeThumbnails(oldMedia: FilesByPath, desired: FilesByPath): Promise<void> {
+  async _makeThumbnails(
+    oldNativeMedia: FilesByPath,
+    nativeDesired: FilesByPath,
+    nativeNeedsWork: boolean,
+    toRegen: Map<string, { entryNames: string[]; mtime: number }>,
+  ): Promise<void> {
     this.#isMakingThumbnails = true;
     this._emitCurrent(); // scanning = true
     try {
-      const files = await this.#thumbnailPageMakerFn(oldMedia, desired, this.#cache.baseFilename);
-      this.#cache.addFiles(files);
+      if (nativeNeedsWork) {
+        const files = await this.#thumbnailPageMakerFn(oldNativeMedia, nativeDesired, this.#cache.baseFilename);
+        this.#cache.addFiles(files);
+      }
+      for (const [archiveName, { entryNames, mtime }] of toRegen) {
+        try {
+          // A distinct page-set per archive keeps archive tiles out of the native
+          // pages and lets deleteData() clean them up with the rest of the cache.
+          const baseFilename = `${this.#cache.baseFilename}-${createBasename('', 'arc', archiveName)}`;
+          const files = await this.#archiveThumbnailPageMakerFn(archiveName, baseFilename, entryNames);
+          for (const info of Object.values(files)) {
+            info.archiveMtime = mtime; // so a later refresh can skip an unchanged archive
+          }
+          this.#cache.addFiles(files);
+        } catch (e) {
+          console.warn(`could not make thumbnails for archive in virtual folder: ${archiveName}`, e);
+        }
+      }
     } catch (e) {
       console.warn(`could not make thumbnails for virtual folder: ${this.#id}`, e);
     } finally {

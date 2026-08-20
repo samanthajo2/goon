@@ -209,4 +209,59 @@ describe('FolderStateHelper', () => {
       assert.sameOrderedMembers(getFolderNames(root.folders), ['a/e-01', 'a/e-002', 'a/e-3']);
     }
   });
+
+  it('removes a folder on an empty removal signal even when showEmpty is on', () => {
+    const root = FolderStateHelper.createRoot('sortPath');
+    const showEmpty = { showEmpty: true };
+    // A virtual folder with content, shown.
+    FolderStateHelper.updateFolders(root, asUpdate({
+      'vfolder:abc': { files: { x: {} }, status: { virtual: true, name: 'bar', scannedTime: 1 } },
+    }), showEmpty);
+    assert.include(getFolderNames(root.folders), 'vfolder:abc');
+
+    // Delete emits a bare {}; FolderDB normalizes it to empty files + empty status.
+    // It must not resurface as a phantom "vfolder:abc" row.
+    FolderStateHelper.updateFolders(root, asUpdate({ 'vfolder:abc': { files: {}, status: {} } }), showEmpty);
+    assert.notInclude(getFolderNames(root.folders), 'vfolder:abc', 'deleted folder is gone');
+    assert.strictEqual(root.folders.length, 0);
+  });
+
+  it('still shows a scanned-empty folder when showEmpty is on', () => {
+    const root = FolderStateHelper.createRoot('sortPath');
+    FolderStateHelper.updateFolders(root, asUpdate({
+      'a/empty': { files: {}, status: { scannedTime: 123 } },
+    }), { showEmpty: true });
+    assert.include(getFolderNames(root.folders), 'a/empty', 'real empty folder still shows');
+  });
+
+  it('sorts virtual folders above real folders, by their display name', () => {
+    const root = FolderStateHelper.createRoot('sortPath');
+    FolderStateHelper.updateFolders(root, asUpdate({
+      'b/a': { files: { 'b/a/f': {} } },
+      'vfolder:id2': { files: { 'x': {} }, status: { virtual: true, name: 'Zebra' } },
+      'a/a': { files: { 'a/a/f': {} } },
+      'vfolder:id1': { files: { 'y': {} }, status: { virtual: true, name: 'Apples' } },
+    }));
+    // Virtual folders first (Apples before Zebra by name), then real folders by path.
+    assert.sameOrderedMembers(
+      getFolderNames(root.folders),
+      ['vfolder:id1', 'vfolder:id2', 'a/a', 'b/a'],
+    );
+  });
+
+  it('keeps virtual folders on top when real folders arrive incrementally', () => {
+    const root = FolderStateHelper.createRoot('sortName');
+    FolderStateHelper.updateFolders(root, asUpdate({
+      'm/a': { files: { 'm/a/f': {} } },
+    }));
+    FolderStateHelper.updateFolders(root, asUpdate({
+      'vfolder:id1': { files: { 'y': {} }, status: { virtual: true, name: 'Favorites' } },
+    }));
+    FolderStateHelper.updateFolders(root, asUpdate({
+      'a/a': { files: { 'a/a/f': {} } },
+    }));
+    assert.strictEqual(root.folders[0].filename, 'vfolder:id1', 'virtual stays first');
+    assert.sameOrderedMembers(getFolderNames(root.folders), ['vfolder:id1', 'a/a', 'm/a']);
+    assert.strictEqual(root.folders[0].name, 'Favorites', 'virtual folder shows its name');
+  });
 });

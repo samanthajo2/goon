@@ -38,9 +38,13 @@ export default function VirtualFolderPicker({ count, folders, onPick, onCreate, 
   const [creating, setCreating] = React.useState(false);
   const [newName, setNewName] = React.useState('');
 
+  const trimmed = newName.trim();
+  const nameTaken = trimmed.length > 0
+    && folders.some(f => f.name.trim().toLowerCase() === trimmed.toLowerCase());
+  const canCreate = trimmed.length > 0 && !nameTaken;
+
   const create = (): void => {
-    const name = newName.trim();
-    if (name) onCreate(name);
+    if (canCreate) onCreate(trimmed);
   };
 
   return (
@@ -56,20 +60,23 @@ export default function VirtualFolderPicker({ count, folders, onPick, onCreate, 
           ))}
         </div>
         {creating ? (
-          <div className="vf-new">
-            <input
-              autoFocus
-              type="text"
-              placeholder="Virtual folder name"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') create();
-                else if (e.key === 'Escape') onCancel();
-              }}
-            />
-            <button type="button" onClick={create} disabled={!newName.trim()}>Create</button>
-          </div>
+          <>
+            {nameTaken && <div className="vf-error">A virtual folder named “{trimmed}” already exists.</div>}
+            <div className="vf-new">
+              <input
+                autoFocus
+                type="text"
+                placeholder="Virtual folder name"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') create();
+                  else if (e.key === 'Escape') onCancel();
+                }}
+              />
+              <button type="button" onClick={create} disabled={!canCreate}>Create</button>
+            </div>
+          </>
         ) : (
           <button type="button" className="vf-new-button" onClick={() => setCreating(true)}>New Virtual Folder…</button>
         )}

@@ -23,7 +23,8 @@ import React from 'react';
 import ForwardableEvent from '../../lib/forwardable-event.js';
 import gridModes, { ThumbnailProps } from './grid-modes.js';
 import { AppContext } from './contexts.js';
-import { isSelected, selectionCount, getSelectedFilenames } from './selection-state.js';
+import { isSelected, selectionCount, getSelectedFilenames, getSelectedEntries } from './selection-state.js';
+import { setDragContext } from './drag-context.js';
 
 type Props = ThumbnailProps & {
   count: number;
@@ -42,8 +43,19 @@ export default class Thumbnail extends React.PureComponent<Props> {
     this._draggedSincePointerDown = false;
   };
 
-  private _viewImage = (): void => {
+  private _viewImage = (e: React.MouseEvent): void => {
     if (this._draggedSincePointerDown) return;
+    // Cmd/Ctrl-click toggles selection (a bigger target than the checkbox);
+    // Cmd/Ctrl+Shift-click extends the range. A plain click views the item.
+    if (e.metaKey || e.ctrlKey) {
+      this.context.eventBus.dispatch(
+        new ForwardableEvent('toggleSelection'),
+        this.props.folderKey,
+        this.props.info.filename,
+        e.shiftKey,
+      );
+      return;
+    }
     this.props.setCurrentView();
     this.context.eventBus.dispatch(new ForwardableEvent('setCurrentNdx'), this.props.count);
     this.context.eventBus.dispatch(new ForwardableEvent('view'), this.props.info);
@@ -61,14 +73,21 @@ export default class Thumbnail extends React.PureComponent<Props> {
     const startDrag = this.context.platform.startDrag;
     if (!startDrag) return;
     const filename = this.props.info.filename;
-    // If the dragged item is part of the selection, drag the whole selection.
-    // Otherwise drag just this one file (matches Finder/Explorer behavior).
-    // Dragging out hands file paths to the OS, so use the unique selected paths.
-    if (isSelected(this.props.folderKey, filename) && selectionCount() > 1) {
-      startDrag(getSelectedFilenames());
-    } else {
-      startDrag(filename);
-    }
+    // If the dragged item is part of the selection, drag the whole selection
+    // (which can span folders). Otherwise drag just this one entry.
+    const multi = isSelected(this.props.folderKey, filename) && selectionCount() > 1;
+    const entries = multi ? getSelectedEntries() : [{ folderKey: this.props.folderKey, filename }];
+    // Record the dragged entries so a drop back inside the app is treated as internal.
+    setDragContext({ entries });
+    // Dragging out hands unique file paths to the OS.
+    startDrag(multi ? getSelectedFilenames() : filename);
+  };
+
+  // Clear the drag context when the drag ends (dropped externally or cancelled) so
+  // a later unrelated drop can't act on stale source info. A successful internal
+  // drop clears it too (in the drop handler), so this is the belt-and-suspenders.
+  private _handleDragEnd = (): void => {
+    setDragContext(null);
   };
 
   private _handleCheckboxClick = (event: React.MouseEvent): void => {
@@ -93,6 +112,7 @@ export default class Thumbnail extends React.PureComponent<Props> {
       this._handleDragStart,
       this._handlePointerDown,
       this._handleCheckboxClick,
+      this._handleDragEnd,
     );
   }
 }

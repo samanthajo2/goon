@@ -37,9 +37,16 @@ import type { AppEventMap } from './app-event-map.js';
 import ForwardableEvent from '../../lib/forwardable-event.js';
 import { addTrashingFile, removeTrashingFile } from './trashing-state.js';
 import { getSelectedFilenames, getSelectedEntries, selectionCount, clearSelection } from './selection-state.js';
-import { isVirtualFolderKey } from '../thumber/virtual-folder-key.js';
+import { isVirtualFolderKey, virtualFolderIdFromKey } from '../thumber/virtual-folder-key.js';
+import * as pathHelpers from '../../lib/path-helpers.js';
+import * as filters from '../../lib/filters.js';
+import { getDragContext, setDragContext } from './drag-context.js';
+import { computeDropOperation, FolderKind } from './drop-operation.js';
+import DropConfirm from './drop-confirm.js';
 import DeletePrompt, { DeleteItem } from './delete-prompt.js';
 import VirtualFolderPicker from './virtual-folder-picker.js';
+import RenameFolderPrompt from './rename-folder-prompt.js';
+import { isAnyModalOpen } from '../../lib/ui/modal.js';
 import type { VirtualFolderList } from './hooks/use-ipc-streams.js';
 import KeyRouter from '../../lib/keyrouter.js';
 import debug from '../../lib/debug.js';
@@ -70,6 +77,16 @@ const dummyEvent = {
   stopPropagation: () => {},
 };
 
+// True when a keystroke is being typed into an editable field (the filter box, or a
+// modal's text input like Rename / New Virtual Folder). While one is focused we must
+// not route keys to app shortcuts, or typing "4" would trigger the ¼-speed action.
+function isEditableElement(el: Element | null): boolean {
+  if (!el) return false;
+  const tag = el.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
+    || (el as HTMLElement).isContentEditable;
+}
+
 const s_toolbarModeBottomTable: Record<string, boolean> = {
   top: false,
   bottom: true,
@@ -99,6 +116,21 @@ type Props = {
   };
 };
 
+// A resolved drag-and-drop awaiting confirmation/execution. Items include ones that
+// can't be handled (e.g. archive entries, supported=false) so the confirmation can
+// show them marked rather than silently dropping them.
+type DropItem = DeleteItem & { folderKey: string; sourceKind: FolderKind; srcId?: string; supported: boolean };
+type PendingDrop = {
+  items: DropItem[];
+  destKind: FolderKind;
+  destKey: string;
+  destName: string;
+  destId?: string;   // set when the destination is a virtual folder
+  destDir?: string;  // set when the destination is a real folder
+  toggleAvailable: boolean;
+  initialCopyModifier: boolean;
+};
+
 function App({ options, startState, platform }: Props): React.ReactElement | null {
   const logger = useRef(debug('App')).current;
 
@@ -110,6 +142,9 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
   // Folder key of the row the file context menu was opened in (real path or vfolder key).
   const [contextFolderKey, setContextFolderKey] = useState<string>('');
   const [contextFolderInfo, setContextFolderInfo] = useState<FolderContextInfo | null>(null);
+  // Folder rename dialog (null when closed); renameError holds the thumber's reason.
+  const [renameFolderInfo, setRenameFolderInfo] = useState<FolderContextInfo | null>(null);
+  const [renameError, setRenameError] = useState('');
   const [fileInfo, setFileInfo] = useState<FileInfoData>(null);
   const [showDeleteFilePrompt, setShowDeleteFilePrompt] = useState(false);
   // Items include their folderKey so delete can route real-delete vs remove-from-vfolder.
@@ -117,15 +152,25 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
   const [showDeleteFolderPrompt, setShowDeleteFolderPrompt] = useState(false);
   // "Add to Virtual Folder" picker.
   const [showAddToVFolder, setShowAddToVFolder] = useState(false);
-  const [pendingAddPaths, setPendingAddPaths] = useState<string[]>([]);
+  const [pendingAddEntries, setPendingAddEntries] = useState<{ path: string; archiveName?: string }[]>([]);
   const [virtualFolders, setVirtualFolders] = useState<VirtualFolderList>({ list: [], recent: [] });
+  // Internal drag-and-drop confirmation.
+  const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null);
 
   // ── IPC streams (thumber + prefs) ──────────────────────────────────
   // The thumber performs deletions and acks with `filesDeleted` so we can clear
   // the per-file "deleting" overlay (whether or not the delete succeeded).
-  const { thumberStream, prefs, prefsReceived, disconnected } = useIPCStreams(platform, {
+  const { thumberStream, prefs, prefsReceived, disconnected, setMiscPref } = useIPCStreams(platform, {
     onFilesDeleted: (filenames: string[]) => filenames.forEach(removeTrashingFile),
     onVirtualFolders: (vf) => setVirtualFolders(vf),
+    onRenameFolderResult: (_folderKey, ok, error) => {
+      if (ok) {
+        setRenameFolderInfo(null);
+        setRenameError('');
+      } else {
+        setRenameError(error || 'Rename failed.');
+      }
+    },
   });
   const [externalViewerAvailable, setExternalViewerAvailable] = useState(false);
 
@@ -163,6 +208,10 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
   prefsRef.current = prefs;
   const rootRef = useRef(root);
   rootRef.current = root;
+  // Last folder the user acted on (right-clicked). Lets the keybindable
+  // create/rename actions target a folder without an on-screen menu.
+  const contextFolderInfoRef = useRef(contextFolderInfo);
+  contextFolderInfoRef.current = contextFolderInfo;
 
   const fileInfoMediaManager = useRef(new MediaManagerClient(platform)).current;
 
@@ -243,8 +292,9 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
     setShowDeleteFilePrompt(false);
     const items = pendingDeleteItems;
     setPendingDeleteItems([]);
-    // Skip archive entries — they route through deleteFolder, not here.
-    deleteEntries(items.filter(it => !it.info.archiveName).map(it => ({ folderKey: it.folderKey, filename: it.filename })));
+    // pendingDeleteItems already excludes real-folder archive entries (kept only
+    // virtual-folder entries and real files), so act on all of them.
+    deleteEntries(items.map(it => ({ folderKey: it.folderKey, filename: it.filename })));
     // Clear the multi-select once the action is confirmed
     if (items.length > 1) {
       clearSelection();
@@ -272,6 +322,45 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
   deleteFolderRef.current = deleteFolder;
   const deleteEntriesRef = useRef(deleteEntries);
   deleteEntriesRef.current = deleteEntries;
+
+  // Execute a resolved drop with the chosen operation. Groups items by what the
+  // thumber needs to do and dispatches: real files move/copy into a folder; paths
+  // are added to / removed from virtual folders (never touching the real files).
+  const executeDrop = useCallback((pd: PendingDrop, copyModifier: boolean) => {
+    const stream = thumberStreamRef.current;
+    if (!stream) return;
+    const movePaths: string[] = [];
+    const copyPaths: string[] = [];
+    // Adds to a virtual folder carry archiveName for archive members so the thumber
+    // can resolve the entry inside its archive.
+    const addEntries: { path: string; archiveName?: string }[] = [];
+    const vRemove: { srcId: string; filename: string }[] = [];
+    for (const it of pd.items) {
+      if (!it.supported) continue;
+      // Each item's op is computed from its own source kind and the current toggle.
+      const op = computeDropOperation(it.sourceKind, pd.destKind, copyModifier).op;
+      if (op === 'move') {
+        if (it.sourceKind === 'virtual') {
+          // virtual → virtual move = unlink from source vfolder + link into dest.
+          if (it.srcId) vRemove.push({ srcId: it.srcId, filename: it.filename });
+          addEntries.push({ path: it.filename, archiveName: it.info.archiveName });
+        } else {
+          movePaths.push(it.filename);
+        }
+      } else if (op === 'copy') {
+        copyPaths.push(it.filename);
+      } else if (op === 'add') {
+        addEntries.push({ path: it.filename, archiveName: it.info.archiveName });
+      }
+    }
+    if (movePaths.length && pd.destDir) stream.send('moveFiles', movePaths, pd.destDir);
+    if (copyPaths.length && pd.destDir) stream.send('copyFiles', copyPaths, pd.destDir);
+    vRemove.forEach(v => stream.send('removeFromVirtualFolder', v.srcId, v.filename));
+    if (addEntries.length && pd.destId) stream.send('addToVirtualFolder', pd.destId, addEntries);
+    clearSelection();
+  }, []);
+  const executeDropRef = useRef(executeDrop);
+  executeDropRef.current = executeDrop;
 
   // ── One-time setup: event bus listeners, key handler, prefs, etc. ──
   useEffect(() => {
@@ -317,6 +406,30 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
     };
     eventBus.on('refreshFolder', handleRefreshFolder);
 
+    // Create a new folder. The thumber picks the kind from the folder key: a native
+    // folder gets a new "Untitled" subfolder on disk; a virtual folder gets a new
+    // (uniquely-named) sibling virtual folder.
+    const handleCreateFolder = (_event: ForwardableEvent, folderInfo: FolderContextInfo) => {
+      if (folderInfo?.archive) return; // can't create inside an archive
+      thumberStreamRef.current?.send('createFolder', folderInfo.filename);
+    };
+    eventBus.on('createFolder', handleCreateFolder);
+    actionListener.on('createNewFolder', () => {
+      const folder = contextFolderInfoRef.current;
+      if (folder) handleCreateFolder(dummyEvent as unknown as ForwardableEvent, folder);
+    });
+
+    const handleRenameFolder = (_event: ForwardableEvent, folderInfo: FolderContextInfo) => {
+      if (folderInfo?.archive) return; // renaming inside an archive isn't supported
+      setRenameError('');
+      setRenameFolderInfo(folderInfo);
+    };
+    eventBus.on('renameFolder', handleRenameFolder);
+    actionListener.on('renameFolder', () => {
+      const folder = contextFolderInfoRef.current;
+      if (folder) handleRenameFolder(dummyEvent as unknown as ForwardableEvent, folder);
+    });
+
     const handleRefreshFolders = () => {
       thumberStreamRef.current?.send('refreshFolders');
     };
@@ -340,7 +453,10 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
       }
       const items = entries
         .map(e => ({ folderKey: e.folderKey, filename: e.filename, info: fileInfoByName.get(e.filename) }))
-        .filter((it): it is DeleteItem & { folderKey: string } => !!it.info && !it.info.archiveName);
+        // Drop archive entries from real folders (can't delete on disk), but keep
+        // them for a virtual folder, where removal just unlinks the reference.
+        .filter((it): it is DeleteItem & { folderKey: string } =>
+          !!it.info && (isVirtualFolderKey(it.folderKey) || !it.info.archiveName));
       if (items.length === 0) return;
 
       // Removing entries from a virtual folder is non-destructive — do it
@@ -369,20 +485,89 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
       const filenames = (selectedFilenames.includes(fileInfoArg.filename) && selectionCount() > 1)
         ? selectedFilenames
         : [fileInfoArg.filename];
-      // Only real files can be added (skip archive entries).
+      // Real files and archive entries can both be added to a virtual folder.
       const infoByName = new Map<string, DeleteItem['info']>();
       for (const folder of rootRef.current.folders) {
         for (const file of folder.files) infoByName.set(file.info.filename, file.info);
       }
-      const paths = filenames.filter(fn => {
+      const entries: { path: string; archiveName?: string }[] = [];
+      for (const fn of filenames) {
         const info = infoByName.get(fn);
-        return !!info && !info.archiveName;
-      });
-      if (paths.length === 0) return;
-      setPendingAddPaths(paths);
+        if (info) entries.push({ path: fn, archiveName: info.archiveName });
+      }
+      if (entries.length === 0) return;
+      setPendingAddEntries(entries);
       setShowAddToVFolder(true);
     };
     eventBus.on('addToVirtualFolder', handleAddToVirtualFolder);
+
+    const handleDropOnFolder = (_event: ForwardableEvent, destKey: string, copyModifier: boolean) => {
+      const ctx = getDragContext();
+      setDragContext(null);
+      if (!ctx || ctx.entries.length === 0) return;
+
+      const root = rootRef.current;
+      const folderByKey = new Map(root.folders.map(f => [f.filename, f]));
+      const infoByName = new Map<string, DeleteItem['info']>();
+      for (const f of root.folders) {
+        for (const file of f.files) infoByName.set(file.info.filename, file.info);
+      }
+
+      // Archive folders are keyed by the archive file path (e.g. …/foo.zip).
+      const kindOf = (key: string): FolderKind =>
+        isVirtualFolderKey(key) ? 'virtual' : (filters.isArchive(key) ? 'archive' : 'native');
+
+      const destKind = kindOf(destKey);
+      if (destKind === 'archive') return; // can't drop into an archive
+      const destId = isVirtualFolderKey(destKey) ? virtualFolderIdFromKey(destKey) : undefined;
+      const destDir = destKind === 'native' ? destKey : undefined;
+      const destName = folderByKey.get(destKey)?.name ?? pathHelpers.basename(destKey);
+
+      const items: DropItem[] = [];
+      for (const e of ctx.entries) {
+        if (e.folderKey === destKey) continue; // same folder — no-op
+        const sourceKind = kindOf(e.folderKey);
+        const info = infoByName.get(e.filename);
+        if (!info) continue;
+        // Archive entries can only go into a virtual folder (not moved/copied onto
+        // disk). Unsupported ones are still listed, marked, so nothing silently
+        // disappears from the selection.
+        const supported = computeDropOperation(sourceKind, destKind, copyModifier).op !== 'error'
+          && (sourceKind !== 'archive' || destKind === 'virtual');
+        items.push({
+          folderKey: e.folderKey,
+          filename: e.filename,
+          info,
+          sourceKind,
+          srcId: isVirtualFolderKey(e.folderKey) ? virtualFolderIdFromKey(e.folderKey) : undefined,
+          supported,
+        });
+      }
+      if (items.length === 0) return;
+
+      // The toggle is meaningful whenever any supported item has an alternate op.
+      const toggleAvailable = items.some(it =>
+        it.supported && !!computeDropOperation(it.sourceKind, destKind, copyModifier).alt);
+      const pd: PendingDrop = {
+        items, destKind, destKey, destName, destId, destDir,
+        toggleAvailable, initialCopyModifier: copyModifier,
+      };
+
+      // Confirm anything that moves or copies; pure "add to virtual folder" is
+      // non-destructive and happens immediately (like the picker).
+      const needsConfirm = items.some(it => {
+        if (!it.supported) return false;
+        const op = computeDropOperation(it.sourceKind, destKind, copyModifier).op;
+        return op === 'move' || op === 'copy';
+      });
+      const anySupported = items.some(it => it.supported);
+      if (!prefsRef.current.misc?.promptOnDragDrop || !needsConfirm) {
+        if (anySupported) executeDropRef.current(pd, copyModifier);
+      } else {
+        setPendingDrop(pd);
+      }
+    };
+    eventBus.on('dropOnFolder', handleDropOnFolder);
 
     const handleDeleteFolder = (_event: ForwardableEvent, folderInfo: FolderContextInfo) => {
       setContextFolderInfo(folderInfo);
@@ -442,6 +627,9 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
     actionListener.on('cycleGridMode', () => {
       updateWinState((prev) => ({ gridMode: gridModes.next(prev.gridMode) }));
     });
+    actionListener.on('toggleShowEmptyFolders', () => {
+      setMiscPref('showEmpty', !prefsRef.current.misc?.showEmpty);
+    });
     actionListener.on('toggleFullscreen', () => { platform.toggleFullscreen(); });
     actionListener.on('newWindow', () => { platform.openNewWindow('view'); });
     actionListener.on('showHelp', () => { platform.openNewWindow('help'); });
@@ -469,7 +657,14 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
 
     // Keyboard
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isFilterInputActive()) return;
+      // No app shortcuts while a modal dialog is open, or while typing in any
+      // editable field (the filter box, a modal's text input, etc.).
+      if (isAnyModalOpen()
+        || isFilterInputActive()
+        || isEditableElement(e.target as Element | null)
+        || isEditableElement(document.activeElement)) {
+        return;
+      }
       const act = keyRouter.getActionForKey(e) as unknown as Action | undefined;
       if (act) {
         e.preventDefault();
@@ -659,7 +854,6 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
           <DeletePrompt
             parent={containerRef.current ?? undefined}
             okay="Delete"
-            headline={`Permanently delete ${pendingDeleteItems.length} item${pendingDeleteItems.length === 1 ? '' : 's'}? This cannot be undone.`}
             items={pendingDeleteItems}
             onOkay={deleteFile}
             onCancel={() => {
@@ -679,25 +873,54 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
             onCancel={() => { setShowDeleteFolderPrompt(false); }}
           />
         )}
+        {renameFolderInfo && (
+          <RenameFolderPrompt
+            parent={containerRef.current ?? undefined}
+            currentName={root.folders.find(f => f.filename === renameFolderInfo.filename)?.name
+              ?? pathHelpers.basename(renameFolderInfo.filename)}
+            isVirtual={isVirtualFolderKey(renameFolderInfo.filename)}
+            error={renameError}
+            onRename={(newName) => {
+              setRenameError('');
+              thumberStream?.send('renameFolder', renameFolderInfo.filename, newName);
+            }}
+            onCancel={() => { setRenameFolderInfo(null); setRenameError(''); }}
+          />
+        )}
         {showAddToVFolder && (
           <VirtualFolderPicker
             parent={containerRef.current ?? undefined}
-            count={pendingAddPaths.length}
+            count={pendingAddEntries.length}
             folders={virtualFolders.list}
             onPick={(id) => {
-              thumberStream?.send('addToVirtualFolder', id, pendingAddPaths);
+              thumberStream?.send('addToVirtualFolder', id, pendingAddEntries);
               setShowAddToVFolder(false);
-              setPendingAddPaths([]);
+              setPendingAddEntries([]);
             }}
             onCreate={(name) => {
-              thumberStream?.send('addToNewVirtualFolder', name, pendingAddPaths);
+              thumberStream?.send('addToNewVirtualFolder', name, pendingAddEntries);
               setShowAddToVFolder(false);
-              setPendingAddPaths([]);
+              setPendingAddEntries([]);
             }}
             onCancel={() => {
               setShowAddToVFolder(false);
-              setPendingAddPaths([]);
+              setPendingAddEntries([]);
             }}
+          />
+        )}
+        {pendingDrop && (
+          <DropConfirm
+            parent={containerRef.current ?? undefined}
+            items={pendingDrop.items}
+            destKind={pendingDrop.destKind}
+            destName={pendingDrop.destName}
+            toggleAvailable={pendingDrop.toggleAvailable}
+            initialCopyModifier={pendingDrop.initialCopyModifier}
+            onConfirm={(copyModifier) => {
+              executeDrop(pendingDrop, copyModifier);
+              setPendingDrop(null);
+            }}
+            onCancel={() => setPendingDrop(null)}
           />
         )}
         {fileInfo && (

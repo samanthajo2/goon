@@ -55,6 +55,14 @@ export default class FolderContextMenu extends React.Component<Props> {
     this.context.eventBus.dispatch(new ForwardableEvent('deleteFolder'), this.props.folder);
   };
 
+  private _handleCreateFolder = (): void => {
+    this.context.eventBus.dispatch(new ForwardableEvent('createFolder'), this.props.folder);
+  };
+
+  private _handleRename = (): void => {
+    this.context.eventBus.dispatch(new ForwardableEvent('renameFolder'), this.props.folder);
+  };
+
   private _handleRefreshFolder = (): void => {
     this.context.eventBus.dispatch(new ForwardableEvent('refreshFolder'), this.props.folder.filename);
   };
@@ -76,6 +84,14 @@ export default class FolderContextMenu extends React.Component<Props> {
       <ContextMenu id="folderContextMenu" rotateMode={this.props.rotateMode}>
         {canShowInFinder && (
           <MenuItem onClick={this._handleOpen}>Show in Finder/Explorer</MenuItem>
+        )}
+        {platform.deleteFolder && (
+          <MenuItem onClick={this._handleCreateFolder}>
+            {isVirtual ? 'New Virtual Folder' : 'New Folder'}
+          </MenuItem>
+        )}
+        {platform.deleteFolder && !this.props.folder?.archive && (
+          <MenuItem onClick={this._handleRename}>Rename…</MenuItem>
         )}
         {platform.deleteFolder && (
           <MenuItem onClick={this._handleDelete}>

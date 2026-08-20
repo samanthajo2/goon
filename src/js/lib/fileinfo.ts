@@ -9,6 +9,8 @@ export type FileInfo = {
   displayName: string;
   url?: string;  // only set for archives?
   archiveName?: string; // only set for archives?
+  archiveMtime?: number; // mtime of the containing archive file when thumbnailed
+                         // (virtual folders use it to detect a changed archive)
   isDirectory: boolean;
   mtime: number;
   orientation: number;

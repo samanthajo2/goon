@@ -19,7 +19,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { type ChannelStream } from '../../../lib/window-ipc.js';
 import type { Platform } from '../../../lib/platform.js';
 import { Preferences } from '../../prefs/default-prefs.js';
@@ -37,6 +37,8 @@ type Callbacks = {
   onFilesDeleted: (filenames: string[]) => void;
   // The thumber broadcasts the current virtual-folder list + recents.
   onVirtualFolders: (vf: VirtualFolderList) => void;
+  // The thumber acks a rename with success + an error message on failure.
+  onRenameFolderResult: (folderKey: string, ok: boolean, error: string) => void;
 };
 
 export function useIPCStreams(platform: Platform, callbacks: Callbacks): {
@@ -44,6 +46,9 @@ export function useIPCStreams(platform: Platform, callbacks: Callbacks): {
   prefs: Partial<Preferences>;
   prefsReceived: boolean;
   disconnected: boolean;
+  // Persist a single `misc` preference. The prefs window owns/saves prefs and
+  // broadcasts the update back, which flows in via the 'prefs' listener below.
+  setMiscPref: (key: string, value: unknown) => void;
 } {
   // Keep callbacks stable via ref — callers don't need to memoize them
   const callbacksRef = useRef(callbacks);
@@ -53,6 +58,11 @@ export function useIPCStreams(platform: Platform, callbacks: Callbacks): {
   const [prefs, setPrefs] = useState<Partial<Preferences>>({});
   const [prefsReceived, setPrefsReceived] = useState(false);
   const [disconnected, setDisconnected] = useState(false);
+  const prefsStreamRef = useRef<ChannelStream | null>(null);
+
+  const setMiscPref = useCallback((key: string, value: unknown) => {
+    prefsStreamRef.current?.send('setMiscPref', key, value);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -85,8 +95,11 @@ export function useIPCStreams(platform: Platform, callbacks: Callbacks): {
         }
         thumberStreamLocal = tStream;
         prefsStreamLocal = pStream;
+        prefsStreamRef.current = pStream;
         tStream.on('filesDeleted', (filenames: string[]) => callbacksRef.current.onFilesDeleted(filenames));
         tStream.on('virtualFolders', (vf: VirtualFolderList) => callbacksRef.current.onVirtualFolders(vf));
+        tStream.on('renameFolderResult', (folderKey: string, ok: boolean, error: string) =>
+          callbacksRef.current.onRenameFolderResult(folderKey, ok, error));
         tStream.send('requestVirtualFolders');
         tStream.on('disconnect', handleDisconnect);
         pStream.on('prefs', (newPrefs: Preferences) => {
@@ -115,8 +128,9 @@ export function useIPCStreams(platform: Platform, callbacks: Callbacks): {
       if (retryTimer) clearTimeout(retryTimer);
       thumberStreamLocal?.close();
       prefsStreamLocal?.close();
+      prefsStreamRef.current = null;
     };
   }, [platform]);
 
-  return { thumberStream, prefs, prefsReceived, disconnected };
+  return { thumberStream, prefs, prefsReceived, disconnected, setMiscPref };
 }

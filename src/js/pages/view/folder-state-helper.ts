@@ -24,6 +24,7 @@ import debug from '../../lib/debug.js';
 import KeyHelper from '../../lib/key-helper.js';
 import { FoldersByPath, FolderStatus } from '../../lib/folderinfo.js';
 import { FileInfo, FilesByPath } from '../../lib/fileinfo.js';
+import { isVirtualFolderKey } from '../thumber/virtual-folder-key.js';
 
 const log = debug('FolderStateHelper');
 
@@ -118,10 +119,29 @@ function getIndexOfFolderByFolderName(array: FolderStateFolder[], folderName: st
   return array.findIndex((folder) => folder.filename === folderName);
 }
 
+type FolderIndexFn = (array: FolderStateFolder[], folder: FolderStateFolder) => number;
+
+// Virtual folders always sort above real folders, regardless of the active sort mode.
+// Within each group the mode's own ordering applies: since the list is kept
+// partitioned (all virtual folders first), we run the underlying index function over
+// just the relevant homogeneous slice and offset the result.
+function virtualFirst(indexFn: FolderIndexFn): FolderIndexFn {
+  return (array, folder) => {
+    let firstReal = 0;
+    while (firstReal < array.length && isVirtualFolderKey(array[firstReal].filename)) {
+      ++firstReal;
+    }
+    if (isVirtualFolderKey(folder.filename)) {
+      return indexFn(array.slice(0, firstReal), folder); // prefix slice → indices align
+    }
+    return firstReal + indexFn(array.slice(firstReal), folder);
+  };
+}
+
 const kSortModeInfo = {
-  sortPath: { indexFn: getIndexToInsertBySortPath,   sortFn: sortBySortPath, icon: 'images/buttons/sort-by-path.svg', hint: 'sort by path', },
-  newest:   { indexFn: getIndexToInsertByNewestDate, sortFn: sortByNewest,   icon: 'images/buttons/sort-by-date.svg', hint: 'sort by date', },
-  sortName: { indexFn: getIndexToInsertBySortName,   sortFn: sortBySortName, icon: 'images/buttons/sort-by-name.svg', hint: 'sort by name', },
+  sortPath: { indexFn: virtualFirst(getIndexToInsertBySortPath),   sortFn: sortBySortPath, icon: 'images/buttons/sort-by-path.svg', hint: 'sort by path', },
+  newest:   { indexFn: virtualFirst(getIndexToInsertByNewestDate), sortFn: sortByNewest,   icon: 'images/buttons/sort-by-date.svg', hint: 'sort by date', },
+  sortName: { indexFn: virtualFirst(getIndexToInsertBySortName),   sortFn: sortBySortName, icon: 'images/buttons/sort-by-name.svg', hint: 'sort by name', },
 } as const;
 export type SortMode = keyof typeof kSortModeInfo;
 const sortModes = new KeyHelper(kSortModeInfo);
@@ -146,10 +166,14 @@ export type FolderStateRoot = {
 };
 class FolderStateHelper {
   static createFolder(filename: string, files: SortInfo[], extra: FolderStateFolderExtra): FolderStateFolder {
+    // Virtual folders have a synthetic vfolder:<id> key; sort and label them by their
+    // display name (from status) rather than the opaque id.
+    const isVirtual = isVirtualFolderKey(filename);
+    const displayName = isVirtual ? (extra.name ?? filename) : path.basename(filename);
     return {
       filename,
-      sortName: createSortName(filename),
-      name: path.basename(filename),
+      sortName: createSortName(isVirtual ? displayName : filename),
+      name: displayName,
       files,
       totalFiles: 0,
       ...extra,
@@ -216,7 +240,13 @@ class FolderStateHelper {
         totalFiles -= oldFolder.files.length;
       }
       const status = folder.status;
-      const haveNewFiles = (prefs && prefs.showEmpty) || newFiles.length > 0;
+      // A bare empty folder that was never scanned (no files, not scanning/checking,
+      // no scannedTime) is a removal signal — e.g. a deleted virtual folder emits
+      // `{}`. Show-Empty must not resurface it as a phantom row keyed by its id.
+      const isRemoval = newFiles.length === 0
+        && !status.scanning && !status.checking && !status.scannedTime;
+      const haveNewFiles = newFiles.length > 0
+        || (!isRemoval && !!(prefs && prefs.showEmpty));
       if (haveNewFiles || status.scanning || (status.checking && !status.scannedTime)) {
         const newFolder = FolderStateHelper.createFolder(folderName, newFiles, {newest, oldest, ...status});
         const newNdx = root.indexFn(newFolders, newFolder);

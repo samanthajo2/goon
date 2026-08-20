@@ -97,6 +97,10 @@ type NativeFolderInst = InstanceType<typeof NativeFolder>;
 type ArchiveFolderInst = InstanceType<typeof ArchiveFolder>;
 type VirtualFolderInst = InstanceType<typeof VirtualFolder>;
 
+// A member to add to a virtual folder: a plain file (archiveName omitted) or an
+// archive entry, whose `path` is the composite path.join(archiveName, entryName).
+export type VirtualFolderAddEntry = { path: string; archiveName?: string };
+
 type FolderInfo = {
   folder: BaseFolder;
   folders: Record<string, FolderInfo>;
@@ -151,7 +155,7 @@ export default class ThumbnailManager extends EventEmitter {
   #updateFilesPendingFolders: Record<string, SentFolder> = {};
   #logger: ReturnType<typeof debug>;
   #folderThumbnailPageMakerFn: ThumbnailPageMakerFn;
-  #archiveThumbnailPageMakerFn: (filepath: string, baseFilename: string) => Promise<FilesByPath>;
+  #archiveThumbnailPageMakerFn: (filepath: string, baseFilename: string, entryNames?: string[]) => Promise<FilesByPath>;
   #nativeFolderFactory: Factory<typeof NativeFolder>;
   #archiveFolderFactory: Factory<typeof ArchiveFolder>;
   #virtualFolderFactory: Factory<typeof VirtualFolder>;
@@ -206,7 +210,7 @@ export default class ThumbnailManager extends EventEmitter {
     this._emitUpdateFiles = throttle(this._emitUpdateFiles.bind(this), 500);
     this.#logger = debug('ThumbnailManager');
     this.#folderThumbnailPageMakerFn = (oldFiles, newFiles, baseFilename) => createThumbnailsForFolder(oldFiles, newFiles, baseFilename, thumbnailPageMakerManager);
-    this.#archiveThumbnailPageMakerFn = (filepath, baseFilename) => createThumbnailsForArchive(filepath, baseFilename, thumbnailPageMakerManager);
+    this.#archiveThumbnailPageMakerFn = (filepath, baseFilename, entryNames) => createThumbnailsForArchive(filepath, baseFilename, thumbnailPageMakerManager, entryNames);
   }
 
   setFolders(dirs: string[], deleteMetaDataOnRemovedFolders?: boolean) {
@@ -314,17 +318,22 @@ export default class ThumbnailManager extends EventEmitter {
     if (vfolders.length === 0) {
       return;
     }
+    const toRefresh = new Set<VirtualFolderInst>();
     for (const filePath of changes.removed) {
       for (const vf of vfolders) {
         if (vf.references(filePath)) {
           vf.removeFileAndNotify(filePath);
         }
+        // The changed/removed path might be an archive file whose entries this
+        // folder references; refresh lets it re-stat and prune/regenerate.
+        if (vf.referencesArchive(filePath)) {
+          toRefresh.add(vf);
+        }
       }
     }
-    const toRefresh = new Set<VirtualFolderInst>();
     for (const filePath of changes.changed) {
       for (const vf of vfolders) {
-        if (vf.references(filePath)) {
+        if (vf.references(filePath) || vf.referencesArchive(filePath)) {
           toRefresh.add(vf);
         }
       }
@@ -512,6 +521,7 @@ export default class ThumbnailManager extends EventEmitter {
       def,
       cache,
       thumbnailPageMakerFn: this.#folderThumbnailPageMakerFn,
+      archiveThumbnailPageMakerFn: this.#archiveThumbnailPageMakerFn,
       fs: this.#fs,
     });
     this._virtualFolders[id] = vf;
@@ -537,10 +547,32 @@ export default class ThumbnailManager extends EventEmitter {
   }
 
   createVirtualFolder(name: string): string {
+    // Names are unique (case-insensitive). If one already exists, reuse it rather
+    // than creating a duplicate — so "add to new folder 'foo'" adds to the foo
+    // that's already there.
+    const wanted = name.trim().toLowerCase();
+    const existing = this.#virtualFolderIndex.list().find(f => f.name.trim().toLowerCase() === wanted);
+    if (existing) {
+      return existing.id;
+    }
     const id = randomUUID();
     this.#virtualFolderIndex.add(id, name);
     this._createVirtualFolder(id);
     return id;
+  }
+
+  // Rename a virtual folder. Rejects (returns false) a name already used by another
+  // virtual folder (case-insensitive), mirroring the OS rejecting a duplicate dir.
+  renameVirtualFolder(id: string, name: string): boolean {
+    const wanted = name.trim();
+    if (!wanted) return false;
+    const lower = wanted.toLowerCase();
+    const clash = this.#virtualFolderIndex.list()
+      .some(f => f.id !== id && f.name.trim().toLowerCase() === lower);
+    if (clash) return false;
+    this.#virtualFolderIndex.rename(id, wanted);
+    this._virtualFolders[id]?.setName(wanted);
+    return true;
   }
 
   deleteVirtualFolder(id: string) {
@@ -560,13 +592,25 @@ export default class ThumbnailManager extends EventEmitter {
     this.emit('updateFiles', folders);
   }
 
-  addFilesToVirtualFolder(id: string, paths: string[]) {
+  // Entries are either plain files ({path}) or archive members ({path, archiveName}),
+  // where `path` is the composite path.join(archiveName, entryName).
+  addFilesToVirtualFolder(id: string, entries: VirtualFolderAddEntry[]) {
     const vf = this._virtualFolders[id];
     if (!vf) {
       this.#logger('no such virtual folder:', id);
       return;
     }
-    vf.addFiles(paths);
+    const nativePaths: string[] = [];
+    const archiveRefs: { archiveName: string; entryName: string }[] = [];
+    for (const e of entries) {
+      if (e.archiveName) {
+        archiveRefs.push({ archiveName: e.archiveName, entryName: path.relative(e.archiveName, e.path) });
+      } else {
+        nativePaths.push(e.path);
+      }
+    }
+    if (nativePaths.length) vf.addFiles(nativePaths);
+    if (archiveRefs.length) vf.addArchiveFiles(archiveRefs);
     this.#virtualFolderIndex.noteRecent(id);
   }
 

@@ -23,7 +23,6 @@ import path from 'node:path';
 import { otherWindowIPC } from '../../lib/electron-renderer-imports.js';
 import debug from '../../lib/debug.js';
 import * as archive from './archive.js';
-import type { ArchiveFiles } from './archive.js';
 import bind from '../../lib/bind.js';
 import type { MediaServerStream, MediaManagerChannel } from '../../lib/media-manager-types.js';
 
@@ -37,34 +36,26 @@ class MediaClientProxy {
   private readonly _id: number;
   private readonly _stream: MediaServerStream;
   private readonly _logger: ReturnType<typeof debug>;
-  private _archiveName: string | null = null;
+  // Requests are processed one at a time to bound decompression work per client;
+  // the open archives and decompressed bytes themselves are cached module-wide in
+  // archive.ts (shared across clients, LRU + byte-budgeted), so switching between a
+  // handful of archives no longer re-reads their central directories.
   private _requests: PendingRequest[] = [];
   private _currentRequest: PendingRequest | null = null;
-  private _archiveFiles: ArchiveFiles = {};
-  // Cached decompressed bytes keyed by entry filename. We send the raw
-  // bytes over the channel-stream and let the client wrap them in a Blob
-  // locally; that gives both Electron (file://) and browser clients
-  // (http://) a same-origin blob URL they can use as <img src>.
-  private _archiveBytesByFilename: Record<string, Uint8Array> = {};
 
   constructor(id: number, stream: MediaServerStream) {
     this._id = id;
     this._stream = stream;
     this._logger = debug('MediaClientProxy', id);
-    bind(this, '_sendMediaStatus', '_getMediaStatus', '_disconnect');
+    bind(this, '_getMediaStatus', '_disconnect');
 
     stream.on('getMediaStatus', this._getMediaStatus);
     stream.on('disconnect', this._disconnect);
   }
 
   close(): void {
-    this._closeArchive();
-  }
-
-  private _closeArchive(): void {
-    this._archiveFiles = {};
-    this._archiveBytesByFilename = {};
-    this._archiveName = null;
+    this._requests = [];
+    this._currentRequest = null;
   }
 
   private _disconnect(): void {
@@ -82,27 +73,25 @@ class MediaClientProxy {
     this._processNextRequest();
   }
 
-  private async _sendMediaStatus(): Promise<void> {
-    const { requestId, archiveName, filename } = this._currentRequest!;
-    const blobInfo = this._archiveFiles[filename];
-    let exception: unknown;
-    let bytes = this._archiveBytesByFilename[filename];
-
-    if (blobInfo && !bytes) {
-      try {
-        const blob = await blobInfo.blob();
-        bytes = new Uint8Array(await blob.arrayBuffer());
-        this._archiveBytesByFilename[filename] = bytes;
-      } catch (e) {
-        exception = e;
-      }
+  private async _processNextRequest(): Promise<void> {
+    this._logger('processNextRequest');
+    if (this._currentRequest || this._requests.length === 0) {
+      return;
     }
 
-    const error = exception
-      ? `${exception} for: ${filename}`
-      : blobInfo
-        ? null
-        : `no blobInfo for: ${filename}`;
+    const request = this._currentRequest = this._requests.shift()!;
+    const { requestId, archiveName, filename } = request;
+
+    let data: archive.ArchiveEntryData | null = null;
+    let error: string | null = null;
+    try {
+      data = await archive.getArchiveEntryBytes(archiveName, filename);
+      if (!data) {
+        error = `no blobInfo for: ${filename}`;
+      }
+    } catch (e) {
+      error = `${e} for: ${filename}`;
+    }
 
     this._logger(
       'sendMediaStatus: reqId:', requestId,
@@ -115,48 +104,21 @@ class MediaClientProxy {
       'mediaStatus',
       requestId,
       error,
-      blobInfo && !exception
+      data && !error
         ? {
-          size: blobInfo.size,
-          type: blobInfo.type,
-          mtime: blobInfo.mtime,
+          size: data.size,
+          type: data.type,
+          mtime: data.mtime,
           // Raw decompressed bytes — client wraps them in a Blob and
           // calls URL.createObjectURL locally so the resulting URL is
           // same-origin with whatever transport delivered them.
-          bytes,
+          bytes: data.bytes,
         }
         : undefined,
     );
 
     this._currentRequest = null;
     this._processNextRequest();
-  }
-
-  private async _processNextRequest(): Promise<void> {
-    this._logger('processNextRequest');
-    if (this._currentRequest || this._requests.length === 0) {
-      return;
-    }
-
-    this._currentRequest = this._requests.shift()!;
-    const request = this._currentRequest;
-
-    if (this._archiveName === request.archiveName) {
-      this._sendMediaStatus();
-      return;
-    }
-
-    this._logger('createDecompressor:', request.archiveName);
-    this._closeArchive();
-    this._archiveName = request.archiveName;
-
-    try {
-      this._archiveFiles = await archive.createDecompressor(request.archiveName);
-    } catch {
-      this._archiveFiles = {};
-    }
-
-    process.nextTick(this._sendMediaStatus);
   }
 }
 

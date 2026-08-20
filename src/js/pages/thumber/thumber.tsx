@@ -30,7 +30,7 @@ import createLimitedResourceManager, { LimitedResourceManager } from '../../lib/
 import createMediaLoader from './media-loader.js';
 import createThumbnailMaker from './thumbnail-maker.js';
 import createThumbnailPageMaker from './thumbnail-page-maker.js';
-import ThumbnailManager from './thumbnail-manager.js';
+import ThumbnailManager, { VirtualFolderAddEntry } from './thumbnail-manager.js';
 import ThumbnailRenderer from './thumbnail-renderer.js';
 import NativeFolder from './native-folder.js';
 import ArchiveFolder from './archive-folder.js';
@@ -332,23 +332,82 @@ function start(args: ProgOptions) {
         log('deleteFolder failed:', folderKey, err);
       }
     });
+    // Create a new folder. Kind is derived from the key: a virtual folder key makes
+    // a new uniquely-named virtual folder; a native path makes an "Untitled" subdir.
+    stream.on('createFolder', async (folderKey: string) => {
+      if (isVirtualFolderKey(folderKey)) {
+        const taken = new Set(g.thumbnailManager.listVirtualFolders().map(f => f.name.trim().toLowerCase()));
+        let name = 'Untitled';
+        for (let i = 2; taken.has(name.toLowerCase()); ++i) name = `Untitled ${i}`;
+        g.thumbnailManager.createVirtualFolder(name);
+        sendVirtualFolders();
+        return;
+      }
+      try {
+        await ipcRenderer.invoke('createFolder', folderKey);
+        g.thumbnailManager.refreshFolder(folderKey);
+      } catch (err) {
+        log('createFolder failed:', folderKey, err);
+      }
+    });
+    // Rename a folder. Virtual folders rename in place (dup names rejected); native
+    // folders are renamed on disk (the OS rejects a name that already exists).
+    stream.on('renameFolder', async (folderKey: string, newName: string) => {
+      if (isVirtualFolderKey(folderKey)) {
+        const id = virtualFolderIdFromKey(folderKey);
+        const ok = id ? g.thumbnailManager.renameVirtualFolder(id, newName) : false;
+        stream.send('renameFolderResult', folderKey, ok, ok ? '' : 'A folder with that name already exists.');
+        sendVirtualFolders();
+        return;
+      }
+      try {
+        const dest = path.join(path.dirname(folderKey), newName);
+        await ipcRenderer.invoke('renameFolder', folderKey, dest);
+        stream.send('renameFolderResult', folderKey, true, '');
+      } catch (err) {
+        log('renameFolder failed:', folderKey, err);
+        stream.send('renameFolderResult', folderKey, false, `${(err as Error).message ?? err}`);
+      }
+    });
     // ── Virtual folder management (view → thumber) ──────────────────────
     stream.on('requestVirtualFolders', () => stream.send('virtualFolders', virtualFolderState()));
     stream.on('createVirtualFolder', (name: string) => {
       g.thumbnailManager.createVirtualFolder(name);
       sendVirtualFolders();
     });
-    stream.on('addToVirtualFolder', (id: string, paths: string[]) => {
-      g.thumbnailManager.addFilesToVirtualFolder(id, paths);
+    stream.on('addToVirtualFolder', (id: string, entries: VirtualFolderAddEntry[]) => {
+      g.thumbnailManager.addFilesToVirtualFolder(id, entries);
       sendVirtualFolders();
     });
-    stream.on('addToNewVirtualFolder', (name: string, paths: string[]) => {
+    stream.on('addToNewVirtualFolder', (name: string, entries: VirtualFolderAddEntry[]) => {
       const id = g.thumbnailManager.createVirtualFolder(name);
-      g.thumbnailManager.addFilesToVirtualFolder(id, paths);
+      g.thumbnailManager.addFilesToVirtualFolder(id, entries);
       sendVirtualFolders();
     });
     stream.on('removeFromVirtualFolder', (id: string, filePath: string) => {
       g.thumbnailManager.removeFileFromVirtualFolder(id, filePath);
+    });
+    // ── Drag & drop of real files between native folders ────────────────
+    // The destination folder's watcher surfaces the new files; for a move we also
+    // proactively drop the file from its source (and any virtual folders).
+    stream.on('copyFiles', async (paths: string[], destDir: string) => {
+      for (const src of paths) {
+        try {
+          await ipcRenderer.invoke('copyFileToDir', src, destDir);
+        } catch (err) {
+          log('copyFile failed:', src, err);
+        }
+      }
+    });
+    stream.on('moveFiles', async (paths: string[], destDir: string) => {
+      for (const src of paths) {
+        try {
+          await ipcRenderer.invoke('moveFileToDir', src, destDir);
+          g.thumbnailManager.removeFile(src);
+        } catch (err) {
+          log('moveFile failed:', src, err);
+        }
+      }
     });
     // Pull-based init: the renderer asks for the current snapshot once it
     // has its 'updateFiles' listener attached. Pushing on connect would race

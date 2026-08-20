@@ -54,6 +54,66 @@ describe('VirtualFolderData', () => {
     assert.isFalse(vf.removeFiles(['/nope.jpg']));
   });
 
+  it('addArchiveFiles preserves order and de-dupes by composite path', () => {
+    const fs = makeFakeFs();
+    const vf = new VirtualFolderData('id1', { fs, dataDir });
+    assert.isTrue(vf.addArchiveFiles([
+      { archiveName: '/a.zip', entryName: 'x.jpg' },
+      { archiveName: '/a.zip', entryName: 'y.jpg' },
+    ]));
+    // y.jpg is a dup (same composite path); z is new
+    assert.isTrue(vf.addArchiveFiles([
+      { archiveName: '/a.zip', entryName: 'y.jpg' },
+      { archiveName: '/b.zip', entryName: 'z.jpg' },
+    ]));
+    assert.deepEqual(vf.archives, [
+      { archiveName: '/a.zip', entryName: 'x.jpg' },
+      { archiveName: '/a.zip', entryName: 'y.jpg' },
+      { archiveName: '/b.zip', entryName: 'z.jpg' },
+    ]);
+    assert.isFalse(vf.addArchiveFiles([{ archiveName: '/a.zip', entryName: 'x.jpg' }]));
+  });
+
+  it('removeFiles removes archive entries by composite path too', () => {
+    const fs = makeFakeFs();
+    const vf = new VirtualFolderData('id1', { fs, dataDir });
+    vf.addFiles(['/n.jpg']);
+    vf.addArchiveFiles([
+      { archiveName: '/a.zip', entryName: 'x.jpg' },
+      { archiveName: '/a.zip', entryName: 'y.jpg' },
+    ]);
+    // path.join('/a.zip', 'x.jpg') === '/a.zip/x.jpg'
+    assert.isTrue(vf.removeFiles(['/a.zip/x.jpg']));
+    assert.deepEqual(vf.archives, [{ archiveName: '/a.zip', entryName: 'y.jpg' }]);
+    assert.deepEqual(vf.files, ['/n.jpg'], 'native list untouched');
+  });
+
+  it('archives round-trip through disk', () => {
+    const fs = makeFakeFs();
+    const a = new VirtualFolderData('id1', { fs, dataDir });
+    a.addArchiveFiles([{ archiveName: '/a.zip', entryName: 'x.jpg' }]);
+    a.flush();
+
+    const b = new VirtualFolderData('id1', { fs, dataDir });
+    assert.deepEqual(b.archives, [{ archiveName: '/a.zip', entryName: 'x.jpg' }]);
+  });
+
+  it('migrates a v1 file (no archives) forward', () => {
+    const fs = makeFakeFs();
+    // Seed a v1-shaped JSON at the path the loader will read.
+    const seed = new VirtualFolderData('id1', { fs, dataDir });
+    const jsonPath = `${seed.baseFilename}.json`;
+    fs.files.set(jsonPath, JSON.stringify({ version: 1, id: 'id1', name: 'Old', files: ['/a.jpg'] }));
+
+    const vf = new VirtualFolderData('id1', { fs, dataDir });
+    assert.strictEqual(vf.name, 'Old');
+    assert.deepEqual(vf.files, ['/a.jpg']);
+    assert.deepEqual(vf.archives, [], 'archives defaulted on migration');
+    vf.flush();
+    const reloaded = JSON.parse(fs.files.get(jsonPath)!);
+    assert.strictEqual(reloaded.version, 2);
+  });
+
   it('setName updates and reports change', () => {
     const fs = makeFakeFs();
     const vf = new VirtualFolderData('id1', { fs, dataDir });

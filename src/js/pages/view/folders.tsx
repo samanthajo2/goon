@@ -25,6 +25,7 @@ import { getRotatedXY } from '../../lib/rotatehelper.js';
 import ForwardableEvent from '../../lib/forwardable-event.js';
 import { cssArray } from '../../lib/css-utils.js';
 import { isVirtualFolderKey } from '../thumber/virtual-folder-key.js';
+import { getDragContext } from './drag-context.js';
 import { FolderStateRoot, FolderStateFolder } from './folder-state-helper.js';
 import { AppContext } from './contexts.js';
 
@@ -197,6 +198,25 @@ class Folder extends React.Component<FolderProps> {
     this.context.eventBus.dispatch(new ForwardableEvent('folderContextMenu', event.nativeEvent), ctxInfo);
   };
 
+  // ── Internal drag-and-drop target ───────────────────────────────────
+  // Only offer to accept a drop when there's an in-app drag in flight (we drive
+  // everything off drag-context, since the OS drop carries no usable paths).
+  private _handleDragOver = (event: React.DragEvent): void => {
+    if (getDragContext()) {
+      event.preventDefault(); // allow the drop
+    }
+  };
+
+  private _handleDrop = (event: React.DragEvent): void => {
+    if (!getDragContext()) return;
+    event.preventDefault();
+    this.context.eventBus.dispatch(
+      new ForwardableEvent('dropOnFolder'),
+      this.props.entry.filename,
+      event.metaKey || event.ctrlKey,
+    );
+  };
+
   scrollIntoView(): void {
     this._ref.current?.scrollIntoView({
       behavior: 'auto',
@@ -222,6 +242,8 @@ class Folder extends React.Component<FolderProps> {
         className={classes.toString()}
         onClick={this._handleClick}
         onContextMenu={this._handleContextMenu}
+        onDragOver={this._handleDragOver}
+        onDrop={this._handleDrop}
       >
         <div ref={this._ref}>{name} ({entry.numFiles})</div>
       </div>

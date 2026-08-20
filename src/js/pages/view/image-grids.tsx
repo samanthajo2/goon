@@ -36,6 +36,8 @@ import { setRAF } from '../../lib/wait.js';
 import { FolderStateRoot, FolderStateFolder, SortInfo } from './folder-state-helper.js';
 import { AppContext } from './contexts.js';
 import { toggleSelection, shiftToggleSelection, selectEntries, clearSelection, SelectionEntry } from './selection-state.js';
+import { getDragContext } from './drag-context.js';
+import { isVirtualFolderKey } from '../thumber/virtual-folder-key.js';
 
 let g_imageGridsRenderCount = 0;
 let g_renderCount = 0;
@@ -229,6 +231,25 @@ class ImageGrid extends React.Component<ImageGridProps> {
     );
   };
 
+  // ── Internal drag-and-drop target ───────────────────────────────────
+  // Dropping anywhere in a grid targets that grid's folder. Only accept when an
+  // in-app drag is in flight (the OS drop carries no usable paths).
+  private _handleDragOver = (event: React.DragEvent): void => {
+    if (getDragContext()) {
+      event.preventDefault(); // allow the drop
+    }
+  };
+
+  private _handleDrop = (event: React.DragEvent): void => {
+    if (!getDragContext()) return;
+    event.preventDefault();
+    this.context.eventBus.dispatch(
+      new ForwardableEvent('dropOnFolder'),
+      this.props.folder.filename,
+      event.metaKey || event.ctrlKey,
+    );
+  };
+
   render(): React.ReactNode {
     this._logger('render');
     const { setCurrentView, folder, width, zoom, gridMode, options } = this.props;
@@ -262,9 +283,21 @@ class ImageGrid extends React.Component<ImageGridProps> {
     });
     const style = { height: px(columnManager.height) };
     return (
-      <div ref={(elem) => { this.grid = elem!; }} className="imagegrid">
-        <div className="imagegridhead" onContextMenu={this._handleContextMenu}>
-          {prefs.misc.fullPathOnSeparator ? folder.filename : folder.name}
+      <div
+        ref={(elem) => { this.grid = elem!; }}
+        className="imagegrid"
+        onDragOver={this._handleDragOver}
+        onDrop={this._handleDrop}
+      >
+        <div
+          className={`imagegridhead${isVirtualFolderKey(folder.filename) ? ' virtual-folder' : ''}`}
+          onContextMenu={this._handleContextMenu}
+        >
+          {/* Virtual folders have a synthetic vfolder:<id> key, so always show their
+              display name rather than the full "path". */}
+          {isVirtualFolderKey(folder.filename)
+            ? folder.name
+            : (prefs.misc.fullPathOnSeparator ? folder.filename : folder.name)}
         </div>
         <div className="grid" style={style}>{images}</div>
       </div>

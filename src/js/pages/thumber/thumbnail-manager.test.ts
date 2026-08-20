@@ -49,9 +49,12 @@ describe('ThumbnailManager', () => {
     getData: sinon.SinonStub;
     refresh: sinon.SinonSpy;
     references: sinon.SinonStub;
+    referencesArchive: sinon.SinonStub;
     addFiles: sinon.SinonSpy;
+    addArchiveFiles: sinon.SinonSpy;
     removeFiles: sinon.SinonSpy;
     removeFileAndNotify: sinon.SinonSpy;
+    setName: sinon.SinonSpy;
   }>;
 
   function createMockNativeFolder(filename: string) {
@@ -83,9 +86,12 @@ describe('ThumbnailManager', () => {
     folder.getData = sinon.stub().returns({ files: {}, status: { virtual: true } });
     folder.refresh = sinon.spy();
     folder.references = sinon.stub().returns(false);
+    folder.referencesArchive = sinon.stub().returns(false);
     folder.addFiles = sinon.spy();
+    folder.addArchiveFiles = sinon.spy();
     folder.removeFiles = sinon.spy();
     folder.removeFileAndNotify = sinon.spy();
+    folder.setName = sinon.spy();
     return folder;
   }
 
@@ -454,15 +460,51 @@ describe('ThumbnailManager', () => {
 
     it('addFilesToVirtualFolder delegates and notes it recent', () => {
       const id = manager.createVirtualFolder('VF');
-      manager.addFilesToVirtualFolder(id, ['/x/a.jpg', '/x/b.jpg']);
+      manager.addFilesToVirtualFolder(id, [{ path: '/x/a.jpg' }, { path: '/x/b.jpg' }]);
       assert.ok(mockVirtualFolders[id].addFiles.calledWith(['/x/a.jpg', '/x/b.jpg']));
       assert.deepEqual(manager.getRecentVirtualFolders().map(e => e.id), [id]);
+    });
+
+    it('addFilesToVirtualFolder routes archive entries to addArchiveFiles', () => {
+      const id = manager.createVirtualFolder('VF');
+      manager.addFilesToVirtualFolder(id, [
+        { path: '/x/a.jpg' },
+        { path: '/arc/pics.zip/inside.jpg', archiveName: '/arc/pics.zip' },
+      ]);
+      assert.ok(mockVirtualFolders[id].addFiles.calledWith(['/x/a.jpg']), 'native path added');
+      assert.ok(
+        mockVirtualFolders[id].addArchiveFiles.calledWith([
+          { archiveName: '/arc/pics.zip', entryName: 'inside.jpg' },
+        ]),
+        'archive entry routed with derived entryName',
+      );
     });
 
     it('removeFileFromVirtualFolder delegates (folder-only removal)', () => {
       const id = manager.createVirtualFolder('VF');
       manager.removeFileFromVirtualFolder(id, '/x/a.jpg');
       assert.ok(mockVirtualFolders[id].removeFiles.calledWith(['/x/a.jpg']));
+    });
+
+    it('renameVirtualFolder renames a unique name and updates the folder', () => {
+      const id = manager.createVirtualFolder('VF');
+      assert.isTrue(manager.renameVirtualFolder(id, 'Renamed'));
+      assert.ok(mockVirtualFolders[id].setName.calledWith('Renamed'));
+      assert.strictEqual(manager.listVirtualFolders().find(f => f.id === id)!.name, 'Renamed');
+    });
+
+    it('renameVirtualFolder rejects a name already used by another folder', () => {
+      const a = manager.createVirtualFolder('Alpha');
+      const b = manager.createVirtualFolder('Beta');
+      assert.isFalse(manager.renameVirtualFolder(b, 'alpha'), 'case-insensitive clash rejected');
+      assert.isFalse(mockVirtualFolders[b].setName.called, 'no rename applied');
+      assert.strictEqual(manager.listVirtualFolders().find(f => f.id === b)!.name, 'Beta', 'name unchanged');
+      assert.strictEqual(manager.listVirtualFolders().find(f => f.id === a)!.name, 'Alpha');
+    });
+
+    it('renameVirtualFolder rejects an empty name', () => {
+      const id = manager.createVirtualFolder('VF');
+      assert.isFalse(manager.renameVirtualFolder(id, '   '));
     });
 
     it('deleteVirtualFolder tears it down and emits removal', () => {
@@ -487,7 +529,7 @@ describe('ThumbnailManager', () => {
     it('removeFile force-removes the real file from native folder AND referencing virtual folders', () => {
       manager.setFolders(['/vol']);
       const id = manager.createVirtualFolder('VF');
-      manager.addFilesToVirtualFolder(id, ['/vol/c.jpg']);
+      manager.addFilesToVirtualFolder(id, [{ path: '/vol/c.jpg' }]);
       mockVirtualFolders[id].references.returns(true);
 
       const removed = manager.removeFile('/vol/c.jpg');

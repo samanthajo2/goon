@@ -358,6 +358,17 @@ export default class Prefs extends React.Component<PrefsProps, PrefsState> {
     // listener attached, which avoids a race where pushing on connect
     // would arrive before that listener wires up (similar fix as thumber).
     stream.on('requestPrefs', () => { this._sendPrefs(stream, this._getPrefsToSend()); });
+    // Any window (e.g. the viewer's "Show Empty Folders" toggle) can persist a
+    // single misc preference; we save it and broadcast the update to everyone.
+    stream.on('setMiscPref', (...args: unknown[]) => { this._setMiscPref(args[0] as string, args[1]); });
+  }
+
+  _setMiscPref(key: string, value: unknown): void {
+    const prefs = {
+      ...this.state.prefs,
+      misc: { ...this.state.prefs.misc, [key]: value },
+    } as Preferences;
+    this._updateState({ prefs });
   }
 
   _removeStream(stream: unknown): void {

@@ -157,6 +157,132 @@ async function createDecompressor(filename: string): Promise<ArchiveFiles> {
   }
 }
 
+// ── Archive cache ───────────────────────────────────────────────────────────
+// Reading an archive's central directory (via createDecompressor) is the per-open
+// cost; each entry's data is only decompressed on demand by its lazy blob(). To
+// avoid re-reading the directory every time the viewer bounces between archives, we
+// keep two shared LRUs:
+//   • a small directory cache (archive path+mtime+size → open ArchiveFiles), and
+//   • a byte-budgeted cache of already-decompressed entry bytes.
+// Both are content-versioned by the archive's mtime+size, so an edited/replaced
+// archive is transparently re-read. Injectable (stat/decompress) for testing; the
+// module exposes a default instance wired to real fs + createDecompressor.
+
+const SEP = '\u0000'; // NUL — cannot appear in a path, so key prefixes never collide
+
+export type ArchiveEntryData = {
+  bytes: Uint8Array;
+  type: string;
+  size: number;
+  mtime: number;
+};
+
+export type ArchiveCacheOptions = {
+  stat: (filename: string) => Promise<{ mtimeMs: number; size: number }>;
+  decompress: (filename: string) => Promise<ArchiveFiles>;
+  maxArchives?: number; // directory reads to retain (metadata only — cheap)
+  maxBytes?: number;    // budget for decompressed entry bytes (the real memory user)
+};
+
+export function createArchiveCache(options: ArchiveCacheOptions) {
+  const maxArchives = options.maxArchives ?? 8;
+  const maxBytes = options.maxBytes ?? 256 * 1024 * 1024;
+  // Map insertion order is the LRU order (oldest key first).
+  const dirCache = new Map<string, Promise<ArchiveFiles>>();
+  const bytesCache = new Map<string, Uint8Array>();
+  let bytesTotal = 0;
+
+  function touch<T>(map: Map<string, T>, key: string, val: T): void {
+    map.delete(key);
+    map.set(key, val);
+  }
+
+  async function versionKey(filename: string): Promise<string> {
+    const st = await options.stat(filename);
+    return `${filename}${SEP}${st.mtimeMs}${SEP}${st.size}`;
+  }
+
+  // Synchronous cache section (no awaits between the miss check and the insert) so
+  // concurrent callers for the same archive share a single in-flight decompress.
+  function getForKey(filename: string, key: string): Promise<ArchiveFiles> {
+    const existing = dirCache.get(key);
+    if (existing) {
+      touch(dirCache, key, existing);
+      return existing;
+    }
+    // A different version of the same archive is now stale — drop it.
+    for (const k of [...dirCache.keys()]) {
+      if (k.startsWith(`${filename}${SEP}`)) {
+        dirCache.delete(k);
+      }
+    }
+    const p = options.decompress(filename);
+    p.catch(() => { if (dirCache.get(key) === p) dirCache.delete(key); }); // don't cache failures
+    dirCache.set(key, p);
+    while (dirCache.size > maxArchives) {
+      dirCache.delete(dirCache.keys().next().value as string);
+    }
+    return p;
+  }
+
+  function putBytes(key: string, bytes: Uint8Array): void {
+    const existing = bytesCache.get(key);
+    if (existing) {
+      bytesTotal -= existing.byteLength;
+      bytesCache.delete(key);
+    }
+    bytesCache.set(key, bytes);
+    bytesTotal += bytes.byteLength;
+    // Evict oldest until under budget, but always keep at least the just-added one.
+    while (bytesTotal > maxBytes && bytesCache.size > 1) {
+      const oldestKey = bytesCache.keys().next().value as string;
+      bytesTotal -= bytesCache.get(oldestKey)!.byteLength;
+      bytesCache.delete(oldestKey);
+    }
+  }
+
+  async function getArchive(filename: string): Promise<ArchiveFiles> {
+    return getForKey(filename, await versionKey(filename));
+  }
+
+  // Decompress a single entry's bytes (only the item being viewed), served from the
+  // byte cache when possible. Returns null if the entry isn't in the archive.
+  async function getArchiveEntryBytes(archiveName: string, entry: string): Promise<ArchiveEntryData | null> {
+    const key = await versionKey(archiveName);
+    const info = (await getForKey(archiveName, key))[entry];
+    if (!info) {
+      return null;
+    }
+    const bytesKey = `${key}${SEP}${entry}`;
+    let bytes = bytesCache.get(bytesKey);
+    if (bytes) {
+      touch(bytesCache, bytesKey, bytes);
+    } else {
+      const blob = await info.blob();
+      bytes = new Uint8Array(await blob.arrayBuffer());
+      putBytes(bytesKey, bytes);
+    }
+    return { bytes, type: info.type, size: info.size, mtime: info.mtime };
+  }
+
+  return {
+    getArchive,
+    getArchiveEntryBytes,
+    // Introspection for tests.
+    _dirCacheSize: () => dirCache.size,
+    _bytesTotal: () => bytesTotal,
+  };
+}
+
+const g_defaultCache = createArchiveCache({
+  stat: (filename) => pfs.stat(filename),
+  decompress: createDecompressor,
+});
+const getArchive = g_defaultCache.getArchive;
+const getArchiveEntryBytes = g_defaultCache.getArchiveEntryBytes;
+
 export {
   createDecompressor,
+  getArchive,
+  getArchiveEntryBytes,
 };

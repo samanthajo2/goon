@@ -121,7 +121,10 @@ describe('VirtualFolder ↔ NativeFolder (shared real file)', () => {
       existsSync: (p: string) => disk.dirs.has(p) || disk.files.has(p),
       unlinkSync: () => {},
     };
-    const vf = new VirtualFolder('vf1', { def, cache, thumbnailPageMakerFn: vfPM.fn, fs: mediaFs });
+    const archivePM = async () => ({});
+    const vf = new VirtualFolder('vf1', {
+      def, cache, thumbnailPageMakerFn: vfPM.fn, archiveThumbnailPageMakerFn: archivePM, fs: mediaFs,
+    });
 
     // Wire propagation exactly like ThumbnailManager._propagateToVirtualFolders.
     const pendingRefreshes: Promise<void>[] = [];

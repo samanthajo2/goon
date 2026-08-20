@@ -64,14 +64,44 @@ function makeThumbFn() {
   return { fn, calls };
 }
 
+// Fake archive maker: returns a FileInfo for each requested entry, keyed by the
+// composite path (archive + entry), tagged with archiveName. Records calls.
+function makeArchiveThumbFn() {
+  const calls: { archiveName: string; base: string; entryNames: string[] }[] = [];
+  const fn = async (archiveName: string, base: string, entryNames: string[]): Promise<FilesByPath> => {
+    calls.push({ archiveName, base, entryNames });
+    const out: FilesByPath = {};
+    for (const entryName of entryNames) {
+      const p = `${archiveName}/${entryName}`;
+      out[p] = {
+        displayName: p,
+        archiveName,
+        isDirectory: false,
+        mtime: 1,
+        size: 10,
+        orientation: 1,
+        type: 'image/jpeg',
+        width: 100,
+        height: 100,
+        thumbnail: { x: 0, y: 0, width: 100, height: 100, url: `${base}_0.png`, pageSize: 2048 },
+      } as FileInfo;
+    }
+    return out;
+  };
+  return { fn, calls };
+}
+
 function makeVF(id: string) {
   const jsonFs = makeJsonFs();
   const mediaFs = makeMediaFs();
   const { fn, calls } = makeThumbFn();
+  const { fn: archiveFn, calls: archiveCalls } = makeArchiveThumbFn();
   const def = new VirtualFolderData(id, { fs: jsonFs, dataDir });
   const cache = new FolderData(id, { fs: jsonFs, dataDir, prefix: 'vfolder-cache' });
-  const vf = new VirtualFolder(id, { def, cache, thumbnailPageMakerFn: fn, fs: mediaFs });
-  return { vf, def, cache, mediaFs, jsonFs, calls };
+  const vf = new VirtualFolder(id, {
+    def, cache, thumbnailPageMakerFn: fn, archiveThumbnailPageMakerFn: archiveFn, fs: mediaFs,
+  });
+  return { vf, def, cache, mediaFs, jsonFs, calls, archiveCalls };
 }
 
 describe('VirtualFolder', () => {
@@ -159,6 +189,83 @@ describe('VirtualFolder', () => {
     assert.include(def.files, '/vol/b.jpg');
     assert.isTrue(mediaFs.files.has('/vol/a.jpg'), 'the real file on disk is untouched');
     assert.sameMembers(Object.keys(vf.getData().files), ['/vol/b.jpg']);
+  });
+
+  it('generates thumbnails for archive entries via the archive maker', async () => {
+    const { vf, def, mediaFs, archiveCalls } = makeVF('id1');
+    await tick();
+    mediaFs.dirs.add('/vol');
+    mediaFs.files.set('/vol/pics.zip', { size: 100, mtime: 5 });
+    def.addArchiveFiles([
+      { archiveName: '/vol/pics.zip', entryName: 'a.jpg' },
+      { archiveName: '/vol/pics.zip', entryName: 'b.jpg' },
+    ]);
+    await vf.refresh();
+    assert.sameMembers(Object.keys(vf.getData().files), ['/vol/pics.zip/a.jpg', '/vol/pics.zip/b.jpg']);
+    assert.strictEqual(archiveCalls.length, 1, 'archive decompressed once');
+    assert.strictEqual(archiveCalls[0].archiveName, '/vol/pics.zip');
+    assert.sameMembers(archiveCalls[0].entryNames, ['a.jpg', 'b.jpg'], 'only referenced entries requested');
+
+    // Viewability contract: the media-manager archive branch keys off these three
+    // fields. The key must be the composite path (what requestMedia sends), and the
+    // FileInfo must carry the real archive path + a media mime type so the server can
+    // path.dirname/path.basename it, open the archive, and the viewer can render it.
+    const entry = vf.getData().files['/vol/pics.zip/a.jpg'];
+    assert.strictEqual(entry.archiveName, '/vol/pics.zip', 'archiveName = real on-disk archive');
+    assert.match(entry.type, /^image\//, 'media mime type present');
+  });
+
+  it('does not re-decompress an unchanged archive, but regenerates a changed one', async () => {
+    const { vf, def, mediaFs, archiveCalls } = makeVF('id1');
+    await tick();
+    mediaFs.dirs.add('/vol');
+    mediaFs.files.set('/vol/pics.zip', { size: 100, mtime: 5 });
+    def.addArchiveFiles([{ archiveName: '/vol/pics.zip', entryName: 'a.jpg' }]);
+    await vf.refresh();
+    assert.strictEqual(archiveCalls.length, 1);
+
+    // Unchanged archive → no re-decompress.
+    await vf.refresh();
+    assert.strictEqual(archiveCalls.length, 1, 'archive mtime unchanged → skipped');
+
+    // Archive file changes → regenerate its entries.
+    mediaFs.files.set('/vol/pics.zip', { size: 120, mtime: 9 });
+    await vf.refresh();
+    assert.strictEqual(archiveCalls.length, 2, 'changed archive → regen');
+    assert.deepEqual(archiveCalls[1].entryNames, ['a.jpg']);
+  });
+
+  it('keeps archive entries when the archive is offline, prunes them when it is gone', async () => {
+    const { vf, def, mediaFs, archiveCalls } = makeVF('id1');
+    await tick();
+    mediaFs.dirs.add('/vol');
+    mediaFs.files.set('/vol/pics.zip', { size: 100, mtime: 5 });
+    def.addArchiveFiles([{ archiveName: '/vol/pics.zip', entryName: 'a.jpg' }]);
+    await vf.refresh();
+    const afterFirst = archiveCalls.length;
+
+    // Volume offline: archive file and its dir both disappear → keep cached entry.
+    mediaFs.files.delete('/vol/pics.zip');
+    mediaFs.dirs.delete('/vol');
+    await vf.refresh();
+    assert.include(Object.keys(vf.getData().files), '/vol/pics.zip/a.jpg', 'offline archive entry kept');
+    assert.deepEqual(def.archives, [{ archiveName: '/vol/pics.zip', entryName: 'a.jpg' }], 'still referenced');
+    assert.strictEqual(archiveCalls.length, afterFirst, 'no regen while offline');
+
+    // Archive truly deleted: file gone but its dir (volume) present → prune.
+    mediaFs.dirs.add('/vol');
+    await vf.refresh();
+    assert.notInclude(Object.keys(vf.getData().files), '/vol/pics.zip/a.jpg', 'gone archive entry pruned');
+    assert.deepEqual(def.archives, [], 'removed from the definition');
+  });
+
+  it('referencesArchive reports whether any entry lives in the given archive', async () => {
+    const { vf, def } = makeVF('id1');
+    await tick();
+    def.addArchiveFiles([{ archiveName: '/vol/pics.zip', entryName: 'a.jpg' }]);
+    assert.isTrue(vf.referencesArchive('/vol/pics.zip'));
+    assert.isFalse(vf.referencesArchive('/vol/other.zip'));
+    assert.isTrue(vf.references('/vol/pics.zip/a.jpg'), 'references matches composite path');
   });
 
   it('deleteData removes the thumbnail pages and the definition, not the real files', async () => {

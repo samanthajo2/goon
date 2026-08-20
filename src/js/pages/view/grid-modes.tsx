@@ -379,7 +379,7 @@ function renderName(props: ThumbnailProps, info: DBFileInfo) {
   return `${date}${name}${dims}`;
 }
 
-function renderNoFrame(props: ThumbnailRenderProps, onClick: () => void, onContextMenu: (e: React.MouseEvent) => void, onDragStart: (e: React.DragEvent) => void, onPointerDown: () => void, onCheckboxClick: (e: React.MouseEvent) => void) {
+function renderNoFrame(props: ThumbnailRenderProps, onClick: (e: React.MouseEvent) => void, onContextMenu: (e: React.MouseEvent) => void, onDragStart: (e: React.DragEvent) => void, onPointerDown: () => void, onCheckboxClick: (e: React.MouseEvent) => void, onDragEnd: () => void) {
   const info = props.info;
   const style = gridModes.value(props.gridMode).getStyle(props);
   const baseType = `mime-${info.type.split('/')[0]}`;
@@ -387,7 +387,7 @@ function renderNoFrame(props: ThumbnailRenderProps, onClick: () => void, onConte
   const className = cssArray('thumbnail', baseType, mimeType);
   const duration = shortDuration(info.duration);
   return (
-    <div draggable="true" data-duration={duration} onPointerDown={onPointerDown} onClick={onClick} onDragStart={onDragStart} onContextMenu={onContextMenu} className={className.toString()} style={style}>
+    <div draggable="true" data-duration={duration} onPointerDown={onPointerDown} onClick={onClick} onDragStart={onDragStart} onDragEnd={onDragEnd} onContextMenu={onContextMenu} className={className.toString()} style={style}>
       <div className="thumbinfo">
         <div className="name">{renderName(props, info)}</div>
       </div>
@@ -396,7 +396,7 @@ function renderNoFrame(props: ThumbnailRenderProps, onClick: () => void, onConte
     </div>
   );
 }
-function renderWithFrame(props: ThumbnailRenderProps, onClick: () => void, onContextMenu: (e: React.MouseEvent) => void, onDragStart: (e: React.DragEvent) => void, onPointerDown: () => void, onCheckboxClick: (e: React.MouseEvent) => void) {
+function renderWithFrame(props: ThumbnailRenderProps, onClick: (e: React.MouseEvent) => void, onContextMenu: (e: React.MouseEvent) => void, onDragStart: (e: React.DragEvent) => void, onPointerDown: () => void, onCheckboxClick: (e: React.MouseEvent) => void, onDragEnd: () => void) {
   const info = props.info;
   const pos = props.position;
   const style = gridModes.value(props.gridMode).getStyle(props);
@@ -413,7 +413,7 @@ function renderWithFrame(props: ThumbnailRenderProps, onClick: () => void, onCon
   return (
     <div>
       <div className="thumbnail-frame" style={frameStyle}></div>
-      <div draggable="true" data-duration={duration} onPointerDown={onPointerDown} onClick={onClick} onContextMenu={onContextMenu} onDragStart={onDragStart} className={className.toString()} style={style}>
+      <div draggable="true" data-duration={duration} onPointerDown={onPointerDown} onClick={onClick} onContextMenu={onContextMenu} onDragStart={onDragStart} onDragEnd={onDragEnd} className={className.toString()} style={style}>
         <div className="thumbinfo">
           <div className="name">{renderName(props, info)}</div>
         </div>

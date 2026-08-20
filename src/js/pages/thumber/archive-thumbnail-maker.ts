@@ -30,10 +30,20 @@ import { FileInfo, FilesByPath } from '../../lib/fileinfo.js';
 const decompressorManager = createParallelResourceManager(2);
 const logger = debug('ArchiveThumbnailMaker');
 
+// Generates thumbnail pages for the media entries inside an archive, returning a
+// FilesByPath keyed by each entry's composite path (`path.join(archive, entry)`).
+//
+// `entryNames`, when given, restricts work to just those entries (the safe entry
+// names, matching the keys returned here minus the archive prefix). Only those
+// entries are decompressed and thumbnailed — the rest are skipped. This lets a
+// virtual folder regenerate thumbnails for the handful of archive members it
+// references without decompressing the whole archive. When omitted, every media
+// entry in the archive is processed (the folder-view behavior).
 export default async function createThumbnailsForArchive(
   filepath: string,
   baseFilename: string,
-  thumbnailPageMakerManager: LimitedResourceManager<MakeThumbnailPagesFn>
+  thumbnailPageMakerManager: LimitedResourceManager<MakeThumbnailPagesFn>,
+  entryNames?: string[]
 ) {
   let archiveHandle: (() => void) | undefined;
   let tpmHandle: Awaited<ReturnType<typeof thumbnailPageMakerManager>> | undefined;
@@ -45,19 +55,27 @@ export default async function createThumbnailsForArchive(
     logger('waiting for decompressor:', filepath);
     archiveHandle = await decompressorManager();
     logger('decompressing:', filepath);
-    const archiveFiles = await archive.createDecompressor(filepath);
+    const allArchiveFiles = await archive.getArchive(filepath);
+
+    // Optionally narrow to just the requested entries (e.g. a virtual folder that
+    // references only a few members). Listing the archive is cheap; only the blobs
+    // we actually thumbnail below are decompressed.
+    const wanted = entryNames ? new Set(entryNames) : undefined;
+    const entries = Object.entries(allArchiveFiles).filter(([name]) => !wanted || wanted.has(name));
+    const archiveFileNames = entries.map(([name]) => name);
+    const archiveFileInfos = entries.map(([, info]) => info);
 
     // create file like info for each blob
     const blobInfos: FilesByPath = {};
 
     // First get all the blobs
-    const blobs = await Promise.all(Object.values(archiveFiles).map(async (fileInfo) => fileInfo.blob()));
+    const blobs = await Promise.all(archiveFileInfos.map(async (fileInfo) => fileInfo.blob()));
 
     // Now get URLs for all the blobs. This way if one of the blobs
     // fails we'll have no objectURLs to discard. Otherwise if we just
     // one blob failed we'd throw, we'd then fall through to cleanup
     // but other promises might still be pending
-    Object.values(archiveFiles).forEach((fileInfo, ndx) => {
+    archiveFileInfos.forEach((fileInfo, ndx) => {
       const url = URL.createObjectURL(blobs[ndx]);
       blobUrls.push(url);
       blobInfos[url] = {
@@ -77,7 +95,7 @@ export default async function createThumbnailsForArchive(
     // Map thumbnails from blobs back to files
     newFiles = {};
     const filesByBlob: Record<string, string> = {};
-    Object.keys(archiveFiles).forEach((filename, ndx) => {
+    archiveFileNames.forEach((filename, ndx) => {
       filesByBlob[blobUrls[ndx]] = filename;
     });
     for (const [blobName, blobInfo] of Object.entries(files)) {

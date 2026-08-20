@@ -25,12 +25,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 // debounced-write pattern. This is definition-only — the generated thumbnail
 // FileInfo cache is a separate concern handled by VirtualFolder (Phase 2).
 
+import path from 'node:path';
 import debug, { Logger } from '../../lib/debug.js';
 import bind from '../../lib/bind.js';
 import { createBasename, debounce, CancelableFn } from '../../lib/utils.js';
 
 const s_saveDebounceDuration = 2000;
-const s_version = 1;
+const s_version = 2;
 
 export type VirtualFolderFsAPI = {
   existsSync: (path: string) => boolean;
@@ -39,16 +40,29 @@ export type VirtualFolderFsAPI = {
   unlinkSync: (path: string) => void;
 };
 
+// A referenced entry inside an archive. `entryName` is the archive-internal (safe)
+// name; the composite display path — matching the view's info.filename and the
+// archive thumbnail cache key — is path.join(archiveName, entryName).
+export type ArchiveRef = { archiveName: string; entryName: string };
+
+export function archiveRefPath(ref: ArchiveRef): string {
+  return path.join(ref.archiveName, ref.entryName);
+}
+
 type VirtualFolderJson = {
   version: number;
   id: string;
   name: string;
-  files: string[];
+  files: string[];        // absolute filesystem paths
+  archives: ArchiveRef[]; // entries that live inside archive files
 };
 
-// Version migrations (none yet — bump s_version and add an entry when the shape
-// changes, same as FolderData.versionConverters).
-const versionConverters: Record<number, (data: VirtualFolderJson) => VirtualFolderJson> = {};
+// Version migrations (bump s_version and add an entry when the shape changes,
+// same as FolderData.versionConverters).
+const versionConverters: Record<number, (data: VirtualFolderJson) => VirtualFolderJson> = {
+  // v1 had no archive entries.
+  1: (data) => ({ ...data, version: 2, archives: [] }),
+};
 
 export default class VirtualFolderData {
   #logger: Logger;
@@ -74,7 +88,7 @@ export default class VirtualFolderData {
     }
     this.#baseFilename = createBasename(options.dataDir, 'vfolder', id);
     this.#jsonFilename = `${this.#baseFilename}.json`;
-    this.#data = { version: s_version, id, name: options.name ?? id, files: [] };
+    this.#data = { version: s_version, id, name: options.name ?? id, files: [], archives: [] };
     this.#queueWrite = debounce(this._save, s_saveDebounceDuration);
     if (this.#fs.existsSync(this.#jsonFilename)) {
       try {
@@ -100,6 +114,7 @@ export default class VirtualFolderData {
   get name(): string { return this.#data.name; }
   get baseFilename(): string { return this.#baseFilename; }
   get files(): string[] { return this.#data.files; }
+  get archives(): ArchiveRef[] { return this.#data.archives; }
   get exists(): boolean { return this.#fileExists; }
 
   setName(name: string): boolean {
@@ -129,12 +144,34 @@ export default class VirtualFolderData {
     return changed;
   }
 
-  // Returns true if anything was removed.
+  // Append archive entries, skipping any already present. Returns true if anything
+  // was added. Identity is the composite path (archive + entry).
+  addArchiveFiles(refs: ArchiveRef[]): boolean {
+    const have = new Set(this.#data.archives.map(archiveRefPath));
+    let changed = false;
+    for (const ref of refs) {
+      const key = archiveRefPath(ref);
+      if (!have.has(key)) {
+        have.add(key);
+        this.#data.archives.push(ref);
+        changed = true;
+      }
+    }
+    if (changed) {
+      this.#queueWrite();
+    }
+    return changed;
+  }
+
+  // Remove members by composite display path. Handles both plain files and archive
+  // entries (whose composite path is path.join(archiveName, entryName)). Returns
+  // true if anything was removed.
   removeFiles(paths: string[]): boolean {
     const remove = new Set(paths);
-    const before = this.#data.files.length;
+    const before = this.#data.files.length + this.#data.archives.length;
     this.#data.files = this.#data.files.filter(p => !remove.has(p));
-    const changed = this.#data.files.length !== before;
+    this.#data.archives = this.#data.archives.filter(ref => !remove.has(archiveRefPath(ref)));
+    const changed = (this.#data.files.length + this.#data.archives.length) !== before;
     if (changed) {
       this.#queueWrite();
     }

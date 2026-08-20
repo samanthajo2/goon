@@ -439,6 +439,10 @@ div::-webkit-scrollbar-corner {
         &>div:before {
             content: "📁 ";
         }
+
+        &>div.virtual-folder:before {
+            content: "🗂️ ";
+        }
     }
 
     .grid {
@@ -455,6 +459,12 @@ div::-webkit-scrollbar-corner {
     text-overflow: ellipsis;
     overflow: hidden;
     white-space: nowrap;
+}
+.imagegridhead.virtual-folder {
+    background: #63587a; /* slightly violet-tinted so virtual folders read as distinct */
+}
+.imagegridhead.virtual-folder:before {
+    content: "🗂️ ";
 }
 .flash {
     transition: opacity 0.1s linear !important;
@@ -1231,6 +1241,28 @@ div::-webkit-scrollbar-corner {
         font-weight: bold;
         margin-right: 4px;
     }
+    .drop-toggle {
+        display: block;
+        margin-top: 6px;
+        font-size: smaller;
+        cursor: pointer;
+    }
+    .drop-op-tag {
+        display: inline-block;
+        min-width: 3.5em;
+        padding: 1px 6px;
+        margin-right: 6px;
+        border-radius: 3px;
+        background: #2a6;
+        color: #fff;
+        font-weight: bold;
+        font-size: smaller;
+        text-align: center;
+    }
+    .delete-item-archive .drop-op-tag {
+        background: transparent;
+        color: #f88;
+    }
 
     .dialog {
         max-width: 600px;
@@ -1274,6 +1306,81 @@ div::-webkit-scrollbar-corner {
             }
         } /* button */
     } /* .dialog */
+
+    .virtual-folder-picker,
+    .rename-folder-prompt {
+        min-width: 360px;
+        max-width: 480px;
+
+        .vf-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            background: #444;
+            border-radius: .25em;
+            padding: 6px;
+            margin-bottom: .75em;
+            max-height: 40vh;
+            overflow-y: auto;
+        }
+
+        .vf-empty {
+            color: #aaa;
+            font-style: italic;
+            padding: .5em;
+        }
+
+        /* Folder rows + the "New Virtual Folder…" affordance: full-width, left
+           aligned, modest size — overriding the big red .dialog button. */
+        .vf-item,
+        .vf-new-button {
+            display: block;
+            width: 100%;
+            margin: 0;
+            text-align: left;
+            font-size: medium;
+            padding: .5em .75em;
+            background-color: #777;
+            color: #eee;
+            border: 1px solid #555;
+            border-radius: .25em;
+
+            &:hover {
+                background-color: #3a6ea5;
+            }
+        }
+
+        .vf-new-button {
+            margin-bottom: .5em;
+        }
+
+        .vf-new {
+            display: flex;
+            gap: .5em;
+            align-items: center;
+            margin-bottom: .5em;
+
+            input {
+                flex: 1 1 auto;
+                font-size: medium;
+                padding: .5em;
+                border: 1px solid #333;
+                border-radius: .25em;
+            }
+
+            button {
+                font-size: medium;
+                margin: 0;
+                padding: .5em .75em;
+            }
+        }
+
+        .vf-error {
+            color: #f88;
+            font-size: smaller;
+            padding: 0 0 .5em;
+        }
+    } /* .virtual-folder-picker */
 } /* .modal */
 
 .progress-bar {

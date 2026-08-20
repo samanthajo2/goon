@@ -27,6 +27,14 @@ type ModelProps = {
   children: React.ReactNode;
 }
 
+// Number of Modals currently mounted. Lets the app suppress global keyboard
+// shortcuts while any dialog is open (so typing in — or just having up — a Rename
+// or picker dialog never triggers a hotkey).
+let s_openModalCount = 0;
+export function isAnyModalOpen(): boolean {
+  return s_openModalCount > 0;
+}
+
 export default class Modal extends React.Component<ModelProps> {
   _parent: HTMLElement;
   _outer: HTMLDivElement;
@@ -51,10 +59,12 @@ export default class Modal extends React.Component<ModelProps> {
     // state to Modal and only render the children when Modal
     // is inserted in the DOM tree.
     this._parent.appendChild(this._outer);
+    s_openModalCount++;
   }
 
   componentWillUnmount() {
     this._parent.removeChild(this._outer);
+    s_openModalCount = Math.max(0, s_openModalCount - 1);
   }
 
   render() {

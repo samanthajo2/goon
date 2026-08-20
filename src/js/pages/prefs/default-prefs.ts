@@ -55,6 +55,7 @@ export type Preferences = {
     showDimensions: boolean,
     promptOnDeleteFile: boolean,
     promptOnDeleteFolder: boolean,
+    promptOnDragDrop: boolean,
     enableWeb: boolean,
     // oops!
     enableRendevous: boolean,
@@ -100,6 +101,7 @@ const defaultPrefs: Preferences = {
     showDimensions: false,
     promptOnDeleteFile: true,
     promptOnDeleteFolder: true,
+    promptOnDragDrop: true,
     enableWeb: false,
     enableRendevous: true,
     showEmpty: false,
