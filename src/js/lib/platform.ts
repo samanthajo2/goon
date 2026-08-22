@@ -61,4 +61,7 @@ export type Platform = {
   launchBrowser?(filename: string): void;
   launchExternalViewer?(viewerPath: string, filename: string): void;
   checkFileExists?(filename: string): Promise<boolean>;
+  // Prompt for a location and write recorded video bytes there. Resolves true if
+  // saved, false if the user cancelled. Presence gates the recording action.
+  saveRecording?(bytes: Uint8Array, defaultName: string): Promise<boolean>;
 };

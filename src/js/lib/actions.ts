@@ -66,6 +66,7 @@ const actions = {
   cycleSortMode:      { hint: 'sort mode',       icon: 'images/buttons/sort-by-path.svg',    desc: 'Cycle Sort Mode', },
   toggleShowEmptyFolders: { hint: 'empty folders', icon: 'images/buttons/noop.svg',          desc: 'Show Empty Folders', },
   newVirtualFolder:   { hint: 'new virtual folder', icon: 'images/buttons/new-collection.svg', desc: 'New Virtual Folder', },
+  toggleRecording:    { hint: 'record',           icon: 'images/buttons/noop.svg',            desc: 'Start/Stop Recording', },
   createNewFolder:    { hint: 'new folder',      icon: 'images/buttons/noop.svg',            desc: 'New Folder', },
   renameFolder:       { hint: 'rename folder',   icon: 'images/buttons/noop.svg',            desc: 'Rename Folder', },
   toggleFullscreen:   { hint: 'fullscreen',      icon: 'images/buttons/???.svg',             desc: 'Toggle Full Screen', },

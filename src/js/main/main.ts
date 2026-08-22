@@ -956,6 +956,7 @@ function setupMenus() {
     },
     { type: 'separator' },
     actionItem('newVirtualFolder'),
+    actionItem('toggleRecording'),
     actionItem('refreshFolders'),
     { type: 'separator' },
     {
@@ -1053,12 +1054,42 @@ function start() {
 }
 
 app.on('ready', () => {
+  setupDisplayMediaHandler();
   if (prefs && prefs.misc && prefs.misc.password) {
     setupPasswordMenus();
     createPasswordWindow();
   } else {
     start();
   }
+});
+
+// Auto-answer getDisplayMedia (used by the in-app recorder) with the requesting
+// window itself, so there's no source picker. Audio is mixed in the renderer from
+// the playing media elements, so we only supply video here.
+function setupDisplayMediaHandler() {
+  electron.session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
+    electron.desktopCapturer.getSources({ types: ['window', 'screen'] }).then((sources) => {
+      const win = BrowserWindow.getFocusedWindow();
+      const match = win ? sources.find((s) => s.name === win.getTitle()) : undefined;
+      const source = match ?? sources[0];
+      // No source → cancel the request rather than throw.
+      callback(source ? { video: source } : {} as Electron.Streams);
+    }).catch((err) => {
+      console.error('setDisplayMediaRequestHandler:', err);
+      callback({} as Electron.Streams);
+    });
+  });
+}
+
+ipcMain.handle('saveRecording', async (e, bytes: Uint8Array, defaultName: string) => {
+  const win = BrowserWindow.fromWebContents(e.sender);
+  const { canceled, filePath } = await electron.dialog.showSaveDialog(win!, {
+    defaultPath: defaultName,
+    filters: [{ name: 'WebM Video', extensions: ['webm'] }],
+  });
+  if (canceled || !filePath) return false;
+  await fs.promises.writeFile(filePath, Buffer.from(bytes));
+  return true;
 });
 
 app.on('before-quit', () => {

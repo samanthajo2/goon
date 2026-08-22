@@ -60,5 +60,8 @@ export function createElectronPlatform(): Platform {
     checkFileExists(filename: string) {
       return ipcRenderer.invoke('checkFileExists', filename) as Promise<boolean>;
     },
+    saveRecording(bytes: Uint8Array, defaultName: string) {
+      return ipcRenderer.invoke('saveRecording', bytes, defaultName) as Promise<boolean>;
+    },
   };
 }

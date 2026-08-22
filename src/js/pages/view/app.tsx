@@ -45,6 +45,7 @@ import { computeDropOperation, FolderKind } from './drop-operation.js';
 import DropConfirm from './drop-confirm.js';
 import DeletePrompt, { DeleteItem } from './delete-prompt.js';
 import RenameFolderPrompt from './rename-folder-prompt.js';
+import { isRecording, startRecording, stopRecording } from './screen-recorder.js';
 import { isAnyModalOpen } from '../../lib/ui/modal.js';
 import KeyRouter from '../../lib/keyrouter.js';
 import debug from '../../lib/debug.js';
@@ -603,6 +604,25 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
     });
     actionListener.on('newVirtualFolder', () => {
       thumberStreamRef.current?.send('newVirtualFolder');
+    });
+    actionListener.on('toggleRecording', () => {
+      void (async () => {
+        if (isRecording()) {
+          try {
+            const blob = await stopRecording();
+            const bytes = new Uint8Array(await blob.arrayBuffer());
+            await platform.saveRecording?.(bytes, `goon-recording-${Date.now()}.webm`);
+          } catch (e) {
+            logger('stop recording failed:', e);
+          }
+        } else {
+          try {
+            await startRecording(document.body);
+          } catch (e) {
+            logger('start recording failed:', e);
+          }
+        }
+      })();
     });
     actionListener.on('toggleFullscreen', () => { platform.toggleFullscreen(); });
     actionListener.on('newWindow', () => { platform.openNewWindow('view'); });
