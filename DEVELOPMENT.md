@@ -18,11 +18,30 @@ removed and it should be switched to Lit.
     npm run watch                        # continuous build
     npm run start -- path1 path2 path3   # run in dev
     npm run startp -- path1 path2 path3  # run in production
+    npm run start-capture                # run as standalone app (MacOS)
     npm run start -- --help              # shows options
     rpm run unit-tests                   # run unit tests
     rpm run integration-tests            # run integration tests (not working)
     rpm run test                         # run all tests
     npm run build                        # build javascript from 'src' to 'out' folder
+
+### npm run start-capture
+
+The issue in MacOS is, if you're testing the window capture feature of Goon,
+then when you try to capture, MacOS will require you to give the app permission.
+Unfortunately, MacOS asks for permission for the top level app in the process
+chain. That might be Terminal, iTerm2, VSCode, whatever it is that spawned the
+app. That's seems like a seriously bad decision on Apple's part. I don't want
+every app run from Terminal, iTerm2, VSCode etc, to get screen capture
+permission. I only want the specific app I'm testing to get that permission.
+
+`npm run start-capture`, on MacOS, will launch the app as a standalone app and that
+specific version of Electron will need to be granted permission. It's not even
+clear that's a good decision as, if I understand correctly, the same version
+of Electron in another repo might also get permission? In any case, this is only
+needed if you want to test the capture feature from Electron at dev time.
+If you actually build the app then and launch the app the normal way (double
+click it's icon), then it will get its own permission prompt.
 
 ### run tests with debugging
 

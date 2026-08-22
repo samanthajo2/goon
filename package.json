@@ -63,6 +63,7 @@
     "build": "npm run build-app && npm run build-renderer",
     "clean": "rimraf out",
     "start": "node tools/launch.js development",
+    "start-capture": "node tools/launch.js development --capture",
     "startp": "node tools/launch.js production",
     "start-test": "node tools/run-with-test-data.js",
     "clean-test-runs": "node tools/clean-test-runs.js",
