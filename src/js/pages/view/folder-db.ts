@@ -80,12 +80,14 @@ export default class FolderDB extends EventEmitter {
   _newFolders: FoldersByPath;
   _totalFiles: number;
 
-  constructor() {
+  // throttleMs coalesces bursts of folder updates (default tuned for the live UI).
+  // Tests inject a small value so the pipeline settles quickly.
+  constructor(throttleMs = 1500) {
     super();
     this._folders = {};
     this._totalFiles = 0;
     this._newFolders = {};
-    this._processNewFolders = throttle(this._processNewFolders.bind(this), 1500);
+    this._processNewFolders = throttle(this._processNewFolders.bind(this), throttleMs);
   }
   get totalFiles() {
     return this._totalFiles;

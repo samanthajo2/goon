@@ -325,6 +325,12 @@ export default class VirtualFolder extends EventEmitter implements BaseFolder {
     const nativeNeedsWork = !areFilesSame(oldNativeMedia, nativeDesired);
     const archiveNeedsWork = toRegen.size > 0;
     if (!nativeNeedsWork && !archiveNeedsWork) {
+      // Nothing to regenerate, but we *have* reconciled. Mark it scanned so a
+      // brand-new empty virtual folder is distinguishable from a removed one (which
+      // emits no scannedTime) and shows under "Show Empty Folders".
+      if (!this.#cache.scannedTime) {
+        this.#cache.setScannedTime();
+      }
       this._emitCurrent();
     } else {
       await this._makeThumbnails(oldNativeMedia, nativeDesired, nativeNeedsWork, toRegen);

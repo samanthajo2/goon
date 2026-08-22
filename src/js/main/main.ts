@@ -36,6 +36,7 @@ import appdata from '../lib/appdata.js';
 import * as utils from '../lib/utils.js';
 import { getFreePort } from '../lib/get-free-port.js';
 import {loadPrefs, Preferences} from '../pages/prefs/default-prefs.js';
+import * as fsOps from './fs-ops.js';
 import { actionAccelerator } from './menu-accelerator.js';
 import { actions, type ActionId } from '../lib/actions.js';
 import {
@@ -304,60 +305,12 @@ ipcMain.on('dragStart', (event, fileOrFiles: string | string[]) => {
     event.sender.startDrag({ file, icon: dragIcon });
   }
 });
-ipcMain.handle('deleteFile', async (_event, filename: string) => {
-  await fs.promises.unlink(filename);
-});
-ipcMain.handle('deleteFolder', async (_event, dir: string) => {
-  await fs.promises.rm(path.resolve(dir), { recursive: true, force: true });
-});
-// Make a new "Untitled" subfolder (deduped like Finder) inside parentDir.
-ipcMain.handle('createFolder', async (_event, parentDir: string) => {
-  const dest = uniqueDestPath(parentDir, 'Untitled');
-  await fs.promises.mkdir(dest);
-  return dest;
-});
-// Rename (move) a folder. fs.rename rejects when dest already exists (EEXIST/
-// ENOTEMPTY), which surfaces to the user as "name already in use".
-ipcMain.handle('renameFolder', async (_event, src: string, dest: string) => {
-  if (fs.existsSync(dest)) {
-    throw new Error('A folder with that name already exists.');
-  }
-  await fs.promises.rename(path.resolve(src), path.resolve(dest));
-  return dest;
-});
-// Pick a destination path in destDir for src that doesn't clobber an existing file
-// (appends " 2", " 3", … like Finder).
-function uniqueDestPath(destDir: string, src: string): string {
-  const base = path.basename(src);
-  let candidate = path.join(destDir, base);
-  if (!fs.existsSync(candidate)) return candidate;
-  const ext = path.extname(base);
-  const stem = base.slice(0, base.length - ext.length);
-  for (let i = 2; ; i++) {
-    candidate = path.join(destDir, `${stem} ${i}${ext}`);
-    if (!fs.existsSync(candidate)) return candidate;
-  }
-}
-ipcMain.handle('moveFileToDir', async (_event, src: string, destDir: string) => {
-  const dest = uniqueDestPath(destDir, src);
-  try {
-    await fs.promises.rename(src, dest);
-  } catch (e) {
-    // Cross-device move: copy then remove.
-    if ((e as NodeJS.ErrnoException).code === 'EXDEV') {
-      await fs.promises.copyFile(src, dest);
-      await fs.promises.unlink(src);
-    } else {
-      throw e;
-    }
-  }
-  return dest;
-});
-ipcMain.handle('copyFileToDir', async (_event, src: string, destDir: string) => {
-  const dest = uniqueDestPath(destDir, src);
-  await fs.promises.copyFile(src, dest);
-  return dest;
-});
+ipcMain.handle('deleteFile', (_event, filename: string) => fsOps.deleteFile(fs, filename));
+ipcMain.handle('deleteFolder', (_event, dir: string) => fsOps.deleteFolder(fs, dir));
+ipcMain.handle('createFolder', (_event, parentDir: string) => fsOps.createFolder(fs, parentDir));
+ipcMain.handle('renameFolder', (_event, src: string, dest: string) => fsOps.renameFolder(fs, src, dest));
+ipcMain.handle('moveFileToDir', (_event, src: string, destDir: string) => fsOps.moveFileToDir(fs, src, destDir));
+ipcMain.handle('copyFileToDir', (_event, src: string, destDir: string) => fsOps.copyFileToDir(fs, src, destDir));
 ipcMain.handle('launchBrowser', async(_event, path: string) => {
   const url = new URL(`http://localhost:${serverPort}/out/vr.html`);
   url.searchParams.set('url', path);

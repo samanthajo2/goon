@@ -233,6 +233,12 @@ export default class NativeFolder extends EventEmitter implements BaseFolder {
     // check if any data has changed
     if (!areFilesSame(oldFiles, newFiles)) {
       this._updateThumbnails(oldBins.imagesAndVideos, newBins.imagesAndVideos);
+    } else if (!this.#folderData.scannedTime) {
+      // Nothing to (re)thumbnail, but we *have* now scanned this folder. Mark it so
+      // an existing empty folder is distinguishable from a removed one (a removal
+      // emits no scannedTime) and can show under "Show Empty Folders".
+      this.#folderData.setScannedTime();
+      this._sendImagesAndVideos();
     }
     this.#logger('emit updateFolders', this.#filename);
     this._addFiles(newBins.folders);

@@ -30,12 +30,12 @@ import createLimitedResourceManager, { LimitedResourceManager } from '../../lib/
 import createMediaLoader from './media-loader.js';
 import createThumbnailMaker from './thumbnail-maker.js';
 import createThumbnailPageMaker from './thumbnail-page-maker.js';
-import ThumbnailManager, { VirtualFolderAddEntry } from './thumbnail-manager.js';
+import ThumbnailManager from './thumbnail-manager.js';
+import { registerThumberStreamHandlers } from './thumber-stream-handlers.js';
 import ThumbnailRenderer from './thumbnail-renderer.js';
 import NativeFolder from './native-folder.js';
 import ArchiveFolder from './archive-folder.js';
 import VirtualFolder from './virtual-folder.js';
-import { isVirtualFolderKey, virtualFolderIdFromKey } from './virtual-folder-key.js';
 import appdata from '../../lib/appdata.js';
 import debug from '../../lib/debug.js';
 import * as sizing from '../../lib/sizing.js';
@@ -283,137 +283,14 @@ function start(args: ProgOptions) {
       }
       targets.splice(ndx, 1);
     });
-    stream.on('refreshFolder', (folderName: string) => {
-      g.thumbnailManager.refreshFolder(folderName);
-    });
-    stream.on('refreshFolders', () => {
-      refreshFolders();
-    });
-    // Act on (folderKey, filename) entries. The thumber routes each: a `vfolder:`
-    // key removes the entry from that virtual folder (the real file is untouched);
-    // a real key permanently deletes the file (fs, via main) and proactively updates
-    // folder data so thumbnails disappear without waiting for the watcher — which
-    // also drops it from any virtual folders that referenced it. Acks `filesDeleted`
-    // so the view can clear its "deleting" overlay.
-    stream.on('deleteEntries', async (entries: { folderKey: string; filename: string }[]) => {
-      for (const { folderKey, filename } of entries) {
-        if (isVirtualFolderKey(folderKey)) {
-          const id = virtualFolderIdFromKey(folderKey);
-          if (id) g.thumbnailManager.removeFileFromVirtualFolder(id, filename);
-        } else {
-          try {
-            await ipcRenderer.invoke('deleteFile', filename);
-            g.thumbnailManager.removeFile(filename);
-          } catch (err) {
-            log('deleteFile failed:', filename, err);
-          }
-        }
-      }
-      stream.send('filesDeleted', entries.map(e => e.filename));
-    });
-    // Delete a folder-like entry. Virtual folders delete themselves; otherwise the
-    // thumber disambiguates: a directory is recursively removed; anything else (an
-    // archive is a single file on disk) is unlinked and proactively removed.
-    stream.on('deleteFolder', async (folderKey: string) => {
-      if (isVirtualFolderKey(folderKey)) {
-        const id = virtualFolderIdFromKey(folderKey);
-        if (id) g.thumbnailManager.deleteVirtualFolder(id);
-        sendVirtualFolders();
-        return;
-      }
-      try {
-        if (fs.statSync(folderKey).isDirectory()) {
-          await ipcRenderer.invoke('deleteFolder', folderKey);
-        } else {
-          await ipcRenderer.invoke('deleteFile', folderKey);
-          g.thumbnailManager.removeFile(folderKey);
-        }
-      } catch (err) {
-        log('deleteFolder failed:', folderKey, err);
-      }
-    });
-    // Create a new folder. Kind is derived from the key: a virtual folder key makes
-    // a new uniquely-named virtual folder; a native path makes an "Untitled" subdir.
-    stream.on('createFolder', async (folderKey: string) => {
-      if (isVirtualFolderKey(folderKey)) {
-        const taken = new Set(g.thumbnailManager.listVirtualFolders().map(f => f.name.trim().toLowerCase()));
-        let name = 'Untitled';
-        for (let i = 2; taken.has(name.toLowerCase()); ++i) name = `Untitled ${i}`;
-        g.thumbnailManager.createVirtualFolder(name);
-        sendVirtualFolders();
-        return;
-      }
-      try {
-        await ipcRenderer.invoke('createFolder', folderKey);
-        g.thumbnailManager.refreshFolder(folderKey);
-      } catch (err) {
-        log('createFolder failed:', folderKey, err);
-      }
-    });
-    // Rename a folder. Virtual folders rename in place (dup names rejected); native
-    // folders are renamed on disk (the OS rejects a name that already exists).
-    stream.on('renameFolder', async (folderKey: string, newName: string) => {
-      if (isVirtualFolderKey(folderKey)) {
-        const id = virtualFolderIdFromKey(folderKey);
-        const ok = id ? g.thumbnailManager.renameVirtualFolder(id, newName) : false;
-        stream.send('renameFolderResult', folderKey, ok, ok ? '' : 'A folder with that name already exists.');
-        sendVirtualFolders();
-        return;
-      }
-      try {
-        const dest = path.join(path.dirname(folderKey), newName);
-        await ipcRenderer.invoke('renameFolder', folderKey, dest);
-        stream.send('renameFolderResult', folderKey, true, '');
-      } catch (err) {
-        log('renameFolder failed:', folderKey, err);
-        stream.send('renameFolderResult', folderKey, false, `${(err as Error).message ?? err}`);
-      }
-    });
-    // ── Virtual folder management (view → thumber) ──────────────────────
-    stream.on('requestVirtualFolders', () => stream.send('virtualFolders', virtualFolderState()));
-    stream.on('createVirtualFolder', (name: string) => {
-      g.thumbnailManager.createVirtualFolder(name);
-      sendVirtualFolders();
-    });
-    stream.on('addToVirtualFolder', (id: string, entries: VirtualFolderAddEntry[]) => {
-      g.thumbnailManager.addFilesToVirtualFolder(id, entries);
-      sendVirtualFolders();
-    });
-    stream.on('addToNewVirtualFolder', (name: string, entries: VirtualFolderAddEntry[]) => {
-      const id = g.thumbnailManager.createVirtualFolder(name);
-      g.thumbnailManager.addFilesToVirtualFolder(id, entries);
-      sendVirtualFolders();
-    });
-    stream.on('removeFromVirtualFolder', (id: string, filePath: string) => {
-      g.thumbnailManager.removeFileFromVirtualFolder(id, filePath);
-    });
-    // ── Drag & drop of real files between native folders ────────────────
-    // The destination folder's watcher surfaces the new files; for a move we also
-    // proactively drop the file from its source (and any virtual folders).
-    stream.on('copyFiles', async (paths: string[], destDir: string) => {
-      for (const src of paths) {
-        try {
-          await ipcRenderer.invoke('copyFileToDir', src, destDir);
-        } catch (err) {
-          log('copyFile failed:', src, err);
-        }
-      }
-    });
-    stream.on('moveFiles', async (paths: string[], destDir: string) => {
-      for (const src of paths) {
-        try {
-          await ipcRenderer.invoke('moveFileToDir', src, destDir);
-          g.thumbnailManager.removeFile(src);
-        } catch (err) {
-          log('moveFile failed:', src, err);
-        }
-      }
-    });
-    // Pull-based init: the renderer asks for the current snapshot once it
-    // has its 'updateFiles' listener attached. Pushing on connect would race
-    // the renderer's listener wiring (which happens in a React effect).
-    stream.on('requestAll', () => {
-      g.thumbnailManager.sendAll(stream);
+    registerThumberStreamHandlers(stream, {
+      thumbnailManager: g.thumbnailManager,
+      ipcInvoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
+      sendVirtualFolders,
+      virtualFolderState,
+      refreshFolders,
+      statIsDirectory: (fp) => fs.statSync(fp).isDirectory(),
+      log,
     });
   });
   window.addEventListener('beforeunload', () => {
