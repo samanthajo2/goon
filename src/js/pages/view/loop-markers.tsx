@@ -32,11 +32,15 @@ export default function LoopMarkers({ videoState }: { videoState: VideoState }):
   if (!loop || !duration) {
     return null;
   }
-  const pct = (t: number) => `${Math.max(0, Math.min(100, (t / duration) * 100))}%`;
+  // Emit the 0..1 time fraction; the CSS turns it into a thumb-inset-aware `left`
+  // (the native thumb's centre travels from half-a-thumb in to half-a-thumb from the
+  // end), so the marker stays centred under the thumb even at 0 and full duration.
+  const frac = (t: number): React.CSSProperties =>
+    ({ '--frac': Math.max(0, Math.min(1, t / duration)) } as React.CSSProperties);
   return (
     <>
-      <div className="loop-marker" style={{ left: pct(loopStart) }} />
-      {loop === 2 && <div className="loop-marker" style={{ left: pct(loopEnd) }} />}
+      <div className="loop-marker" style={frac(loopStart)} />
+      {loop === 2 && <div className="loop-marker" style={frac(loopEnd)} />}
     </>
   );
 }

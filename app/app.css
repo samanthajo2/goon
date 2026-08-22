@@ -137,6 +137,7 @@ button {
             align-items: center;
 
             .cue {
+                height: 18px;
                 flex: 1 1 auto;
             }
 
@@ -695,6 +696,44 @@ div::-webkit-scrollbar-corner {
     opacity: 0.8;
 }
 
+input[type=range] {
+    appearance: none;
+    background: transparent;
+
+    &:focus {
+        outline: none;
+    }
+
+    &::-webkit-slider-runnable-track {
+        width: 100%;
+        height: 12px;
+        cursor: pointer;
+        background: #000000;
+        border-radius: 12px;
+        border: 2px solid #404040;
+    }
+
+    &::-webkit-slider-thumb {
+        height: 16px;
+        width: 16px;
+        border-radius: 15px;
+        background: #c8c8c8;
+        cursor: pointer;
+        -webkit-appearance: none;
+        margin-top: -4px;
+    }
+
+    &:focus::-webkit-slider-runnable-track {
+        background: #404040;
+    }
+
+    &.volume::-webkit-slider-thumb {
+        background: #c8c8c8;
+    }
+
+} /* input[type=range] */
+
+
 .player {
     width: 100%;
     padding: 0.3em;
@@ -736,43 +775,7 @@ div::-webkit-scrollbar-corner {
     }
 
     input[type=range] {
-        appearance: none;
-        background: transparent;
         width: 100%;
-        margin: 5px 0;
-
-        &:focus {
-            outline: none;
-        }
-
-        &::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 12px;
-            cursor: pointer;
-            background: #000000;
-            border-radius: 12px;
-            border: 2px solid #404040;
-        }
-
-        &::-webkit-slider-thumb {
-            height: 20px;
-            width: 20px;
-            border-radius: 15px;
-            background: #c8c8c8;
-            cursor: pointer;
-            -webkit-appearance: none;
-            margin-top: -6px;
-        }
-
-        &:focus::-webkit-slider-runnable-track {
-            background: #404040;
-        }
-
-        &.volume::-webkit-slider-thumb {
-            width: 20px;
-            background: #c8c8c8;
-        }
-
     } /* input[type=range] */
 
 } /* .player */
@@ -782,6 +785,12 @@ div::-webkit-scrollbar-corner {
    left:N% lines up with the track. */
 .cue-slider {
     position: relative;
+    height: 18px;
+    /* Must match the ::-webkit-slider-thumb width and the runnable-track border in
+       the global input[type=range] rule above — the loop markers use these to undo
+       the native thumb inset (border + half-a-thumb at each end). */
+    --cue-thumb-w: 16px;
+    --cue-track-border: 4px;
 
     input[type=range] {
         width: 100%;
@@ -790,14 +799,25 @@ div::-webkit-scrollbar-corner {
         position: relative;
     }
 }
-/* A thin loop start/end marker over the track. Drawn on top (the track is opaque)
-   but non-interactive so it never blocks scrubbing. */
+/* A thin loop start/end marker over the track. The native thumb's centre travels
+   inside the track's border, from (border + half-a-thumb) in to the same from the
+   end, so:
+     inset = border + thumb/2
+     left  = inset + fraction * (100% - 2*border - thumb)
+   --frac (0..1) is set inline per marker. Drawn on top (the track is opaque) but
+   non-interactive so it never blocks scrubbing.
+   Note: The loop markers appear BEHIND the slider.
+   */
 .loop-marker {
     position: absolute;
-    top: 0;
+    height: 5px;
     bottom: 0;
     width: 2px;
     margin-left: -1px;
+    left: calc(
+        var(--cue-track-border) + var(--cue-thumb-w) / 2
+        + (100% - 1 * var(--cue-track-border) - var(--cue-thumb-w)) * var(--frac, 0)
+    );
     background: #ffcc00;
     pointer-events: none;
 }
