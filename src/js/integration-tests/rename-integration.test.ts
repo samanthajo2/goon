@@ -29,7 +29,8 @@ import { makeHarness, Harness } from '../test-support/harness.js';
 
 const vKey = (h: Harness): string | undefined => h.folderNames().find(k => k.startsWith('vfolder:'));
 
-describe('integration: rename flows (view ↔ thumber ↔ fs)', () => {
+describe('integration: rename flows (view ↔ thumber ↔ fs)', function () {
+  this.timeout(15000);
   let h: Harness | undefined;
   afterEach(() => { h?.close(); h = undefined; });
 

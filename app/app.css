@@ -1307,52 +1307,9 @@ div::-webkit-scrollbar-corner {
         } /* button */
     } /* .dialog */
 
-    .virtual-folder-picker,
     .rename-folder-prompt {
         min-width: 360px;
         max-width: 480px;
-
-        .vf-list {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            background: #444;
-            border-radius: .25em;
-            padding: 6px;
-            margin-bottom: .75em;
-            max-height: 40vh;
-            overflow-y: auto;
-        }
-
-        .vf-empty {
-            color: #aaa;
-            font-style: italic;
-            padding: .5em;
-        }
-
-        /* Folder rows + the "New Virtual Folder…" affordance: full-width, left
-           aligned, modest size — overriding the big red .dialog button. */
-        .vf-item,
-        .vf-new-button {
-            display: block;
-            width: 100%;
-            margin: 0;
-            text-align: left;
-            font-size: medium;
-            padding: .5em .75em;
-            background-color: #777;
-            color: #eee;
-            border: 1px solid #555;
-            border-radius: .25em;
-
-            &:hover {
-                background-color: #3a6ea5;
-            }
-        }
-
-        .vf-new-button {
-            margin-bottom: .5em;
-        }
 
         .vf-new {
             display: flex;
@@ -1380,7 +1337,7 @@ div::-webkit-scrollbar-corner {
             font-size: smaller;
             padding: 0 0 .5em;
         }
-    } /* .virtual-folder-picker */
+    } /* .rename-folder-prompt */
 } /* .modal */
 
 .progress-bar {

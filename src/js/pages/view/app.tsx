@@ -44,10 +44,8 @@ import { getDragContext, setDragContext } from './drag-context.js';
 import { computeDropOperation, FolderKind } from './drop-operation.js';
 import DropConfirm from './drop-confirm.js';
 import DeletePrompt, { DeleteItem } from './delete-prompt.js';
-import VirtualFolderPicker from './virtual-folder-picker.js';
 import RenameFolderPrompt from './rename-folder-prompt.js';
 import { isAnyModalOpen } from '../../lib/ui/modal.js';
-import type { VirtualFolderList } from './hooks/use-ipc-streams.js';
 import KeyRouter from '../../lib/keyrouter.js';
 import debug from '../../lib/debug.js';
 import { rotateModes } from '../../lib/rotatehelper.js';
@@ -150,10 +148,6 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
   // Items include their folderKey so delete can route real-delete vs remove-from-vfolder.
   const [pendingDeleteItems, setPendingDeleteItems] = useState<(DeleteItem & { folderKey: string })[]>([]);
   const [showDeleteFolderPrompt, setShowDeleteFolderPrompt] = useState(false);
-  // "Add to Virtual Folder" picker.
-  const [showAddToVFolder, setShowAddToVFolder] = useState(false);
-  const [pendingAddEntries, setPendingAddEntries] = useState<{ path: string; archiveName?: string }[]>([]);
-  const [virtualFolders, setVirtualFolders] = useState<VirtualFolderList>({ list: [], recent: [] });
   // Internal drag-and-drop confirmation.
   const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null);
 
@@ -162,7 +156,6 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
   // the per-file "deleting" overlay (whether or not the delete succeeded).
   const { thumberStream, prefs, prefsReceived, disconnected, setMiscPref } = useIPCStreams(platform, {
     onFilesDeleted: (filenames: string[]) => filenames.forEach(removeTrashingFile),
-    onVirtualFolders: (vf) => setVirtualFolders(vf),
     onRenameFolderResult: (_folderKey, ok, error) => {
       if (ok) {
         setRenameFolderInfo(null);
@@ -479,28 +472,6 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
     };
     eventBus.on('deleteFile', handleDeleteFile);
 
-    const handleAddToVirtualFolder = (_event: ForwardableEvent, fileInfoArg: DBFileInfo) => {
-      // Act on the whole multi-selection if the clicked file is part of it.
-      const selectedFilenames = getSelectedFilenames();
-      const filenames = (selectedFilenames.includes(fileInfoArg.filename) && selectionCount() > 1)
-        ? selectedFilenames
-        : [fileInfoArg.filename];
-      // Real files and archive entries can both be added to a virtual folder.
-      const infoByName = new Map<string, DeleteItem['info']>();
-      for (const folder of rootRef.current.folders) {
-        for (const file of folder.files) infoByName.set(file.info.filename, file.info);
-      }
-      const entries: { path: string; archiveName?: string }[] = [];
-      for (const fn of filenames) {
-        const info = infoByName.get(fn);
-        if (info) entries.push({ path: fn, archiveName: info.archiveName });
-      }
-      if (entries.length === 0) return;
-      setPendingAddEntries(entries);
-      setShowAddToVFolder(true);
-    };
-    eventBus.on('addToVirtualFolder', handleAddToVirtualFolder);
-
     const handleDropOnFolder = (_event: ForwardableEvent, destKey: string, copyModifier: boolean) => {
       const ctx = getDragContext();
       setDragContext(null);
@@ -629,6 +600,9 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
     });
     actionListener.on('toggleShowEmptyFolders', () => {
       setMiscPref('showEmpty', !prefsRef.current.misc?.showEmpty);
+    });
+    actionListener.on('newVirtualFolder', () => {
+      thumberStreamRef.current?.send('newVirtualFolder');
     });
     actionListener.on('toggleFullscreen', () => { platform.toggleFullscreen(); });
     actionListener.on('newWindow', () => { platform.openNewWindow('view'); });
@@ -885,27 +859,6 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
               thumberStream?.send('renameFolder', renameFolderInfo.filename, newName);
             }}
             onCancel={() => { setRenameFolderInfo(null); setRenameError(''); }}
-          />
-        )}
-        {showAddToVFolder && (
-          <VirtualFolderPicker
-            parent={containerRef.current ?? undefined}
-            count={pendingAddEntries.length}
-            folders={virtualFolders.list}
-            onPick={(id) => {
-              thumberStream?.send('addToVirtualFolder', id, pendingAddEntries);
-              setShowAddToVFolder(false);
-              setPendingAddEntries([]);
-            }}
-            onCreate={(name) => {
-              thumberStream?.send('addToNewVirtualFolder', name, pendingAddEntries);
-              setShowAddToVFolder(false);
-              setPendingAddEntries([]);
-            }}
-            onCancel={() => {
-              setShowAddToVFolder(false);
-              setPendingAddEntries([]);
-            }}
           />
         )}
         {pendingDrop && (

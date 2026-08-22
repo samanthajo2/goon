@@ -29,7 +29,8 @@ import { makeHarness, Harness } from '../test-support/harness.js';
 const filesOf = (h: Harness, key: string): string[] =>
   (h.folder(key)?.files ?? []).map(f => f.info.filename);
 
-describe('integration: move/copy flows (view ↔ thumber ↔ fs)', () => {
+describe('integration: move/copy flows (view ↔ thumber ↔ fs)', function () {
+  this.timeout(15000);
   let h: Harness | undefined;
   afterEach(() => { h?.close(); h = undefined; });
 

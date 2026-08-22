@@ -55,17 +55,6 @@ export default class FileContextMenu extends React.Component<Props> {
     this.context.eventBus.dispatch(new ForwardableEvent('showFileInfo'), this.props.file);
   };
 
-  private _handleAddToVirtualFolder = (): void => {
-    this.context.eventBus.dispatch(new ForwardableEvent('addToVirtualFolder'), this.props.file);
-  };
-
-  // Virtual folders reference real files and archive entries; the feature needs the
-  // desktop thumber (gated by deleteFile like the delete action).
-  private _addToVirtualFolderMenuItem(): React.ReactNode {
-    if (!this.context.platform.deleteFile || !this.props.file) return undefined;
-    return <MenuItem onClick={this._handleAddToVirtualFolder}>Add to Virtual Folder…</MenuItem>;
-  }
-
   private _handleDelete = (): void => {
     const inVirtualFolder = isVirtualFolderKey(this.props.folderKey);
     if (this.props.file.archiveName && !inVirtualFolder) {
@@ -138,7 +127,6 @@ export default class FileContextMenu extends React.Component<Props> {
           <MenuItem onClick={this._handleOpen}>Show in Finder/Explorer</MenuItem>
         )}
         <MenuItem onClick={this._handleInfo}>Get Info</MenuItem>
-        {this._addToVirtualFolderMenuItem()}
         {this._deleteMenuItem()}
         <MenuItem onClick={this._handleRefreshFolder}>Refresh</MenuItem>
         {platform.showItemInFolder && (

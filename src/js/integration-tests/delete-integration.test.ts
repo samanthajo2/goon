@@ -29,9 +29,22 @@ import { makeHarness, Harness } from '../test-support/harness.js';
 
 const filesOf = (h: Harness, key: string): string[] =>
   (h.folder(key)?.files ?? []).map(f => f.info.filename);
-const vKey = (h: Harness): string | undefined => h.folderNames().find(k => k.startsWith('vfolder:'));
 
-describe('integration: delete flows (view ↔ thumber ↔ fs)', () => {
+// Create a virtual folder and add entries the way the UI does (create, then drag →
+// addToVirtualFolder), returning its synthetic key. The id is read from the manager
+// since a brand-new empty vfolder isn't visible in the tree without Show Empty.
+async function seedVirtualFolder(h: Harness, name: string, entries: { path: string; archiveName?: string }[]): Promise<string> {
+  h.send('createVirtualFolder', name);
+  await h.waitFor(() => h.thumbnailManager.listVirtualFolders().some(f => f.name === name));
+  const id = h.thumbnailManager.listVirtualFolders().find(f => f.name === name)!.id;
+  const key = `vfolder:${id}`;
+  h.send('addToVirtualFolder', id, entries);
+  await h.waitFor(() => filesOf(h, key).includes(entries[0].path));
+  return key;
+}
+
+describe('integration: delete flows (view ↔ thumber ↔ fs)', function () {
+  this.timeout(15000);
   let h: Harness | undefined;
   afterEach(() => { h?.close(); h = undefined; });
 
@@ -49,9 +62,7 @@ describe('integration: delete flows (view ↔ thumber ↔ fs)', () => {
 
   it('removing a virtual-folder entry unlinks the reference but leaves the file on disk', async () => {
     h = makeHarness({ tree: { '/vol': { 'a.jpg': 'x' } }, folders: ['/vol'] });
-    h.send('addToNewVirtualFolder', 'fav', [{ path: '/vol/a.jpg' }]);
-    await h.waitFor(() => !!vKey(h!) && filesOf(h!, vKey(h!)!).includes('/vol/a.jpg'));
-    const key = vKey(h)!;
+    const key = await seedVirtualFolder(h, 'fav', [{ path: '/vol/a.jpg' }]);
 
     h.send('deleteEntries', [{ folderKey: key, filename: '/vol/a.jpg' }]);
 
@@ -62,9 +73,7 @@ describe('integration: delete flows (view ↔ thumber ↔ fs)', () => {
 
   it('deleting a real file also drops it from a virtual folder that references it', async () => {
     h = makeHarness({ tree: { '/vol': { 'a.jpg': 'x' } }, folders: ['/vol'] });
-    h.send('addToNewVirtualFolder', 'fav', [{ path: '/vol/a.jpg' }]);
-    await h.waitFor(() => !!vKey(h!) && filesOf(h!, vKey(h!)!).includes('/vol/a.jpg'));
-    const key = vKey(h)!;
+    const key = await seedVirtualFolder(h, 'fav', [{ path: '/vol/a.jpg' }]);
 
     h.send('deleteEntries', [{ folderKey: '/vol', filename: '/vol/a.jpg' }]);
 

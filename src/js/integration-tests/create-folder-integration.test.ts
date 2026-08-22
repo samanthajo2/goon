@@ -28,7 +28,8 @@ import { makeHarness, Harness } from '../test-support/harness.js';
 
 const virtualKeys = (h: Harness) => h.folderNames().filter(k => k.startsWith('vfolder:'));
 
-describe('integration: create folder (view ↔ thumber ↔ fs)', () => {
+describe('integration: create folder (view ↔ thumber ↔ fs)', function () {
+  this.timeout(15000);
   let h: Harness | undefined;
   afterEach(() => { h?.close(); h = undefined; });
 

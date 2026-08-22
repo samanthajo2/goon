@@ -51,8 +51,22 @@ export type ThumberHandlerDeps = {
 
 export function registerThumberStreamHandlers(stream: HandlerStream, deps: ThumberHandlerDeps): void {
   const { thumbnailManager: tm, ipcInvoke, sendVirtualFolders, virtualFolderState, refreshFolders, statIsDirectory, log } = deps;
+  // Bind so `on` keeps its `this` — ChannelStream.on is a prototype (EventEmitter)
+  // method; calling it unbound throws "Cannot read properties of undefined
+  // (reading '_events')".
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const on = stream.on as (event: string, fn: (...args: any[]) => void) => void;
+  const on = stream.on.bind(stream) as (event: string, fn: (...args: any[]) => void) => void;
+
+  // Create a new virtual folder with a unique "Untitled"/"Untitled N" name and tell
+  // the view. Shared by the top-level "New Virtual Folder" command and the folder
+  // context menu's "New Virtual Folder" (on an existing virtual folder).
+  const createUniqueVirtualFolder = () => {
+    const taken = new Set(tm.listVirtualFolders().map(f => f.name.trim().toLowerCase()));
+    let name = 'Untitled';
+    for (let i = 2; taken.has(name.toLowerCase()); ++i) name = `Untitled ${i}`;
+    tm.createVirtualFolder(name);
+    sendVirtualFolders();
+  };
 
   on('refreshFolder', (folderName: string) => {
     tm.refreshFolder(folderName);
@@ -106,11 +120,7 @@ export function registerThumberStreamHandlers(stream: HandlerStream, deps: Thumb
   // folder; a native path makes an "Untitled" subdir, then refreshes so it appears.
   on('createFolder', async (folderKey: string) => {
     if (isVirtualFolderKey(folderKey)) {
-      const taken = new Set(tm.listVirtualFolders().map(f => f.name.trim().toLowerCase()));
-      let name = 'Untitled';
-      for (let i = 2; taken.has(name.toLowerCase()); ++i) name = `Untitled ${i}`;
-      tm.createVirtualFolder(name);
-      sendVirtualFolders();
+      createUniqueVirtualFolder();
       return;
     }
     try {
@@ -146,16 +156,13 @@ export function registerThumberStreamHandlers(stream: HandlerStream, deps: Thumb
   });
   // ── Virtual folder management (view → thumber) ──────────────────────
   on('requestVirtualFolders', () => stream.send('virtualFolders', virtualFolderState()));
+  // Top-level "New Virtual Folder" command: make an empty, uniquely-named one.
+  on('newVirtualFolder', () => createUniqueVirtualFolder());
   on('createVirtualFolder', (name: string) => {
     tm.createVirtualFolder(name);
     sendVirtualFolders();
   });
   on('addToVirtualFolder', (id: string, entries: VirtualFolderAddEntry[]) => {
-    tm.addFilesToVirtualFolder(id, entries);
-    sendVirtualFolders();
-  });
-  on('addToNewVirtualFolder', (name: string, entries: VirtualFolderAddEntry[]) => {
-    const id = tm.createVirtualFolder(name);
     tm.addFilesToVirtualFolder(id, entries);
     sendVirtualFolders();
   });

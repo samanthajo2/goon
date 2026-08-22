@@ -29,21 +29,36 @@ import EventEmitter from 'node:events';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Listener = (...args: any[]) => void;
 
-export type LoopbackStream = {
-  on: (event: string, fn: Listener) => void;
-  removeListener: (event: string, fn: Listener) => void;
-  send: (event: string, ...args: unknown[]) => void;
-  close: () => void;
-};
+// Methods live on the prototype and use `this` — deliberately mirroring the real
+// ChannelStream (an EventEmitter). This means extracting a method unbound
+// (`const on = stream.on; on(...)`) throws here too, so the harness catches that
+// class of bug instead of hiding it behind a pre-bound closure.
+export class LoopbackStream {
+  #self: EventEmitter;
+  #other: EventEmitter;
 
-function makeEnd(self: EventEmitter, other: EventEmitter): LoopbackStream {
-  return {
-    on: (event, fn) => { self.on(event, fn); },
-    removeListener: (event, fn) => { self.removeListener(event, fn); },
-    // Deliver asynchronously (like IPC) so a send during a handler doesn't reenter.
-    send: (event, ...args) => { queueMicrotask(() => other.emit(event, ...args)); },
-    close: () => { self.removeAllListeners(); },
-  };
+  constructor(self: EventEmitter, other: EventEmitter) {
+    this.#self = self;
+    this.#other = other;
+  }
+
+  on(event: string, fn: Listener): void {
+    this.#self.on(event, fn);
+  }
+
+  removeListener(event: string, fn: Listener): void {
+    this.#self.removeListener(event, fn);
+  }
+
+  // Deliver asynchronously (like IPC) so a send during a handler doesn't reenter.
+  send(event: string, ...args: unknown[]): void {
+    const other = this.#other;
+    queueMicrotask(() => other.emit(event, ...args));
+  }
+
+  close(): void {
+    this.#self.removeAllListeners();
+  }
 }
 
 export function makeChannelPair(): { view: LoopbackStream; thumber: LoopbackStream } {
@@ -52,7 +67,7 @@ export function makeChannelPair(): { view: LoopbackStream; thumber: LoopbackStre
   viewEmitter.setMaxListeners(0);
   thumberEmitter.setMaxListeners(0);
   return {
-    view: makeEnd(viewEmitter, thumberEmitter),
-    thumber: makeEnd(thumberEmitter, viewEmitter),
+    view: new LoopbackStream(viewEmitter, thumberEmitter),
+    thumber: new LoopbackStream(thumberEmitter, viewEmitter),
   };
 }

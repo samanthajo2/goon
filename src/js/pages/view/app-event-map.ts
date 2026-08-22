@@ -42,7 +42,6 @@ export type AppEventMap = {
   deleteFolder: [folderInfo: FolderContextInfo];
   createFolder: [folderInfo: FolderContextInfo];
   renameFolder: [folderInfo: FolderContextInfo];
-  addToVirtualFolder: [fileInfo: DBFileInfo];
   // Internal drag-and-drop: items (from drag-context) dropped on a folder row.
   dropOnFolder: [destFolderKey: string, copyModifier: boolean];
   copyFile: [fileInfo: DBFileInfo];

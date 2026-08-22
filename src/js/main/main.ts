@@ -955,6 +955,7 @@ function setupMenus() {
       },
     },
     { type: 'separator' },
+    actionItem('newVirtualFolder'),
     actionItem('refreshFolders'),
     { type: 'separator' },
     {
