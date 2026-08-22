@@ -428,10 +428,12 @@ export default class VPair extends React.Component<Props, ComponentState> {
             />
           )}
           <div className="close-vpair" onClick={this._close}>❎</div>
+          {/*
           <div className="vpair-split-up" onClick={this._splitUp}>⬆</div>
           <div className="vpair-split-down" onClick={this._splitDown}>⬇</div>
           <div className="vpair-split-left" onClick={this._splitLeft}>⬅</div>
           <div className="vpair-split-right" onClick={this._splitRight}>➡</div>
+          */}
           <div className="tick">◤</div>
           <div className="spacer"></div>
         </div>
