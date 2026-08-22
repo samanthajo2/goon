@@ -955,10 +955,6 @@ function setupMenus() {
       },
     },
     { type: 'separator' },
-    actionItem('newVirtualFolder'),
-    actionItem('toggleRecording'),
-    actionItem('refreshFolders'),
-    { type: 'separator' },
     {
       label: 'Toggle Developer Tools',
       accelerator: isOSX ? 'Alt+Command+I' : 'Ctrl+Shift+I',
@@ -974,6 +970,13 @@ function setupMenus() {
         }
       },
     },
+  ];
+
+  const actionsSubmenu: Electron.MenuItemConstructorOptions[] = [
+    actionItem('newVirtualFolder'),
+    actionItem('refreshFolders'),
+    { type: 'separator' },
+    actionItem('toggleRecording'),
   ];
 
   const windowSubmenu: Electron.MenuItemConstructorOptions[] = [
@@ -1028,6 +1031,7 @@ function setupMenus() {
   menuTemplate.push(
     { label: 'Edit', submenu: editSubmenu },
     { label: 'View', submenu: viewSubmenu },
+    { label: 'Actions', submenu: actionsSubmenu },
     { label: 'Window', role: 'window', submenu: windowSubmenu },
     { label: 'Help', role: 'help', submenu: helpSubmenu },
   );
