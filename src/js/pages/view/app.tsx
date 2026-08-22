@@ -149,6 +149,8 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
   // Items include their folderKey so delete can route real-delete vs remove-from-vfolder.
   const [pendingDeleteItems, setPendingDeleteItems] = useState<(DeleteItem & { folderKey: string })[]>([]);
   const [showDeleteFolderPrompt, setShowDeleteFolderPrompt] = useState(false);
+  // Brief "recorded in Goon" watermark flashed into a recording when it starts.
+  const [showWatermark, setShowWatermark] = useState(false);
   // Internal drag-and-drop confirmation.
   const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null);
 
@@ -197,6 +199,7 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
 
   // ── Stable refs ────────────────────────────────────────────────────
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const watermarkTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const currentViewRef = useRef<ViewSplit | null>(null);
   const prefsRef = useRef(prefs);
   prefsRef.current = prefs;
@@ -618,6 +621,12 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
         } else {
           try {
             await startRecording(document.body);
+            if (prefsRef.current.misc?.showCaptureWatermark) {
+              // Flash the watermark into the recording: hold 1s, fade over 500ms.
+              clearTimeout(watermarkTimerRef.current);
+              setShowWatermark(true);
+              watermarkTimerRef.current = setTimeout(() => setShowWatermark(false), 2500);
+            }
           } catch (e) {
             logger('start recording failed:', e);
           }
@@ -798,6 +807,7 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
           <div>Disconnected — reconnecting…</div>
         </div>
       )}
+      {showWatermark && <div className="capture-watermark"><div>recorded in Goon</div><div>samanthajo2.github.io/goon</div></div>}
       <ToolbarHolder bottom={toolbarOnBottom}>
         {getToolbar()}
       </ToolbarHolder>

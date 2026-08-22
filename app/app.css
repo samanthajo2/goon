@@ -67,6 +67,34 @@ button {
 .order2 {
     order: 2;
 }
+/* "recorded in Goon" watermark flashed into a recording at start: top-right, white
+   with a crisp black outline (multi-offset text-shadow, not -webkit-text-stroke),
+   held for 1s then faded over 500ms. */
+.capture-watermark {
+    position: fixed;
+    top: 10px;
+    right: 14px;
+    z-index: 2000;
+    pointer-events: none;
+    font-size: 22px;
+    font-weight: bold;
+    text-align: right;
+    color: #fff;
+    background-color: rgba(0, 0, 0, 0.8);
+    padding: 10px;
+    margin: 5px;
+    border-radius: 15px;
+    text-shadow:
+        -1px -1px 0 #000,  0 -1px 0 #000,  1px -1px 0 #000,
+        -1px  0   0 #000,                  1px  0   0 #000,
+        -1px  1px 0 #000,  0  1px 0 #000,  1px  1px 0 #000;
+    animation: capture-watermark-fade 500ms linear 2000ms forwards;
+}
+@keyframes capture-watermark-fade {
+    from { opacity: 1; }
+    to   { opacity: 0; }
+}
+
 .toolbar-error {
     position: relative;
 }

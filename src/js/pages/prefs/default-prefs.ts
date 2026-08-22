@@ -65,6 +65,8 @@ export type Preferences = {
     // entry scrolls the image grid to its first non-empty descendant.
     // Has no effect on the image grid itself.
     showEmptyIfChildNotEmpty: boolean,
+    // Briefly flash a "recorded in Goon" watermark into recordings when they start.
+    showCaptureWatermark: boolean,
     externalViewerPath: string,
   },
   slideshowDuration: {
@@ -106,6 +108,7 @@ const defaultPrefs: Preferences = {
     enableRendevous: true,
     showEmpty: false,
     showEmptyIfChildNotEmpty: true,
+    showCaptureWatermark: false,
     externalViewerPath: '',
   },
   slideshowDuration: {
