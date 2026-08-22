@@ -19,7 +19,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import React, { useImperativeHandle, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
 
 // VirtualList renders only the items visible in its scroll viewport plus an
 // overscan buffer, maintaining the correct total scroll height with spacer
@@ -93,7 +93,11 @@ function VirtualList(props: VirtualListProps & { ref?: React.Ref<VirtualListHand
 
   // Track container height via ResizeObserver so we re-render when it resizes.
   const observerRef = useRef<ResizeObserver | null>(null);
-  const containerCallbackRef = (el: HTMLDivElement | null): void => {
+  // Stable across renders: an inline ref callback is a *new* function each render,
+  // which makes React detach+reattach it every render — re-running the setState below
+  // on every render and, when the parent re-renders rapidly, tripping "Maximum update
+  // depth exceeded". With a stable callback React only runs it on actual mount/unmount.
+  const containerCallbackRef = useCallback((el: HTMLDivElement | null): void => {
     if (observerRef.current) {
       observerRef.current.disconnect();
       observerRef.current = null;
@@ -106,7 +110,7 @@ function VirtualList(props: VirtualListProps & { ref?: React.Ref<VirtualListHand
     });
     observerRef.current.observe(el);
     setContainerHeight(el.clientHeight);
-  };
+  }, []);
 
   useImperativeHandle(ref, () => ({
     scrollTo(index: number): void {
