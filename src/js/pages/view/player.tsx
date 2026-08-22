@@ -22,8 +22,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import React from 'react';
 import ActionEvent from '../../lib/action-event.js';
 import ForwardableEvent from '../../lib/forwardable-event.js';
-import { TimeUpdateEvent, VideoState } from './viewer-events.js';
+import { VideoState } from './viewer-events.js';
 import { AppContext } from './contexts.js';
+import CueSlider from './cue-slider.js';
 
 const _pauseIcon = '❚❚';
 const _playIcon = '▶';
@@ -36,12 +37,6 @@ type Props = {
 export default class Player extends React.Component<Props> {
   static contextType = AppContext;
   declare context: React.ContextType<typeof AppContext>;
-
-  private _changeTime = (event: React.ChangeEvent<HTMLInputElement>): void => {
-    this.context.eventBus.dispatch(
-      new TimeUpdateEvent(Number(event.target.value) / Number(event.target.max) * this.props.videoState.duration),
-    );
-  };
 
   private _togglePlay = (): void => {
     this.context.eventBus.dispatch(new ActionEvent({ action: 'togglePlay' }));
@@ -68,14 +63,7 @@ export default class Player extends React.Component<Props> {
     return (
       <div className="player">
         <div className="play" onClick={this._togglePlay}>{videoState.playing ? _pauseIcon : _playIcon}</div>
-        <input
-          className="que"
-          onChange={this._changeTime}
-          type="range"
-          min="0"
-          max="10000"
-          value={videoState.time / videoState.duration * 10000}
-        />
+        <CueSlider videoState={videoState} eventBus={this.context.eventBus} className="que" />
         <div className="time">{this._getTime()}</div>
         <div className="vol">
           <input

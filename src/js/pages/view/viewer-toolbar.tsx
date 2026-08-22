@@ -24,11 +24,12 @@ import { uniqueId } from '../../lib/utils.js';
 import debug from '../../lib/debug.js';
 import { actions, ActionId } from '../../lib/actions.js';
 import * as filters from '../../lib/filters.js';
-import { TimeUpdateEvent, ViewerState, VideoState } from './viewer-events.js';
+import { ViewerState, VideoState } from './viewer-events.js';
 import { CSSArray } from '../../lib/css-utils.js';
 import ForwardableEventDispatcher from '../../lib/forwardable-event-dispatcher.js';
 import ForwardableEvent from '../../lib/forwardable-event.js';
 import type { AppEventMap } from './app-event-map.js';
+import CueSlider from './cue-slider.js';
 
 type RangeProps = {
   value: number;
@@ -89,14 +90,6 @@ class Que extends React.Component<QueProps> {
     );
   }
 
-  private _changeTime = (event: React.ChangeEvent<HTMLInputElement>): void => {
-    this.props.outEventBus.dispatch(
-      new TimeUpdateEvent(
-        Number(event.target.value) / Number(event.target.max) * this.props.videoState.duration,
-      ),
-    );
-  };
-
   private _changeVolume = (event: React.ChangeEvent<HTMLInputElement>): void => {
     // Dispatch volumeChange event — Viewer handles it and updates video.volume + state.
     this.props.outEventBus.dispatch(
@@ -119,14 +112,7 @@ class Que extends React.Component<QueProps> {
         <button type="button" onClick={actionFuncs.togglePlay} data-tooltip={actions.togglePlay.hint}>
           <img src={videoState.playing ? 'images/buttons/pause.svg' : 'images/buttons/play.svg'} />
         </button>
-        <div className="cue">
-          <Range
-            value={videoState.time / videoState.duration * 10000}
-            min="0"
-            max="10000"
-            onUpdate={this._changeTime}
-          />
-        </div>
+        <CueSlider videoState={videoState} eventBus={this.props.outEventBus} className="cue" />
         <button
           type="button"
           onClick={actionFuncs.cyclePlaybackSpeed}

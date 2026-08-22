@@ -706,8 +706,10 @@ export default class Viewer extends React.Component<Props, State> {
           break;
       }
     }
-    // No forceUpdate needed — neither Viewer nor Player renders loop/loopStart/loopEnd.
-    // The loop bounds are enforced directly on the video element in _handleTimeUpdate.
+    // The cue slider (Player + toolbar) draws loop markers from this state, so both
+    // must re-render — even when the video is paused (no timeupdate to do it for us).
+    this.forceUpdate();
+    this._dispatchViewerStateChanged();
   }
 
   private _handleResize = (contentRect: { client: { width: number; height: number } }): void => {

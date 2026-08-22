@@ -736,10 +736,10 @@ div::-webkit-scrollbar-corner {
     }
 
     input[type=range] {
-        -webkit-appearance: none;
+        appearance: none;
+        background: transparent;
         width: 100%;
         margin: 5px 0;
-        background-color: #000;
 
         &:focus {
             outline: none;
@@ -756,7 +756,7 @@ div::-webkit-scrollbar-corner {
 
         &::-webkit-slider-thumb {
             height: 20px;
-            width: 30px;
+            width: 20px;
             border-radius: 15px;
             background: #c8c8c8;
             cursor: pointer;
@@ -776,6 +776,31 @@ div::-webkit-scrollbar-corner {
     } /* input[type=range] */
 
 } /* .player */
+
+/* Shared seek slider (viewer toolbar + in-viewer player). The wrapper is the
+   positioning context for the loop markers; the input fills it so a marker at
+   left:N% lines up with the track. */
+.cue-slider {
+    position: relative;
+
+    input[type=range] {
+        width: 100%;
+        display: block;
+        z-index: 2;
+        position: relative;
+    }
+}
+/* A thin loop start/end marker over the track. Drawn on top (the track is opaque)
+   but non-interactive so it never blocks scrubbing. */
+.loop-marker {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    margin-left: -1px;
+    background: #ffcc00;
+    pointer-events: none;
+}
 
 /* ------ ImageGrid ----- */
 
