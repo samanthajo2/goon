@@ -76,14 +76,24 @@ const dummyEvent = {
   stopPropagation: () => {},
 };
 
+// Input types that accept typed text — focusing one should suppress app shortcuts
+// (so typing "4" in the filter/rename box doesn't trigger the ¼-speed action).
+// Deliberately excludes non-text inputs like range/checkbox/radio/button: clicking
+// the player's cue or volume slider must NOT swallow keyboard shortcuts.
+const s_textInputTypes = new Set([
+  'text', 'search', 'url', 'email', 'password', 'number', 'tel',
+  'date', 'datetime-local', 'month', 'week', 'time',
+]);
+
 // True when a keystroke is being typed into an editable field (the filter box, or a
-// modal's text input like Rename / New Virtual Folder). While one is focused we must
-// not route keys to app shortcuts, or typing "4" would trigger the ¼-speed action.
+// modal's text input like Rename / New Virtual Folder).
 function isEditableElement(el: Element | null): boolean {
   if (!el) return false;
+  if ((el as HTMLElement).isContentEditable) return true;
   const tag = el.tagName;
-  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
-    || (el as HTMLElement).isContentEditable;
+  if (tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  if (tag === 'INPUT') return s_textInputTypes.has((el as HTMLInputElement).type);
+  return false;
 }
 
 const s_toolbarModeBottomTable: Record<string, boolean> = {
