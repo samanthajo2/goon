@@ -23,6 +23,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  
 
 import path from 'node:path';
+import nodeFs from 'node:fs';
+import os from 'node:os';
 import { describe, it, beforeEach, afterEach } from '../test/mocha.js';
 import { assert } from 'chai';
 import WatcherManager, { FolderWatcher } from './watcher-manager.js';
@@ -198,5 +200,39 @@ describe('WatcherManager', function () {
     assert.strictEqual(create.spy.callCount, expectedCreateCountAfterFileUpdate, '1 files created');
     assert.isAtLeast(change.spy.callCount, 0, 'no file changed after rmdir');
     assert.strictEqual(remove.spy.callCount, 1, '1 file deleted');
+  });
+
+  it('watches a symlinked subfolder whose target is outside the root', async () => {
+    // Watch the root first, so the symlink would otherwise be collapsed under it and
+    // served by the root's recursive watcher — which @parcel/watcher won't recurse
+    // into. Watching both root and symlink is what reproduces the original bug.
+    const rootWatcher = makeWatcher(testFS.baseFilename);
+    const rootStart = emitSpy();
+    rootWatcher.on('start', rootStart);
+    await rootStart.wait();
+
+    // A target directory OUTSIDE the watched tree, reached via a symlink inside it.
+    const target = nodeFs.mkdtempSync(path.join(os.tmpdir(), 'goon-symlink-target-'));
+    const linkPath = path.join(testFS.baseFilename, 'link');
+    nodeFs.symlinkSync(target, linkPath, 'dir');
+
+    try {
+      const linkWatcher = makeWatcher(linkPath);
+      const linkStart = emitSpy();
+      const linkCreate = emitSpy();
+      linkWatcher.on('start', linkStart);
+      linkWatcher.on('create', linkCreate);
+      await linkStart.wait();
+
+      // A change inside the *target* must surface on the symlinked folder's watcher.
+      nodeFs.writeFileSync(path.join(target, 'foo.txt'), 'hi');
+      await linkCreate.wait();
+      assert.isAtLeast(linkCreate.spy.callCount, 1, 'change under symlink target seen');
+    } finally {
+      // The symlink is untracked by TestFS; unlink it (unlinkSync removes the link
+      // itself, not its target) so the base dir is empty for cleanup.
+      try { nodeFs.unlinkSync(linkPath); } catch { /* already gone */ }
+      nodeFs.rmSync(target, { recursive: true, force: true });
+    }
   });
 });

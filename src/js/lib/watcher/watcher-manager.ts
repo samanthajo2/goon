@@ -20,13 +20,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 import path from 'node:path';
+import fs from 'node:fs';
 import EventEmitter from 'node:events';
 import { throttle, arrayDifference, CancelableFn } from '../utils.js';
 import bind from '../bind.js';
 import debug from '../debug.js';
 import ListenerManager from '../listener-manager.js';
-import { removeChildFolders } from '../utils.js';
 import TreeWatcher from './tree-watcher.js';
+
+// True when `child` is `parent` or lives beneath it (with a path-separator boundary,
+// so ".../a" is not considered a parent of ".../ab").
+function isUnder(child: string, parent: string): boolean {
+  if (child === parent) return true;
+  return child.startsWith(parent.endsWith(path.sep) ? parent : parent + path.sep);
+}
 
 // Manages multiple Tree Watchers
 //
@@ -149,12 +156,30 @@ class TreeWatcherDispatcher {
 export default class WatcherManager {
   private _folderWatchersByPath: Record<string, FolderWatcher[]>;
   private _treeWatchersDispatcherByPath: Record<string, TreeWatcherDispatcher>;
+  private _realpathCache: Map<string, string>;
   private _closed: boolean;
 
   constructor() {
     this._folderWatchersByPath = {};
     this._treeWatchersDispatcherByPath = {};
+    this._realpathCache = new Map();
     this._closed = false;
+  }
+
+  // Resolve a folder's realpath (following symlinks), cached. Falls back to the
+  // resolved path for paths that don't exist (e.g. in tests) so behavior matches the
+  // old string-based collapsing.
+  private _realpath(p: string): string {
+    let real = this._realpathCache.get(p);
+    if (real === undefined) {
+      try {
+        real = fs.realpathSync(p);
+      } catch {
+        real = path.normalize(path.resolve(p));
+      }
+      this._realpathCache.set(p, real);
+    }
+    return real;
   }
 
   async close(): Promise<void> {
@@ -206,12 +231,33 @@ export default class WatcherManager {
     folderWatchersForPath.splice(ndx, 1);
     if (folderWatchersForPath.length === 0) {
       delete this._folderWatchersByPath[folderName];
+      // Drop the cached realpath so a re-watch (e.g. a symlink repointed) re-resolves.
+      this._realpathCache.delete(folderName);
     }
     this._shuffleFolderWatchers();
   }
 
+  // Choose the minimal set of recursive tree-watcher roots that covers every watched
+  // folder. A folder collapses under a candidate root only when it's beneath it in
+  // BOTH the display path and the realpath — so a symlinked folder whose target lives
+  // outside its parent's real tree becomes its own root. That matters because
+  // @parcel/watcher does not recurse into symlinked directories: without a dedicated
+  // subscription, changes under a symlinked folder are never reported.
+  private _computeTreeWatcherRoots(folderPaths: string[]): string[] {
+    // Shortest first so a parent is considered before its descendants.
+    const sorted = [...folderPaths].sort((a, b) => a.length - b.length);
+    const roots: string[] = [];
+    for (const p of sorted) {
+      const covered = roots.some((r) => isUnder(p, r) && isUnder(this._realpath(p), this._realpath(r)));
+      if (!covered) {
+        roots.push(p);
+      }
+    }
+    return roots;
+  }
+
   private _shuffleFolderWatchers(): void {
-    const treeWatcherPathsWeNeed = removeChildFolders(Object.keys(this._folderWatchersByPath));
+    const treeWatcherPathsWeNeed = this._computeTreeWatcherRoots(Object.keys(this._folderWatchersByPath));
     const treeWatcherPathsWeHave = Object.keys(this._treeWatchersDispatcherByPath);
     const treeWatcherPathsToRemove = arrayDifference(treeWatcherPathsWeHave, treeWatcherPathsWeNeed);
     const treeWatcherPathsToAdd = arrayDifference(treeWatcherPathsWeNeed, treeWatcherPathsWeHave);
@@ -235,11 +281,13 @@ export default class WatcherManager {
     }
 
     for (const [folderPath, folderWatchersForPath] of Object.entries(this._folderWatchersByPath)) {
-      for (const treeWatcherPath of treeWatcherPathsWeNeed) {
-        if (folderPath.startsWith(treeWatcherPath)) {
-          this._treeWatchersDispatcherByPath[treeWatcherPath].addFolderWatchers(folderWatchersForPath);
-          break;
-        }
+      // Assign to the root that actually covers this folder (display + real path), so
+      // a symlinked folder is served by its own root's watcher, not the parent's.
+      const root = treeWatcherPathsWeNeed.find(
+        (r) => isUnder(folderPath, r) && isUnder(this._realpath(folderPath), this._realpath(r)),
+      );
+      if (root) {
+        this._treeWatchersDispatcherByPath[root].addFolderWatchers(folderWatchersForPath);
       }
     }
   }
