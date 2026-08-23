@@ -77,7 +77,7 @@ jobs:
           name: Goon-${{ matrix.config.artifact }}.${{ matrix.config.ext }}
 
       - name: Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
