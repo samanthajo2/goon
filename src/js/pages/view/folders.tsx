@@ -179,9 +179,13 @@ type FolderProps = {
   folderCount: number;
 };
 
-class Folder extends React.Component<FolderProps> {
+type FolderComponentState = { flashing: boolean };
+
+class Folder extends React.Component<FolderProps, FolderComponentState> {
   static contextType = AppContext;
   declare context: React.ContextType<typeof AppContext>;
+
+  state: FolderComponentState = { flashing: false };
 
   private _ref = React.createRef<HTMLDivElement>();
 
@@ -225,6 +229,13 @@ class Folder extends React.Component<FolderProps> {
     });
   }
 
+  // Briefly flash the row's background. Toggles the class off then on (across two
+  // frames) so repeated calls restart the CSS animation from the beginning.
+  flash(): void {
+    this.setState({ flashing: false });
+    requestAnimationFrame(() => requestAnimationFrame(() => this.setState({ flashing: true })));
+  }
+
   render(): React.ReactNode {
     const { entry } = this.props;
     const name = this.props.displayName;
@@ -236,6 +247,7 @@ class Folder extends React.Component<FolderProps> {
       // `virtual-folder` is a user-curated virtual folder.
       !entry.realFolder ? 'virtual' : undefined,
       isVirtualFolderKey(entry.filename) ? 'virtual-folder' : undefined,
+      this.state.flashing ? 'flash-sync' : undefined,
     );
     return (
       <div
@@ -244,6 +256,7 @@ class Folder extends React.Component<FolderProps> {
         onContextMenu={this._handleContextMenu}
         onDragOver={this._handleDragOver}
         onDrop={this._handleDrop}
+        onAnimationEnd={() => { if (this.state.flashing) this.setState({ flashing: false }); }}
       >
         <div ref={this._ref}>{name} ({entry.numFiles})</div>
       </div>
@@ -282,6 +295,7 @@ export default class Folders extends React.Component<Props> {
     const ref = this._filenameToRef.get(folderName);
     if (ref) {
       ref.current?.scrollIntoView();
+      ref.current?.flash();
     }
   };
 

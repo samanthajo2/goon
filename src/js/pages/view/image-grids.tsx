@@ -223,6 +223,16 @@ class ImageGrid extends React.Component<ImageGridProps> {
     }
   };
 
+  // Reveal this folder in the Folders sidebar (scroll to it + flash it). Replaces the
+  // old "Sync Folder View" context-menu item.
+  private _handleSyncFolder = (event: React.MouseEvent): void => {
+    event.stopPropagation();
+    this.context.eventBus.dispatch(
+      new ForwardableEvent('scrollFolderViewToFile'),
+      this.props.folder.filename,
+    );
+  };
+
   private _handleContextMenu = (event: React.MouseEvent): void => {
     this.context.eventBus.dispatch(
       new ForwardableEvent('folderContextMenu', event.nativeEvent),
@@ -293,6 +303,11 @@ class ImageGrid extends React.Component<ImageGridProps> {
           className={`imagegridhead${isVirtualFolderKey(folder.filename) ? ' virtual-folder' : ''}`}
           onContextMenu={this._handleContextMenu}
         >
+          <span
+            className="sync-folder-btn"
+            onClick={this._handleSyncFolder}
+            data-tooltip="Reveal in Folders"
+          >◀</span>
           {/* Virtual folders have a synthetic vfolder:<id> key, so always show their
               display name rather than the full "path". */}
           {isVirtualFolderKey(folder.filename)

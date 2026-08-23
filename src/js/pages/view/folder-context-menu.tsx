@@ -67,13 +67,6 @@ export default class FolderContextMenu extends React.Component<Props> {
     this.context.eventBus.dispatch(new ForwardableEvent('refreshFolder'), this.props.folder.filename);
   };
 
-  private _handleSyncFolderView = (): void => {
-    this.context.eventBus.dispatch(
-      new ForwardableEvent('scrollFolderViewToFile'),
-      this.props.folder.filename,
-    );
-  };
-
   render(): React.ReactNode {
     const { platform } = this.context;
     // A virtual folder has no real path — Finder/Copy-Path don't apply, and its
@@ -102,7 +95,6 @@ export default class FolderContextMenu extends React.Component<Props> {
           <MenuItem onClick={this._handleCopy}>Copy Folder Path</MenuItem>
         )}
         <MenuItem onClick={this._handleRefreshFolder}>Refresh</MenuItem>
-        {!isVirtual && <MenuItem onClick={this._handleSyncFolderView}>Sync Folder View</MenuItem>}
       </ContextMenu>
     );
   }
