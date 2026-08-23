@@ -197,9 +197,11 @@ type ImageGridProps = {
   winState: WinState;
 };
 
-class ImageGrid extends React.Component<ImageGridProps> {
+class ImageGrid extends React.Component<ImageGridProps, { dragOver: boolean }> {
   static contextType = AppContext;
   declare context: React.ContextType<typeof AppContext>;
+
+  state = { dragOver: false };
 
   private _logger: ReturnType<typeof debug>;
   private grid!: HTMLDivElement;
@@ -247,10 +249,16 @@ class ImageGrid extends React.Component<ImageGridProps> {
   private _handleDragOver = (event: React.DragEvent): void => {
     if (getDragContext()) {
       event.preventDefault(); // allow the drop
+      if (!this.state.dragOver) this.setState({ dragOver: true });
     }
   };
 
+  private _handleDragLeave = (): void => {
+    if (this.state.dragOver) this.setState({ dragOver: false });
+  };
+
   private _handleDrop = (event: React.DragEvent): void => {
+    if (this.state.dragOver) this.setState({ dragOver: false });
     if (!getDragContext()) return;
     event.preventDefault();
     this.context.eventBus.dispatch(
@@ -295,8 +303,9 @@ class ImageGrid extends React.Component<ImageGridProps> {
     return (
       <div
         ref={(elem) => { this.grid = elem!; }}
-        className="imagegrid"
+        className={`imagegrid${this.state.dragOver ? ' drag-over' : ''}`}
         onDragOver={this._handleDragOver}
+        onDragLeave={this._handleDragLeave}
         onDrop={this._handleDrop}
       >
         <div

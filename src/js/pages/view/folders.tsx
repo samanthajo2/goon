@@ -179,13 +179,13 @@ type FolderProps = {
   folderCount: number;
 };
 
-type FolderComponentState = { flashing: boolean };
+type FolderComponentState = { flashing: boolean; dragOver: boolean };
 
 class Folder extends React.Component<FolderProps, FolderComponentState> {
   static contextType = AppContext;
   declare context: React.ContextType<typeof AppContext>;
 
-  state: FolderComponentState = { flashing: false };
+  state: FolderComponentState = { flashing: false, dragOver: false };
 
   private _ref = React.createRef<HTMLDivElement>();
 
@@ -208,10 +208,16 @@ class Folder extends React.Component<FolderProps, FolderComponentState> {
   private _handleDragOver = (event: React.DragEvent): void => {
     if (getDragContext()) {
       event.preventDefault(); // allow the drop
+      if (!this.state.dragOver) this.setState({ dragOver: true });
     }
   };
 
+  private _handleDragLeave = (): void => {
+    if (this.state.dragOver) this.setState({ dragOver: false });
+  };
+
   private _handleDrop = (event: React.DragEvent): void => {
+    if (this.state.dragOver) this.setState({ dragOver: false });
     if (!getDragContext()) return;
     event.preventDefault();
     this.context.eventBus.dispatch(
@@ -248,6 +254,7 @@ class Folder extends React.Component<FolderProps, FolderComponentState> {
       !entry.realFolder ? 'virtual' : undefined,
       isVirtualFolderKey(entry.filename) ? 'virtual-folder' : undefined,
       this.state.flashing ? 'flash-sync' : undefined,
+      this.state.dragOver ? 'drag-over' : undefined,
     );
     return (
       <div
@@ -255,6 +262,7 @@ class Folder extends React.Component<FolderProps, FolderComponentState> {
         onClick={this._handleClick}
         onContextMenu={this._handleContextMenu}
         onDragOver={this._handleDragOver}
+        onDragLeave={this._handleDragLeave}
         onDrop={this._handleDrop}
         onAnimationEnd={() => { if (this.state.flashing) this.setState({ flashing: false }); }}
       >
