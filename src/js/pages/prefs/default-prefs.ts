@@ -125,12 +125,6 @@ const defaultPrefs: Preferences = {
     { accelerator: 'F1',                      action: 'zoomIn' },
     { accelerator: 'F2',                      action: 'zoomOut' },
     { accelerator: 'R',                       action: 'resetZoom' },
-    // Browser-style zoom of the focused viewer (Cmd on macOS, Ctrl elsewhere).
-    // '=' also covers '+' (Shift+=) via the explicit Shift binding below.
-    { accelerator: 'CommandOrControl+=',      action: 'zoomIn' },
-    { accelerator: 'CommandOrControl+Shift+=', action: 'zoomIn' },
-    { accelerator: 'CommandOrControl+-',      action: 'zoomOut' },
-    { accelerator: 'CommandOrControl+0',      action: 'resetZoom' },
     { accelerator: 'L',                       action: 'setLoop' },
     { accelerator: 'Shift',                   action: 'gotoPrev' },
     { accelerator: '[',                       action: 'gotoPrev' },
