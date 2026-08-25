@@ -121,6 +121,7 @@ button {
         input[type=range],
         range {
             width: 100%;
+            margin: 0;
         }
 
         input[type=text] {
