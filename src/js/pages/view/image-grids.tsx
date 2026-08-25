@@ -447,6 +447,21 @@ export default class ImageGrids extends React.Component<Props, State> {
   }
 
   componentDidUpdate(prevProps: Props): void {
+    if (prevProps.winState.sortMode !== this.props.winState.sortMode) {
+      // Sort order changed: every grid re-orders, so any scroll position/anchor
+      // from the previous sort is meaningless. Jump to the top and forget the
+      // old/pending anchors, then cache the top so returning from the Viewer
+      // restores the top too (instead of the pre-sort scroll position). The
+      // programmatic-scroll flag keeps the resulting scroll event from re-saving.
+      this._pendingScrollAnchor = null;
+      this._scrollAnchor = null;
+      if (this._imagegrids) {
+        this._programmaticScroll = true;
+        this._imagegrids.scrollTop = 0;
+      }
+      this.props.saveScrollTop(0, null);
+      return;
+    }
     const anchor = this._scrollAnchor;
     if (anchor && this._imagegrids && this._folders) {
       this._scrollAnchor = null;
