@@ -133,7 +133,7 @@ export default function createMediaLoader(options: {
     reject(imageElement);
   });
 
-  return function load(filename: string, type: string) {
+  return function load(filename: string, type: string, cacheBust?: string | number) {
     logger('load:', filename);
     if (busy) {
       throw new Error('in use');
@@ -144,7 +144,12 @@ export default function createMediaLoader(options: {
     });
     video.pause();
     audioDuration = undefined;
-    const url = urlFromFilename(filename);
+    // Append the mtime so an edited file (same path) isn't served from Chromium's
+    // decoded-image cache — and so re-setting the same <img>/<video> src actually
+    // reloads. Only for file:// URLs (they accept a query in Electron); a query on a
+    // blob: URL (archive entries) would corrupt its id and fail to load.
+    const base = urlFromFilename(filename);
+    const url = (cacheBust !== undefined && base.startsWith('file:')) ? `${base}?cb=${cacheBust}` : base;
     if (filters.isMimeVideo(type)) {
       video.setAttribute('src', url);
       video.load();

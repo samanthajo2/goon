@@ -33,4 +33,6 @@ export type MediaLoaderInfo = {
   release: () => void,
 }
 
-export type MediaLoaderFn = (filename: string, type: string) => Promise<MediaLoaderInfo>;
+// cacheBust (the file's mtime) is appended to the source URL so re-thumbnailing an
+// edited file doesn't reuse Chromium's cached decode of the old contents.
+export type MediaLoaderFn = (filename: string, type: string, cacheBust?: string | number) => Promise<MediaLoaderInfo>;

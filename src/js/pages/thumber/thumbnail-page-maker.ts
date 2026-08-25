@@ -78,7 +78,7 @@ import { MakeThumbnailPagesFn } from './thumbnail-page-maker-def.js';
 //    for new images. When done process new images.
 export default function createThumbnailPageMaker(options: {
   thumbnailWidth: number;
-  thumbnailMaker: (filename: string, type: string) => Promise<{
+  thumbnailMaker: (filename: string, type: string, cacheBust?: string | number) => Promise<{
     info: ImageInfo,
     canvas: HTMLCanvasElement,
     release: () => void
@@ -170,7 +170,7 @@ export default function createThumbnailPageMaker(options: {
     // the page
     const imgPromises = Object.keys(filesToProcess).map((filename) => {
       const fileInfo = newFiles[filename];
-      const p = thumbnailMaker(filename, fileInfo.type)
+      const p = thumbnailMaker(filename, fileInfo.type, fileInfo.mtime)
         .then((thndl) => {
           const newInfo = Object.assign(fileInfo, thndl.info);
           // The observer must use the canvas IMMEDIATELY.
