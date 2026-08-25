@@ -45,9 +45,11 @@ export default class Thumbnail extends React.PureComponent<Props> {
 
   private _viewImage = (e: React.MouseEvent): void => {
     if (this._draggedSincePointerDown) return;
-    // Cmd/Ctrl-click toggles selection (a bigger target than the checkbox);
-    // Cmd/Ctrl+Shift-click extends the range. A plain click views the item.
-    if (e.metaKey || e.ctrlKey) {
+    // Cmd/Ctrl-click toggles selection (a bigger target than the checkbox).
+    // Shift-click (with or without Cmd/Ctrl) extends the range from the last
+    // selected item to this one — same as Shift-clicking the checkbox, but you
+    // don't have to hit the small box. A plain click views the item.
+    if (e.metaKey || e.ctrlKey || e.shiftKey) {
       this.context.eventBus.dispatch(
         new ForwardableEvent('toggleSelection'),
         this.props.folderKey,
