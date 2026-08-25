@@ -345,6 +345,23 @@ export default class VPair extends React.Component<Props, ComponentState> {
     throw new Error('image index out of range');
   }
 
+  // Maps the flat, cross-folder image index to its selection entry (folderKey +
+  // filename). The Viewer needs the folderKey — which it can't derive from the
+  // filename alone (virtual folders use a synthetic vfolder:<id> key) — to
+  // select/deselect the currently-viewed item the same way a thumbnail does.
+  private _entryForIndex(imgNdx: number): { folderKey: string; filename: string } | null {
+    let ndx = imgNdx;
+    const folders = this.props.root.folders;
+    for (let folderNdx = 0; folderNdx < folders.length; ++folderNdx) {
+      const folder = folders[folderNdx];
+      if (ndx < folder.files.length) {
+        return { folderKey: folder.filename, filename: folder.files[ndx].info.filename };
+      }
+      ndx -= folder.files.length;
+    }
+    return null;
+  }
+
   private _viewCurrentIndex = (): void => {
     this._viewImage(this.state.currentImageIndex);
   };
@@ -411,6 +428,7 @@ export default class VPair extends React.Component<Props, ComponentState> {
               mediaManager={this._mediaManager}
               setCurrentView={this._setCurrentView}
               rotateMode={this.props.rotateMode}
+              selectionEntry={this._entryForIndex(this.state.currentImageIndex)}
             />
           ) : (
             <ImageGrids

@@ -137,7 +137,7 @@ const defaultPrefs: Preferences = {
     { accelerator: 'Control',                 action: 'gotoNext' },
     { accelerator: ']',                       action: 'gotoNext' },
     { accelerator: '\\',                      action: 'gotoNext' },
-    { accelerator: 'P',                       action: 'togglePlay' },
+    { accelerator: 'Space',                   action: 'togglePlay' },
     { accelerator: 'Tab',                     action: 'fastForward' },
     { accelerator: 'Q',                       action: 'fastForward' },
     { accelerator: 'Right',                   action: 'fastForward' },

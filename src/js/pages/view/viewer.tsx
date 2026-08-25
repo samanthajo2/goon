@@ -38,6 +38,7 @@ import MediaManagerClient from '../../lib/media-manager-client.js';
 import { VideoState, ViewerState, TimeUpdateEvent } from './viewer-events.js';
 import { MediaResult } from '../../lib/media-manager-types.js';
 import { AppContext } from './contexts.js';
+import { isSelected, toggleSelection, subscribeSelection } from './selection-state.js';
 
 let s_viewerCount = 0;
 
@@ -230,6 +231,8 @@ type Options = {
   maxSeekTime: number;
 };
 
+type SelectionEntry = { folderKey: string; filename: string };
+
 type Props = {
   options: Options;
   downstreamEventBus: ForwardableEventDispatcher;
@@ -237,6 +240,9 @@ type Props = {
   mediaManager: MediaManagerClient;
   setCurrentView: () => void;
   rotateMode: number;
+  // The (folderKey, filename) of the item being viewed, so the viewer can
+  // select/deselect it. Null if the current index doesn't resolve to an entry.
+  selectionEntry: SelectionEntry | null;
 };
 
 type State = {
@@ -247,6 +253,10 @@ type State = {
   playerFlash: boolean;
   badImage: boolean;
   badVideo: boolean;
+  selected: boolean;
+  // Briefly forces the .ui overlay visible after a selection change so a
+  // hotkey user sees the checkbox update even without hovering.
+  selectFlash: boolean;
 };
 
 export default class Viewer extends React.Component<Props, State> {
@@ -283,6 +293,8 @@ export default class Viewer extends React.Component<Props, State> {
   private _dragStartY = 0;
   private _dragStartPanX = 0;
   private _dragStartPanY = 0;
+  private _unsubscribeSelection: (() => void) | undefined;
+  private _selectFlashTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(props: Props) {
     super(props);
@@ -329,6 +341,10 @@ export default class Viewer extends React.Component<Props, State> {
       playerFlash: false,
       badImage: false,
       badVideo: false,
+      selected: props.selectionEntry
+        ? isSelected(props.selectionEntry.folderKey, props.selectionEntry.filename)
+        : false,
+      selectFlash: false,
     };
 
     this._loadMediaIfNew();
@@ -408,7 +424,13 @@ export default class Viewer extends React.Component<Props, State> {
     actionListener.on('changeStretchMode', () => { this._changeStretchMode(); });
     actionListener.on('launchBrowser', this._launchBrowser);
     actionListener.on('launchExternalViewer', this._launchExternalViewer);
+    actionListener.on('toggleSelected', this._toggleSelected);
     on(this._eventBus, 'action', this._actionListener.routeAction);
+
+    // Keep the checkbox in sync when the selection changes from anywhere (the
+    // grid, another pane, clear-all), and flash the overlay so the change is
+    // visible even when triggered by a hotkey.
+    this._unsubscribeSelection = subscribeSelection(() => { this._syncSelected(true); });
 
     this._logger('register for action on emitter:', this.context.eventBus.debugId);
     on(this._eventBus, 'timeupdate', this._setVideoTime);
@@ -431,7 +453,62 @@ export default class Viewer extends React.Component<Props, State> {
     this._actionListener.close();
     this.context.eventBus.setForward(null);
     this._listenerManager.removeAll();
+    this._unsubscribeSelection?.();
+    if (this._selectFlashTimer !== undefined) {
+      clearTimeout(this._selectFlashTimer);
+    }
   }
+
+  componentDidUpdate(prevProps: Props): void {
+    // Navigating to a different item (next/prev) changes which entry we're on;
+    // refresh the checkbox to that item's state without flashing (only user
+    // toggles should flash).
+    const prev = prevProps.selectionEntry;
+    const cur = this.props.selectionEntry;
+    if (prev?.folderKey !== cur?.folderKey || prev?.filename !== cur?.filename) {
+      this._syncSelected(false);
+    }
+  }
+
+  // Recompute whether the currently-viewed entry is selected. When `flash` and the
+  // value actually changed, briefly reveal the .ui overlay so the update is seen.
+  private _syncSelected(flash: boolean): void {
+    const entry = this.props.selectionEntry;
+    const selected = entry ? isSelected(entry.folderKey, entry.filename) : false;
+    if (selected === this.state.selected) {
+      return;
+    }
+    this.setState({ selected });
+    if (flash) {
+      this._flashUI();
+    }
+  }
+
+  private _flashUI(): void {
+    this.setState({ selectFlash: true });
+    if (this._selectFlashTimer !== undefined) {
+      clearTimeout(this._selectFlashTimer);
+    }
+    this._selectFlashTimer = setTimeout(() => {
+      this._selectFlashTimer = undefined;
+      this.setState({ selectFlash: false });
+    }, 900);
+  }
+
+  private _toggleSelected = (): void => {
+    const entry = this.props.selectionEntry;
+    if (!entry) {
+      return;
+    }
+    // Toggling notifies subscribers, which runs _syncSelected(true) → updates the
+    // checkbox and flashes the overlay.
+    toggleSelection(entry.folderKey, entry.filename);
+  };
+
+  private _handleSelectClick = (e: React.MouseEvent): void => {
+    e.stopPropagation();
+    this._toggleSelected();
+  };
 
   // Dispatch a snapshot of the current viewerState to the downstream toolbar event bus.
   // ViewerToolbar subscribes to 'viewerStateChanged' on its inEventBus and re-renders.
@@ -963,6 +1040,8 @@ export default class Viewer extends React.Component<Props, State> {
     }
     const infoClasses = new CSSArray('info');
     infoClasses.addIf(this.state.infoFlash, 'flash');
+    const uiClasses = new CSSArray('ui');
+    uiClasses.addIf(this.state.selectFlash, 'flash');
     const videoClasses = new CSSArray('pspot');
     videoClasses.addIf(!isVideoOrAudio, 'hide');
     videoClasses.addIf(this.state.playerFlash, 'flash');
@@ -997,7 +1076,12 @@ export default class Viewer extends React.Component<Props, State> {
               <div className={infoClasses.toString()}>{filename}</div>
               <div className="prev" onClick={this._gotoPrev}><img src="images/prev.svg" /></div>
               <div className="next" onClick={this._gotoNext}><img src="images/next.svg" /></div>
-              <div className="ui">
+              <div className={uiClasses.toString()}>
+                <div
+                  className={`viewer-select${this.state.selected ? ' checked' : ''}`}
+                  onClick={this._handleSelectClick}
+                  title={this.state.selected ? 'Deselect' : 'Select'}
+                >{this.state.selected ? '✓' : ''}</div>
                 <div className="stretch" onClick={this._changeStretchMode} title={stretchMode}>
                   <img src={modeInfo[stretchMode as StretchMode]?.image ?? ''} />
                 </div>
