@@ -29,10 +29,11 @@ import '../../lib/stacktrace-log.js';
 import bind from '../../lib/bind.js';
 import debug from '../../lib/debug.js';
 import ListenerManager from '../../lib/listener-manager.js';
-import { eventToAccelerator, acceleratorToDisplay, acceleratorToId, isModifierOnly } from '../../lib/keyrouter.js';
+import { eventToAccelerator, acceleratorToDisplay } from '../../lib/keyrouter.js';
 import Modal from '../../lib/ui/modal.js';
 import { actions, ActionId } from '../../lib/actions.js';
 import { loadPrefs, Preferences, KeyConfig, ToolbarPosition } from './default-prefs.js';
+import { computeKeyConflicts } from './key-conflicts.js';
 import { CSSArray } from '../../lib/css-utils.js';
 import Checkbox from '../../lib/ui/checkbox.js';
 import Range from '../../lib/ui/range.js';
@@ -184,7 +185,8 @@ const EnumSelector = ({ desc, items, item, onChange }: EnumSelectorProps): React
 
 type KeyProps = {
   keyConfig: KeyConfig;
-  dup: boolean;
+  // Human-readable labels of the other bindings this one conflicts with (empty = none).
+  conflicts: string[];
   deleteKey: () => void;
   setAccelerator: (accelerator: string) => void;
   setKeyAction: (action: ActionId) => void;
@@ -237,7 +239,8 @@ class Key extends React.Component<KeyProps, KeyState> {
   }
 
   render(): React.ReactNode {
-    const { keyConfig, dup, deleteKey } = this.props;
+    const { keyConfig, conflicts, deleteKey } = this.props;
+    const dup = conflicts.length > 0;
     const classes = new CSSArray('key');
     classes.addIf(dup, 'dup');
     const display = acceleratorToDisplay(keyConfig.accelerator);
@@ -257,11 +260,18 @@ class Key extends React.Component<KeyProps, KeyState> {
       <div className={classes.toString()}>
         {setKeyDialog}
         <div>
-          <div className="keycode" onClick={this._startKeyCapture}>{display}</div>
+          <div
+            className="keycode"
+            onClick={this._startKeyCapture}
+            title={dup ? `Conflicts with: ${conflicts.join(', ')}` : undefined}
+          >{display}</div>
           <ActionSelector items={actions} item={keyConfig.action ?? 'noop'} onChange={this._setAction} />
         </div>
         <button type="button" onClick={this._startKeyCapture}>Set</button>
         <button type="button" onClick={() => { deleteKey(); }}>Del</button>
+        {dup ? (
+          <div className="key-conflict">conflicts with: {conflicts.join(', ')}</div>
+        ) : undefined}
       </div>
     );
   }
@@ -513,47 +523,17 @@ export default class Prefs extends React.Component<PrefsProps, PrefsState> {
 
   _makeKeys(): React.ReactNode[] {
     const prefs = this.state.prefs;
-    // Duplicate detection: two bindings with the same canonical accelerator id
-    // are flagged. Modifier-only bindings are also flagged when a non-modifier
-    // binding uses that modifier (e.g. binding 'Shift' as a key while 'Shift+A'
-    // is also bound is ambiguous).
-    const counts: Record<string, number> = {};
-    const modifierKeysAsKey: Record<string, number> = {};
-
-    prefs.keyConfig.forEach((cfg) => {
-      if (!cfg.accelerator) return;
-      const id = acceleratorToId(cfg.accelerator);
-      counts[id] = 1 + (counts[id] || 0);
-      if (isModifierOnly(cfg.accelerator)) {
-        modifierKeysAsKey[cfg.accelerator] = 1 + (modifierKeysAsKey[cfg.accelerator] || 0);
-      }
-    });
-
-    const usesConflictingModifier = (accel: string): boolean => {
-      // If this binding uses Shift/Ctrl/etc. as a modifier and another binding
-      // uses that same modifier as a standalone key, flag it.
-      if (modifierKeysAsKey['Shift'] && /\bShift\+/.test(accel)) return true;
-      if (modifierKeysAsKey['Control'] && /\bControl\+/.test(accel)) return true;
-      if (modifierKeysAsKey['Alt'] && /\bAlt\+/.test(accel)) return true;
-      if (modifierKeysAsKey['Meta'] && /\bMeta\+/.test(accel)) return true;
-      return false;
-    };
-
-    return prefs.keyConfig.map((cfg, ndx) => {
-      const id = cfg.accelerator ? acceleratorToId(cfg.accelerator) : '';
-      const dup = id ? counts[id] > 1 : false;
-      const modDup = !isModifierOnly(cfg.accelerator) && usesConflictingModifier(cfg.accelerator);
-      return (
-        <Key
-          key={`key-${ndx}`}  // eslint-disable-line
-          dup={dup || modDup}
-          keyConfig={cfg}
-          setAccelerator={(accel) => { this._setAccelerator(ndx, accel); }}
-          setKeyAction={(action) => { this._setKeyAction(ndx, action); }}
-          deleteKey={() => { this._deleteKey(ndx); }}
-        />
-      );
-    });
+    const conflicts = computeKeyConflicts(prefs.keyConfig);
+    return prefs.keyConfig.map((cfg, ndx) => (
+      <Key
+        key={`key-${ndx}`}  // eslint-disable-line
+        conflicts={conflicts[ndx]}
+        keyConfig={cfg}
+        setAccelerator={(accel) => { this._setAccelerator(ndx, accel); }}
+        setKeyAction={(action) => { this._setKeyAction(ndx, action); }}
+        deleteKey={() => { this._deleteKey(ndx); }}
+      />
+    ));
   }
 
   _addErrors(): React.ReactNode {

@@ -1160,6 +1160,7 @@ input[type=range] {
 
     .key {
         display: flex;
+        flex-wrap: wrap;
         font-family: monospace;
 
         button {
@@ -1181,7 +1182,17 @@ input[type=range] {
         }
 
         &.dup .keycode:before {
-            content: "(conflict)";
+            content: "⚠ ";
+        }
+
+        &.dup .key-conflict {
+            flex: 0 0 100%;
+            height: auto;
+            display: block;
+            padding: 3px 6px;
+            color: #fdd;
+            font-size: smaller;
+            white-space: normal;
         }
 
         .keycode {
