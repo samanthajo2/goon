@@ -35,7 +35,8 @@ import { autoUpdater } from './auto-update.js';
 import appdata from '../lib/appdata.js';
 import * as utils from '../lib/utils.js';
 import { getFreePort } from '../lib/get-free-port.js';
-import {loadPrefs, Preferences} from '../pages/prefs/default-prefs.js';
+import {Preferences} from '../pages/prefs/default-prefs.js';
+import { startPrefsService } from './prefs-service.js';
 import * as fsOps from './fs-ops.js';
 import { actionAccelerator } from './menu-accelerator.js';
 import { actions, type ActionId } from '../lib/actions.js';
@@ -222,10 +223,14 @@ const oneOfAKindWindows: {
   browser?: BrowserWindow,
 } = {};
 type OneOfAKindWindowId = keyof typeof oneOfAKindWindows;
-let {prefs} = loadPrefs(prefsFilename, {
-  existsSync: fs.existsSync,
-  readUTF8FileSync: utils.readUTF8FileSync,
+// Main owns prefs.json (see prefs-service.ts). `prefs` is main's cache of the
+// effective values, refreshed by updatePrefs whenever the service broadcasts.
+const prefsService = startPrefsService({
+  prefsPath: prefsFilename,
+  folderOverride: args._,
+  onChange: (newPrefs) => updatePrefs(newPrefs),
 });
+let prefs: Preferences = prefsService.getEffectivePrefs();
 let hideInsteadOfCloseOneOffWindows = true;
 let quitting = false;
 let server: Server | undefined;
@@ -287,9 +292,6 @@ ipcMain.on('unlock', () => {
   passwordWindow.close();
 });
 ipcMain.on('setupMenus', setupMenus);
-ipcMain.on('prefs', (_event, prefs) => {
-  updatePrefs(prefs);
-});
 ipcMain.on('showItemInFolder', (_event, fullPath) => {
   shell.showItemInFolder(fullPath);
 });
@@ -785,12 +787,18 @@ function createThumber() {
   });
 }
 
+// An ordinary window: built when the user asks for it and destroyed when they
+// close it. It used to be created hidden at startup and only ever hidden again,
+// because it hosted the 'prefs' channel that every other window depends on --
+// main owns that now (prefs-service.ts), so this window is pure UI. Besides
+// being simpler, it fixes a macOS bug: a window belongs to the Space it was
+// created in, so the long-lived hidden window opened from a fullscreened view
+// dragged the user back to the Space the app started in, and hiding it again
+// stranded that Space, empty and undismissable.
 function createPreferencesWindow() {
   createOneOfAKindWindow('prefs', 'app/preferences.html', {
-    show: false,
     width: 700,
     height: 500,
-    hideInsteadOfClose: true,
   });
 }
 
@@ -1044,7 +1052,6 @@ function start() {
   updatePrefs(prefs);
   setupMenus();
   createThumber();
-  createPreferencesWindow();
   loadProgramState();
   if (!isDevMode && prefs && prefs.misc && prefs.misc.checkForUpdates) {
     // Silent background check: only surface the update window if a new
@@ -1102,6 +1109,9 @@ app.on('before-quit', () => {
     saveProgramState();
   }
   quitting = true;
+  // Flush, don't close: closing the channel would disconnect view windows that
+  // are still on screen and flip them to their "reconnecting" banner mid-quit.
+  prefsService.flush();
   hideInsteadOfCloseOneOffWindows = false;
   for (const window of Object.values(oneOfAKindWindows)) {
     window.close();

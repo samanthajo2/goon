@@ -195,6 +195,11 @@ export function createChannelStream(channelId: string): Promise<ChannelStream> {
 // never negative, so -1 is safe.
 const MAIN_SENDER_ID = -1;
 
+// Sentinel owner id meaning "this channel is served by main itself" rather than
+// by a renderer. Deliberately distinct from MAIN_SENDER_ID so the relay can tell
+// "the peer is main" (a bridged browser socket) apart from "the owner is main".
+const MAIN_CHANNEL_ID = -2;
+
 // A WebSocket-like duck type — lets ws-bridge.ts wire up `ws` without this
 // module having to import the `ws` package (keeping it usable in renderer
 // bundles too).
@@ -281,6 +286,22 @@ export function acceptWebSocketConnection(ws: WebSocketLike, channelId: string):
     ws.close();
     return;
   }
+  if (ownerId === MAIN_CHANNEL_ID) {
+    // Served by main: no renderer hop, so drive the stream straight off the socket.
+    const stream = acceptMainChannelPeer(channelId, webSocketPeer(ws), null);
+    if (!stream) {
+      ws.close();
+      return;
+    }
+    ws.onMessage((data) => {
+      let msg: { event?: string; args?: unknown[] };
+      try { msg = JSON.parse(data); } catch { return; }
+      if (typeof msg.event !== 'string') return;
+      stream.emit(msg.event, ...(msg.args ?? []));
+    });
+    ws.onClose(() => stream.handleDisconnect());
+    return;
+  }
   const wc = electron.webContents.fromId(ownerId);
   if (!wc) {
     ws.close();
@@ -294,12 +315,131 @@ export function acceptWebSocketConnection(ws: WebSocketLike, channelId: string):
   wc.send(`${P}connect`, MAIN_SENDER_ID, localId, channelId);
 }
 
+// ── Main-process channel hosting ──
+
+// A peer connected to a main-hosted channel. Two flavours: a renderer, reached
+// over the same relay IPC that renderer-to-renderer streams use, and a browser
+// WebSocket, reached directly with binary args split into their own frames.
+type MainPeer = {
+  deliver(event: string, args: unknown[]): void;
+  close(): void;
+};
+
+function rendererPeer(webContentsId: number, peerStreamId: number): MainPeer {
+  return {
+    deliver(event, args) {
+      electron.webContents.fromId(webContentsId)?.send(`${P}relay`, peerStreamId, event, ...args);
+    },
+    close() {
+      electron.webContents.fromId(webContentsId)?.send(`${P}disconnect`, peerStreamId);
+    },
+  };
+}
+
+function webSocketPeer(ws: WebSocketLike): MainPeer {
+  return {
+    deliver(event, args) {
+      const { jsonArgs, binaries } = extractBinaries(args);
+      try {
+        ws.send(JSON.stringify({ event, args: jsonArgs }));
+        for (const bin of binaries) ws.sendBinary(bin);
+      } catch { /* socket may be closed */ }
+    },
+    close() {
+      try { ws.close(); } catch { /* already closed */ }
+    },
+  };
+}
+
+const mainChannels = new Map<string, EventEmitter>();
+const mainStreams = new Map<number, MainStream>();
+let mainNextId = 1;
+// initRelay owns the `owners` map and the waiting-connection flush. Capture the
+// flush so a channel registered after a client already asked for it still
+// unblocks that client instead of letting it time out.
+const flushRef: { value: (() => void) | null } = { value: null };
+
+class MainStream extends EventEmitter implements ChannelStream {
+  private _closed = false;
+
+  constructor(
+    readonly localId: number,
+    readonly channelId: string,
+    private readonly _peer: MainPeer,
+    // Set for renderer peers so streams can be reaped when the window goes away.
+    readonly peerWebContentsId: number | null,
+  ) {
+    super();
+  }
+
+  send(event: string, ...args: unknown[]): void {
+    if (this._closed) return;
+    this._peer.deliver(event, args);
+  }
+
+  close(): void {
+    if (this._closed) return;
+    this._closed = true;
+    mainStreams.delete(this.localId);
+    this._peer.close();
+  }
+
+  // The peer went away: renderer disconnected, socket closed, or window destroyed.
+  handleDisconnect(): void {
+    if (this._closed) return;
+    this._closed = true;
+    mainStreams.delete(this.localId);
+    this.emit('disconnect');
+  }
+}
+
+function acceptMainChannelPeer(channelId: string, peer: MainPeer, peerWebContentsId: number | null): MainStream | null {
+  const ch = mainChannels.get(channelId);
+  if (!ch) return null;
+  const stream = new MainStream(mainNextId++, channelId, peer, peerWebContentsId);
+  mainStreams.set(stream.localId, stream);
+  ch.emit('connect', stream);
+  return stream;
+}
+
+/**
+ * Register a channel served by the main process. Mirrors the renderer's
+ * createChannel(): the returned Channel emits 'connect' with a ChannelStream per
+ * peer, and peers reach it through the ordinary createChannelStream(channelId) --
+ * neither renderers nor browser clients can tell who is serving it.
+ */
+export function createMainChannel(channelId: string): Channel {
+  if (!ownersRef.value) {
+    throw new Error('createMainChannel: call initRelay() first');
+  }
+  if (mainChannels.has(channelId) || ownersRef.value.has(channelId)) {
+    throw new Error(`Channel already in use: ${channelId}`);
+  }
+  const ch = new EventEmitter();
+  mainChannels.set(channelId, ch);
+  ownersRef.value.set(channelId, MAIN_CHANNEL_ID);
+  flushRef.value?.();
+  const channel: Channel = {
+    on: (event: string, listener: (...args: unknown[]) => void) => { ch.on(event, listener); return channel; },
+    close: () => {
+      mainChannels.delete(channelId);
+      if (ownersRef.value?.get(channelId) === MAIN_CHANNEL_ID) ownersRef.value.delete(channelId);
+      for (const s of [...mainStreams.values()]) {
+        if (s.channelId === channelId) s.close();
+      }
+    },
+  };
+  return channel;
+}
+
 export function initRelay(): void {
   const { ipcMain, webContents, app } = electron;
 
   const owners = new Map<string, number>();
   ownersRef.value = owners;
   const waiting: { senderId: number; localStreamId: number; channelId: string }[] = [];
+
+  flushRef.value = () => flush();
 
   function flush(): void {
     for (let i = waiting.length - 1; i >= 0; i--) {
@@ -338,6 +478,11 @@ export function initRelay(): void {
   });
 
   ipcMain.on(`${P}connect`, (e: Electron.IpcMainEvent, targetWindowId: number, senderStreamId: number, channelId: string) => {
+    if (targetWindowId === MAIN_CHANNEL_ID) {
+      const stream = acceptMainChannelPeer(channelId, rendererPeer(e.sender.id, senderStreamId), e.sender.id);
+      e.sender.send(`${P}connectResult`, senderStreamId, !!stream, stream ? stream.localId : 0);
+      return;
+    }
     webContents.fromId(targetWindowId)?.send(`${P}connect`, e.sender.id, senderStreamId, channelId);
   });
 
@@ -362,12 +507,20 @@ export function initRelay(): void {
       bridgeStreams.get(remoteStreamId)?.forwardToWs(event, args);
       return;
     }
+    if (targetWindowId === MAIN_CHANNEL_ID) {
+      mainStreams.get(remoteStreamId)?.emit(event, ...args);
+      return;
+    }
     webContents.fromId(targetWindowId)?.send(`${P}relay`, remoteStreamId, event, ...args);
   });
 
   ipcMain.on(`${P}disconnect`, (_e: Electron.IpcMainEvent, targetWindowId: number, remoteStreamId: number) => {
     if (targetWindowId === MAIN_SENDER_ID) {
       bridgeStreams.get(remoteStreamId)?.handlePeerDisconnect();
+      return;
+    }
+    if (targetWindowId === MAIN_CHANNEL_ID) {
+      mainStreams.get(remoteStreamId)?.handleDisconnect();
       return;
     }
     webContents.fromId(targetWindowId)?.send(`${P}disconnect`, remoteStreamId);
@@ -378,6 +531,9 @@ export function initRelay(): void {
     wc.on('destroyed', () => {
       for (const [channelId, ownerId] of owners) {
         if (ownerId === wc.id) owners.delete(channelId);
+      }
+      for (const s of [...mainStreams.values()]) {
+        if (s.peerWebContentsId === wc.id) s.handleDisconnect();
       }
       for (let i = waiting.length - 1; i >= 0; i--) {
         if (waiting[i].senderId === wc.id) waiting.splice(i, 1);

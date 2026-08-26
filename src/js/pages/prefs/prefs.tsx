@@ -19,7 +19,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import { ipcRenderer, shell } from '../../lib/electron-imports.js';
+import { shell } from '../../lib/electron-imports.js';
 import { otherWindowIPC } from '../../lib/electron-renderer-imports.js';
 import * as win from '../../lib/window-commands.js';
 import React from 'react';
@@ -32,13 +32,14 @@ import ListenerManager from '../../lib/listener-manager.js';
 import { eventToAccelerator, acceleratorToDisplay } from '../../lib/keyrouter.js';
 import Modal from '../../lib/ui/modal.js';
 import { actions, ActionId } from '../../lib/actions.js';
-import { loadPrefs, Preferences, KeyConfig, ToolbarPosition } from './default-prefs.js';
+import { defaultPrefs, Preferences, KeyConfig, ToolbarPosition } from './default-prefs.js';
+import type { ChannelStream } from '../../lib/window-ipc.js';
 import { computeKeyConflicts } from './key-conflicts.js';
 import { CSSArray } from '../../lib/css-utils.js';
 import Checkbox from '../../lib/ui/checkbox.js';
 import Range from '../../lib/ui/range.js';
 import LivePasswordEditor from '../../lib/ui/live-password-editor.js';
-import { readUTF8FileSync, debounce, cloneDeep, CancelableFn } from '../../lib/utils.js';
+import { cloneDeep } from '../../lib/utils.js';
 
 type PrefsOptions = {
   userDataDir: string;
@@ -51,6 +52,9 @@ type PrefsProps = {
 
 type PrefsState = {
   prefs: Preferences;
+  // False until main answers requestPrefsForEditing. The form stays hidden
+  // until then so nobody can edit (and thereby save) placeholder defaults.
+  prefsReceived: boolean;
   saveError: boolean;
 };
 
@@ -288,20 +292,14 @@ const s_toolbarPositionModes: Record<ToolbarPosition, EnumItem> = {
 // ---------- Prefs ----------
 
 export default class Prefs extends React.Component<PrefsProps, PrefsState> {
-  private _streams: ReturnType<typeof otherWindowIPC.createChannel> extends Promise<infer S> ? S[] : never[] = [] as never[];
-  private _ipc: ReturnType<typeof otherWindowIPC.createChannel> | null;
-  private _prefsPath: string;
-  private _savePrefs: CancelableFn;
+  private _stream: ChannelStream | null = null;
+  private _closed = false;
 
   constructor(props: PrefsProps) {
     super(props);
-    this._streams = [];
     bind(
       this,
-      '_addStream',
       '_cleanup',
-      '_sendStateToAllStreams',
-      '_saveAndSendPrefs',
       '_makeFolder',
       '_addFolder',
       '_setFolder',
@@ -315,18 +313,31 @@ export default class Prefs extends React.Component<PrefsProps, PrefsState> {
       '_browseExternalViewer',
       '_clearExternalViewer',
     );
-    this._ipc = otherWindowIPC.createChannel('prefs');
-    this._ipc.on('connect', this._addStream);
-    this._prefsPath = path.join(props.options.userDataDir, 'prefs.json');
-    this._savePrefs = debounce(this._savePrefsImpl.bind(this), 200);
-    const { error, prefs } = loadPrefs(this._prefsPath, {
-      existsSync: fs.existsSync,
-      readUTF8FileSync,
-    });
-    this.state = { prefs, saveError: false };
-    if (error) {
-      this._savePrefs();
-    }
+    // Main owns prefs.json now (main/prefs-service.ts); this window is one more
+    // subscriber on the 'prefs' channel that happens to be able to edit them.
+    this.state = { prefs: cloneDeep(defaultPrefs), prefsReceived: false, saveError: false };
+    otherWindowIPC.createChannelStream('prefs')
+      .then((stream) => {
+        if (this._closed) {
+          stream.close();
+          return;
+        }
+        this._stream = stream;
+        stream.on('prefs', (prefs: Preferences) => {
+          this.setState({ prefs, prefsReceived: true });
+        });
+        stream.on('saveError', (failed: boolean) => {
+          this.setState({ saveError: failed });
+        });
+        // Ask for the raw stored prefs rather than the effective ones: a
+        // `goon somedir` folder override must not be shown here, or saving
+        // would write those folders into prefs.json. Pull-based so the
+        // listeners above are wired before anything arrives.
+        stream.send('requestPrefsForEditing');
+      })
+      .catch((err) => {
+        console.error('could not connect to prefs:', err);
+      });
     window.addEventListener('beforeunload', this._cleanup);
   }
 
@@ -334,78 +345,23 @@ export default class Prefs extends React.Component<PrefsProps, PrefsState> {
     this._cleanup();
   }
 
+  // Every edit in this window funnels through here: update locally so typing
+  // stays responsive, and hand the new prefs to main, which persists them and
+  // broadcasts to everyone else. Main deliberately does not echo a setPrefs
+  // back to its author, so there's no round-trip to race the next keystroke.
   _updateState(newState: Partial<PrefsState>): void {
-    this.setState(newState as PrefsState, this._saveAndSendPrefs);
-  }
-
-  _saveAndSendPrefs(): void {
-    this._sendStateToAllStreams();
-    this._savePrefs();
-  }
-
-  _savePrefsImpl(): void {
-    try {
-      fs.writeFile(this._prefsPath, JSON.stringify(this.state.prefs, null, 2), (err) => {
-        this.setState({ saveError: !!err });
-      });
-    } catch {
-      this.setState({ saveError: true });
+    this.setState(newState as PrefsState);
+    if (newState.prefs) {
+      this._stream?.send('setPrefs', newState.prefs);
     }
   }
 
   _cleanup(): void {
-    if (this._ipc) {
-      (this._streams as { close(): void }[]).slice().forEach((stream) => { stream.close(); });
-      this._ipc.close();
-      this._ipc = null;
-    }
+    this._closed = true;
+    this._stream?.close();
+    this._stream = null;
   }
 
-  _addStream(stream: { on: (e: string, fn: () => void) => void; send: (e: string, ...a: unknown[]) => void; close: () => void }): void {
-    stream.on('disconnect', () => { this._removeStream(stream); });
-    (this._streams as typeof stream[]).push(stream);
-    // Pull-based: the consumer requests prefs once it has its 'prefs'
-    // listener attached, which avoids a race where pushing on connect
-    // would arrive before that listener wires up (similar fix as thumber).
-    stream.on('requestPrefs', () => { this._sendPrefs(stream, this._getPrefsToSend()); });
-    // Any window (e.g. the viewer's "Show Empty Folders" toggle) can persist a
-    // single misc preference; we save it and broadcast the update to everyone.
-    stream.on('setMiscPref', (...args: unknown[]) => { this._setMiscPref(args[0] as string, args[1]); });
-  }
-
-  _setMiscPref(key: string, value: unknown): void {
-    const prefs = {
-      ...this.state.prefs,
-      misc: { ...this.state.prefs.misc, [key]: value },
-    } as Preferences;
-    this._updateState({ prefs });
-  }
-
-  _removeStream(stream: unknown): void {
-    const ndx = (this._streams as unknown[]).indexOf(stream);
-    (this._streams as unknown[]).splice(ndx, 1);
-  }
-
-  _getPrefsToSend(): Preferences {
-    let prefs = this.state.prefs;
-    const dirs = this.props.options._;
-    if (dirs && dirs.length) {
-      prefs = Object.assign(JSON.parse(JSON.stringify(prefs)), { folders: dirs });
-    }
-    return prefs;
-  }
-
-  _sendPrefs(stream: { send: (e: string, ...a: unknown[]) => void }, prefs: Preferences): void {
-    stream.send('prefs', prefs);
-  }
-
-  _sendStateToAllStreams(): void {
-    const prefs = this._getPrefsToSend();
-    ipcRenderer.send('prefs', prefs);
-    (this._streams as { send: (e: string, ...a: unknown[]) => void }[]).forEach((stream) => {
-      this._sendPrefs(stream, prefs);
-    });
-  }
 
   _updateBoolState(p: keyof Preferences, key: string, event: React.ChangeEvent<HTMLInputElement>): void {
     const prefs = this.state.prefs;
@@ -540,7 +496,7 @@ export default class Prefs extends React.Component<PrefsProps, PrefsState> {
     return this.state.saveError ? (
       <fieldset className="error">
         <legend>Errors</legend>
-        <div>Could not save preferences to {this._prefsPath}</div>
+        <div>Could not save preferences to {path.join(this.props.options.userDataDir, 'prefs.json')}</div>
       </fieldset>
     ) : undefined;
   }
@@ -581,6 +537,12 @@ export default class Prefs extends React.Component<PrefsProps, PrefsState> {
 
   render(): React.ReactNode {
     const prefs = this.state.prefs;
+    // Until main answers, `prefs` is still the placeholder defaults. Rendering
+    // the form now would let a fast click edit — and thereby save — values that
+    // aren't the user's.
+    if (!this.state.prefsReceived) {
+      return <div className="prefs" />;
+    }
     return (
       <div className="prefs">
         <fieldset>
