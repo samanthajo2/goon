@@ -29,6 +29,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //   • audio is a single MediaStreamAudioDestinationNode track — we add/remove each
 //     element's audio *into that graph* (a MutationObserver watches the DOM), but the
 //     output track is stable, so MediaRecorder never sees a track come or go.
+//
+// Each element's audio passes through its own GainNode. captureStream() taps a media
+// element *before* its volume control, so a video turned down or muted in the UI
+// still arrives here at full level — the gain is what actually applies the user's
+// volume to the recording. Gains are normalized so the loudest element sits at unity:
+// three videos playing at 30% should record at full level, not at 30%.
+//
+// This graph only feeds the recording. The elements keep playing to the speakers
+// through their normal path, so none of this changes what the user hears.
 
 import debug from '../../lib/debug.js';
 
@@ -41,7 +50,14 @@ type RecState = {
   mixDest: MediaStreamAudioDestinationNode;
   observer: MutationObserver;
   displayStream: MediaStream;
-  sources: Map<HTMLMediaElement, MediaStreamAudioSourceNode>;
+  sources: Map<HTMLMediaElement, HookedSource>;
+};
+
+type HookedSource = {
+  node: MediaStreamAudioSourceNode;
+  gain: GainNode;
+  // Kept so it can be removed when the element goes away.
+  onVolumeChange: () => void;
 };
 
 // captureStream() isn't in the default DOM lib types.
@@ -54,6 +70,20 @@ let g_state: RecState | null = null;
 
 export function isRecording(): boolean {
   return g_state !== null;
+}
+
+// What the user actually hears from an element: muted beats the slider.
+export function effectiveVolume(el: HTMLMediaElement): number {
+  return el.muted ? 0 : el.volume;
+}
+
+/**
+ * Scale a set of element volumes so the loudest becomes 1, preserving their
+ * relative balance. All-silent stays all-silent rather than dividing by zero.
+ */
+export function computeMixGains(volumes: number[]): number[] {
+  const max = volumes.reduce((a, v) => Math.max(a, v), 0);
+  return volumes.map(v => (max > 0 ? v / max : 0));
 }
 
 // Every playing media element contributes audio — both <video> and <audio>.
@@ -90,7 +120,17 @@ export async function startRecording(root: HTMLElement): Promise<void> {
   // Live audio mix of every <video> under root.
   const ctx = new AudioContext();
   const mixDest = ctx.createMediaStreamDestination();
-  const sources = new Map<HTMLMediaElement, MediaStreamAudioSourceNode>();
+  const sources = new Map<HTMLMediaElement, HookedSource>();
+
+  // Any change to any element rescales every gain, since the loudest element
+  // defines the ceiling. Ramp rather than jump: a step change in gain clicks.
+  const recomputeGains = (): void => {
+    const els = [...sources.keys()];
+    const gains = computeMixGains(els.map(effectiveVolume));
+    els.forEach((el, i) => {
+      sources.get(el)?.gain.gain.setTargetAtTime(gains[i], ctx.currentTime, 0.015);
+    });
+  };
 
   const hook = (el: HTMLMediaElement): void => {
     if (sources.has(el)) return;
@@ -101,17 +141,28 @@ export async function startRecording(root: HTMLElement): Promise<void> {
       const audioTracks = capture.call(m).getAudioTracks();
       if (audioTracks.length === 0) return;
       const node = ctx.createMediaStreamSource(new MediaStream(audioTracks));
-      node.connect(mixDest);
-      sources.set(el, node);
+      const gain = ctx.createGain();
+      // Starts silent so recomputeGains fades it in instead of popping.
+      gain.gain.value = 0;
+      node.connect(gain);
+      gain.connect(mixDest);
+      const onVolumeChange = (): void => { recomputeGains(); };
+      // Fires for both volume and muted changes.
+      el.addEventListener('volumechange', onVolumeChange);
+      sources.set(el, { node, gain, onVolumeChange });
+      recomputeGains();
     } catch (e) {
       logger('could not hook audio for a media element', e);
     }
   };
   const unhook = (el: HTMLMediaElement): void => {
-    const node = sources.get(el);
-    if (node) {
-      node.disconnect();
+    const hooked = sources.get(el);
+    if (hooked) {
+      el.removeEventListener('volumechange', hooked.onVolumeChange);
+      hooked.node.disconnect();
+      hooked.gain.disconnect();
       sources.delete(el);
+      recomputeGains();
     }
   };
 
@@ -151,7 +202,11 @@ export async function stopRecording(): Promise<Blob> {
   });
 
   s.displayStream.getTracks().forEach(t => t.stop());
-  for (const node of s.sources.values()) node.disconnect();
+  for (const [el, hooked] of s.sources) {
+    el.removeEventListener('volumechange', hooked.onVolumeChange);
+    hooked.node.disconnect();
+    hooked.gain.disconnect();
+  }
   try { await s.ctx.close(); } catch { /* already closed */ }
   logger('recording stopped', blob.size, 'bytes');
   return blob;
