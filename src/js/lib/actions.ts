@@ -56,6 +56,8 @@ const actions = {
   nextView:           { hint: 'next view',       icon: 'images/buttons/prev-view.svg',       desc: 'Next View', },
   prevView:           { hint: 'prev view',       icon: 'images/buttons/next-view.svg',       desc: 'Previous View', },
   toggleUI:           { hint: 'ui',              icon: 'images/buttons/ui.svg',              desc: 'Toggle Toolbar / Folder List', },
+  toggleToolbar:      { hint: 'toolbar',         icon: 'images/buttons/ui.svg',              desc: 'Toggle Toolbar', },
+  toggleSidePanel:    { hint: 'side panel',      icon: 'images/buttons/ui.svg',              desc: 'Toggle Side Panel', },
   splitHorizontal:    { hint: 'split h',         icon: 'images/buttons/split-h.svg',         desc: 'Split Horizontal', },
   splitHorizontalAlt: { hint: 'split h alt',     icon: 'images/buttons/split-h.svg',         desc: 'Split Horizontal (alt)', },
   splitVertical:      { hint: 'split v',         icon: 'images/buttons/split-v.svg',         desc: 'Split Vertical', },

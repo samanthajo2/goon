@@ -47,7 +47,7 @@ import {
 import listCacheFiles from './list-cache-files.js';
 import compareFoldersToCache from './compare-folders-to-cache.js';
 import { Rect } from '../lib/rect.js';
-import { WinState } from '../lib/win-state.js';
+import { WinState, SHOW_UI_TOOLBAR, SHOW_UI_SIDE_PANEL, DEFAULT_SHOW_UI } from '../lib/win-state.js';
 import { ProgOptions } from './program-options.js';
 
 import {windowTrackerInit, windowTrackerIsAnyWindowFullScreen} from '../lib/remote-helpers.cjs';
@@ -280,6 +280,9 @@ ipcMain.on('saveSplitLayout', (event, splitLayout) => {
 });
 ipcMain.on('saveWinState', (event, winState) => {
   setWindowInfoState(event.sender, { winState });
+  // No argument: mirror whichever window has focus, not necessarily the one
+  // that just reported.
+  syncShowUIMenuChecks();
 });
 ipcMain.on('getPassword', (event) => {
   event.sender.send('password', prefs.misc.password);
@@ -901,6 +904,38 @@ function setupPasswordMenus() {
   electron.Menu.setApplicationMenu(menu);
 }
 
+const SHOW_UI_MENU_ITEMS = [
+  { id: 'showSidePanel', bit: SHOW_UI_SIDE_PANEL },
+  { id: 'showToolbar', bit: SHOW_UI_TOOLBAR },
+] as const;
+
+// Point the View menu's show/hide checkmarks at one window's state. showUI is
+// renderer state reported through saveWinState, so main can only mirror it --
+// hence re-running this on focus changes and on every winState report rather
+// than baking a value into the menu template.
+function syncShowUIMenuChecks(window?: BrowserWindow | null) {
+  const menu = electron.Menu.getApplicationMenu();
+  if (!menu) {
+    return;
+  }
+  const target = window ?? BrowserWindow.getFocusedWindow();
+  // Only view windows have a showUI; leave the marks alone when prefs, help or
+  // any other one-of-a-kind window has focus.
+  const windowInfo = target ? windowInfosById[target.id] : undefined;
+  if (!windowInfo) {
+    return;
+  }
+  // A window that hasn't changed anything yet has never reported winState, but
+  // its renderer started from the shared default.
+  const showUI = windowInfo.state?.winState?.showUI ?? DEFAULT_SHOW_UI;
+  for (const { id, bit } of SHOW_UI_MENU_ITEMS) {
+    const item = menu.getMenuItemById(id);
+    if (item) {
+      item.checked = !!(showUI & bit);
+    }
+  }
+}
+
 function setupMenus() {
   // Helper to make a menu item that dispatches an app action to the focused window.
   // Label defaults to actions[id].desc; accelerator is looked up from the user's
@@ -953,6 +988,12 @@ function setupMenus() {
     actionItem('rotate'),
     actionItem('cycleGridMode'),
     actionItem('cycleSortMode'),
+    { type: 'separator' },
+    // showUI lives in the renderer, per window, so the checkmarks can't be baked
+    // into the template. They're set by syncShowUIMenuChecks, which runs on focus
+    // changes and whenever a window reports new winState.
+    actionItem('toggleSidePanel', { id: SHOW_UI_MENU_ITEMS[0].id, label: 'Show Side Panel', type: 'checkbox' }),
+    actionItem('toggleToolbar', { id: SHOW_UI_MENU_ITEMS[1].id, label: 'Show Toolbar', type: 'checkbox' }),
     {
       label: actions.toggleShowEmptyFolders.desc,
       type: 'checkbox',
@@ -1046,6 +1087,8 @@ function setupMenus() {
 
   const menu = electron.Menu.buildFromTemplate(menuTemplate);
   electron.Menu.setApplicationMenu(menu);
+  // A rebuild resets every checkbox to the template's value.
+  syncShowUIMenuChecks();
 }
 
 function start() {
@@ -1136,6 +1179,11 @@ app.on('web-contents-created', (event, contents) => {
       shell.openExternal(url);
     });
   }
+});
+
+// getFocusedWindow() isn't updated yet while this fires, so pass the window.
+app.on('browser-window-focus', (_event, window) => {
+  syncShowUIMenuChecks(window);
 });
 
 app.on('activate', () => {

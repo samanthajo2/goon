@@ -24,6 +24,7 @@ import { debounce } from '../../../lib/utils.js';
 import type { Platform } from '../../../lib/platform.js';
 import type { SortMode } from '../folder-state-helper.js';
 import type { GridMode } from '../grid-modes.js';
+import { DEFAULT_SHOW_UI } from '../../../lib/win-state.js';
 
 export type WinState = {
   showUI: number;
@@ -36,7 +37,7 @@ export type WinState = {
 };
 
 const DEFAULT_WIN_STATE: WinState = {
-  showUI: 3,
+  showUI: DEFAULT_SHOW_UI,
   rotateMode: 0,
   thumbnailZoom: 1,
   sortMode: 'sortPath',

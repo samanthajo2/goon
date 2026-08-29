@@ -66,6 +66,7 @@ import ViewSplit from './viewsplit.js';
 import { ImagegridStateHolder } from './viewer-events.js';
 import type { FolderContextInfo } from './viewer-events.js';
 import { useWinState } from './hooks/use-win-state.js';
+import { SHOW_UI_TOOLBAR, SHOW_UI_SIDE_PANEL } from '../../lib/win-state.js';
 import { useIPCStreams } from './hooks/use-ipc-streams.js';
 import { useFilter, makeGoodFilter, makeSmallDimensionsFilter } from './hooks/use-filter.js';
 import { useFolderPipeline } from './hooks/use-folder-pipeline.js';
@@ -601,7 +602,14 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
 
     // ActionListener actions
     actionListener.on('toggleUI', () => {
+      // Cycles backwards through all four combinations of the two bits.
       updateWinState((prev) => ({ showUI: (prev.showUI + 3) % 4 }));
+    });
+    actionListener.on('toggleToolbar', () => {
+      updateWinState((prev) => ({ showUI: prev.showUI ^ SHOW_UI_TOOLBAR }));
+    });
+    actionListener.on('toggleSidePanel', () => {
+      updateWinState((prev) => ({ showUI: prev.showUI ^ SHOW_UI_SIDE_PANEL }));
     });
     actionListener.on('rotate', () => {
       updateWinState((prev) => ({ rotateMode: (prev.rotateMode + 1) % rotateModes.length }));
@@ -746,7 +754,7 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
   }, [platform]);
 
   const getToolbar = (): React.ReactNode => {
-    if (!(winState.showUI & 1)) {
+    if (!(winState.showUI & SHOW_UI_TOOLBAR)) {
       return undefined;
     }
     if (isViewing) {
@@ -798,8 +806,8 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
   const isFullScreen = true;
   const rotateMode = winState.rotateMode;
   const showUI = winState.showUI;
-  const hideClass = (showUI & 2) ? 'noop' : 'hide';
-  const fullClass = (showUI & 2) ? 'noop' : 'fullsplit';
+  const hideClass = (showUI & SHOW_UI_SIDE_PANEL) ? 'noop' : 'hide';
+  const fullClass = (showUI & SHOW_UI_SIDE_PANEL) ? 'noop' : 'fullsplit';
   const toolbarPosition = prefs.misc!.toolbarPosition;
   const toolbarOnBottom = isFullScreen
     ? s_rotateModeVsToolbarModeBottomTable[rotateMode][toolbarPosition]
@@ -836,7 +844,7 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
           first={
             <Folders
               root={root}
-              show={!!(winState.showUI & 2)}
+              show={!!(winState.showUI & SHOW_UI_SIDE_PANEL)}
               rotateMode={rotateMode}
             />
           }
