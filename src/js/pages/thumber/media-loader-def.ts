@@ -35,4 +35,13 @@ export type MediaLoaderInfo = {
 
 // cacheBust (the file's mtime) is appended to the source URL so re-thumbnailing an
 // edited file doesn't reuse Chromium's cached decode of the old contents.
-export type MediaLoaderFn = (filename: string, type: string, cacheBust?: string | number) => Promise<MediaLoaderInfo>;
+//
+// displayName is the name to show the user. It matters for archive entries,
+// whose `filename` is a blob: URL carrying neither a readable name nor an
+// extension; everything else can fall back to the filename.
+export type MediaLoaderFn = (
+  filename: string,
+  type: string,
+  cacheBust?: string | number,
+  displayName?: string,
+) => Promise<MediaLoaderInfo>;

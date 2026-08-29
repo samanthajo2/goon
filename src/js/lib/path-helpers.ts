@@ -24,6 +24,16 @@ export function basename(p: string, ext?: string): string {
   return name;
 }
 
+// The name to show a user for a file, given either a real path or an archive
+// entry. Archive entries have their '/' separators rewritten to '|' (see
+// thumber/archive.ts), so plain basename leaves the whole in-archive path on
+// the front of the name.
+export function displayBasename(p: string): string {
+  const name = basename(p);
+  const lastBar = name.lastIndexOf('|');
+  return lastBar < 0 ? name : name.slice(lastBar + 1);
+}
+
 export function dirname(p: string): string {
   const i = lastSepIndex(p);
   if (i < 0) return '.';

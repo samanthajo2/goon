@@ -101,7 +101,7 @@ export default function createThumbnailMaker(options: {
     };
   }
 
-  return async function load(filename: string, type: string, cacheBust?: string | number): Promise<LoadInfo> {
+  return async function load(filename: string, type: string, cacheBust?: string | number, displayName?: string): Promise<LoadInfo> {
     logger('load:', filename);
     let loaderHndl: Awaited<ReturnType<typeof mediaLoaderMgr>> | undefined;
     let thumbInfo: ThumbnailMakerInfo | undefined;
@@ -126,7 +126,7 @@ export default function createThumbnailMaker(options: {
       // get the loader first. It acts as a throttle on loadMeta as well
       loaderHndl = await mediaLoaderMgr();
       const metaInfo = {orientation: 0};
-      const imgInfo = await loaderHndl.resource(filename, type, cacheBust);
+      const imgInfo = await loaderHndl.resource(filename, type, cacheBust, displayName);
       const isAtLeastOnePixel = imgInfo.metaData.width > 0 && imgInfo.metaData.height > 0;
       if (!isAtLeastOnePixel) {
         throw new Error('no pixels');

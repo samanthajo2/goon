@@ -80,6 +80,9 @@ export default async function createThumbnailsForArchive(
       blobUrls.push(url);
       blobInfos[url] = {
         url,
+        // Without this the thumbnailer only has the blob: URL to go on, and
+        // captions audio with the blob's uuid instead of the entry's name.
+        displayName: archiveFileNames[ndx],
         size: fileInfo.size,
         type: fileInfo.type,
         mtime: fileInfo.mtime,

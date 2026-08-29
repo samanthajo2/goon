@@ -20,14 +20,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 /* global VideoFrame */
 
-import path from 'node:path';
 import * as filters from '../../lib/filters.js';
 import createLogger from '../../lib/debug.js';
 import { urlFromFilename } from '../../lib/utils.js';
 import { createImageFromString } from '../../lib/string-image.js';
+import { getEmbeddedArt } from './embedded-art.js';
+import { displayBasename } from '../../lib/path-helpers.js';
 import { MediaElement, MediaLoaderInfo, MediaLoaderFn, MediaMetaData } from './media-loader-def.js';
 
 let g_id = 0;
+
 
 // Loads an image or video and emits events
 // It is meant to be reused since video elements are expensive
@@ -56,14 +58,32 @@ export default function createMediaLoader(options: {
   }) => void) | undefined;
   let rejectFn: ((elem: HTMLMediaElement | HTMLImageElement) => void) | undefined;
   let busy = false;
-  // When loading audio we show a generated image but report the audio's duration.
+  // When loading audio we show an image but report the audio's duration: the
+  // file's own cover art when it has some, otherwise a generated square.
   let audioBaseName = '';
+  // Where to read the art from: a path, or a blob: URL for an archive entry.
+  let audioLocation = '';
   let audioDuration: number | undefined;
+  let artObjectUrl: string | undefined;
+  // Reading cover art is async, so a load can be superseded while it's in
+  // flight. Stamp each load and drop any continuation that isn't current, or a
+  // stale read would scribble on the shared <img>.
+  let loadId = 0;
+
+  function releaseArtObjectUrl() {
+    if (artObjectUrl) {
+      URL.revokeObjectURL(artObjectUrl);
+      artObjectUrl = undefined;
+    }
+  }
 
   function release() {
     video.removeAttribute('src');
     audio.removeAttribute('src');
     image.removeAttribute('src');
+    // Safe here: the consumer has already drawn the element to a canvas by the
+    // time it releases (see thumbnail-maker).
+    releaseArtObjectUrl();
     busy = false;
   }
 
@@ -112,7 +132,20 @@ export default function createMediaLoader(options: {
     const audioElement = e.target as HTMLAudioElement;
     logger('audio loadedmetadata: duration =', audioElement.duration);
     audioDuration = audioElement.duration;
-    image.setAttribute('src', createImageFromString(audioBaseName));
+    const forLoadId = loadId;
+    void (async () => {
+      const art = await getEmbeddedArt(audioLocation, audioBaseName);
+      if (forLoadId !== loadId) {
+        return;
+      }
+      if (art) {
+        logger('using embedded art:', art.mimeType, art.data.length, 'bytes');
+        artObjectUrl = URL.createObjectURL(new Blob([art.data], { type: art.mimeType }));
+        image.setAttribute('src', artObjectUrl);
+      } else {
+        image.setAttribute('src', createImageFromString(audioBaseName));
+      }
+    })();
   });
   audio.addEventListener('error', (e) => {
     const audioElement = e.target as HTMLAudioElement;
@@ -133,7 +166,7 @@ export default function createMediaLoader(options: {
     reject(imageElement);
   });
 
-  return function load(filename: string, type: string, cacheBust?: string | number) {
+  return function load(filename: string, type: string, cacheBust?: string | number, displayName?: string) {
     logger('load:', filename);
     if (busy) {
       throw new Error('in use');
@@ -142,6 +175,8 @@ export default function createMediaLoader(options: {
       resolveFn = resolve;
       rejectFn = reject;
     });
+    ++loadId;
+    releaseArtObjectUrl();
     video.pause();
     audioDuration = undefined;
     // Append the mtime so an edited file (same path) isn't served from Chromium's
@@ -154,7 +189,10 @@ export default function createMediaLoader(options: {
       video.setAttribute('src', url);
       video.load();
     } else if (filters.isMimeAudio(type)) {
-      audioBaseName = path.basename(filename);
+      // For an archive entry `filename` is a blob: URL, so its basename is a
+      // uuid; the entry's real name only arrives via displayName.
+      audioBaseName = displayBasename(displayName ?? filename);
+      audioLocation = filename;
       audio.setAttribute('src', url);
       audio.load();
     } else {
