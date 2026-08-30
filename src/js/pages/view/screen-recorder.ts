@@ -49,6 +49,7 @@ type RecState = {
   ctx: AudioContext;
   mixDest: MediaStreamAudioDestinationNode;
   observer: MutationObserver;
+  silence: ConstantSourceNode;
   displayStream: MediaStream;
   sources: Map<HTMLMediaElement, HookedSource>;
 };
@@ -108,18 +109,55 @@ function pickMimeType(): string {
 export async function startRecording(root: HTMLElement): Promise<void> {
   if (g_state) return;
 
+  // Live audio mix of every <video> under root.
+  //
+  // Built BEFORE the getDisplayMedia await, so the AudioContext is created in the
+  // turn of the user gesture that started the recording. Created after the await,
+  // Chromium can bring it up suspended -- a suspended context renders nothing, so
+  // the mix track delivers no samples and MediaRecorder writes a zero-byte file.
+  // That only showed with nothing playing: an active <video> makes Chromium start
+  // the context running anyway, which is why recording a grid worked if a video
+  // had been open when the recording started.
+  const ctx = new AudioContext();
+  const mixDest = ctx.createMediaStreamDestination();
+
+  // A destination with nothing connected delivers no samples, even with the
+  // context running -- MediaRecorder then waits forever for audio that never
+  // arrives and writes an empty file. That only bit when recording started with
+  // nothing playing; once anything has fed the destination it keeps delivering,
+  // which is why starting with a video and then closing it kept working.
+  // So hold one silent input connected for the life of the recording.
+  const silence = ctx.createConstantSource();
+  silence.offset.value = 0;
+  silence.connect(mixDest);
+  silence.start();
+
   // Whole-window video. The main process's display-media handler auto-selects our
   // own window, so there's no picker.
-  const displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+  let displayStream: MediaStream;
+  try {
+    displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+  } catch (e) {
+    // The context exists before this point now, so it has to be cleaned up on
+    // every path out or it leaks an audio device.
+    silence.stop();
+    void ctx.close();
+    throw e;
+  }
   const videoTrack = displayStream.getVideoTracks()[0];
   if (!videoTrack) {
     displayStream.getTracks().forEach(t => t.stop());
+    silence.stop();
+    void ctx.close();
     throw new Error('getDisplayMedia returned no video track');
   }
 
-  // Live audio mix of every <video> under root.
-  const ctx = new AudioContext();
-  const mixDest = ctx.createMediaStreamDestination();
+  // Belt and braces: if it came up suspended anyway, a resume is allowed here
+  // because the document has sticky activation from the gesture.
+  if (ctx.state === 'suspended') {
+    await ctx.resume().catch((e) => { logger('could not resume audio context', e); });
+  }
+  logger('audio context state:', ctx.state);
   const sources = new Map<HTMLMediaElement, HookedSource>();
 
   // Any change to any element rescales every gain, since the loudest element
@@ -179,12 +217,16 @@ export async function startRecording(root: HTMLElement): Promise<void> {
   const recorder = new MediaRecorder(stream, { mimeType: pickMimeType() });
   const chunks: Blob[] = [];
   recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+  // A recorder error is why a recording silently comes out empty; never swallow it.
+  recorder.onerror = (e: Event) => {
+    console.error('[rec] MediaRecorder error', (e as unknown as { error?: unknown }).error ?? e);
+  };
   // If the OS/user stops the window capture, end the recording cleanly.
   videoTrack.addEventListener('ended', () => { if (g_state) void stopRecording(); });
   recorder.start(1000); // flush a chunk every second
 
-  g_state = { recorder, chunks, ctx, mixDest, observer, displayStream, sources };
-  logger('recording started', recorder.mimeType);
+  g_state = { recorder, chunks, ctx, mixDest, observer, displayStream, sources, silence };
+  logger('recording started', recorder.mimeType, 'ctx', ctx.state, 'sources', sources.size);
 }
 
 // Stops recording and returns the finished webm blob.
@@ -202,6 +244,8 @@ export async function stopRecording(): Promise<Blob> {
   });
 
   s.displayStream.getTracks().forEach(t => t.stop());
+  s.silence.stop();
+  s.silence.disconnect();
   for (const [el, hooked] of s.sources) {
     el.removeEventListener('volumechange', hooked.onVolumeChange);
     hooked.node.disconnect();
@@ -209,5 +253,9 @@ export async function stopRecording(): Promise<Blob> {
   }
   try { await s.ctx.close(); } catch { /* already closed */ }
   logger('recording stopped', blob.size, 'bytes');
+  // Saving a zero-byte file is worse than failing: it looks like it worked.
+  if (blob.size === 0) {
+    throw new Error('the recorder produced no data');
+  }
   return blob;
 }
