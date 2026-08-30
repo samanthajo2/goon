@@ -162,6 +162,9 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
   const [showDeleteFolderPrompt, setShowDeleteFolderPrompt] = useState(false);
   // Brief "recorded in Goon" watermark flashed into a recording when it starts.
   const [showWatermark, setShowWatermark] = useState(false);
+  // Recording failures used to go only to the debug logger, which is off by
+  // default -- a failed capture looked like nothing happening at all.
+  const [recordingError, setRecordingError] = useState('');
   // Internal drag-and-drop confirmation.
   const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null);
 
@@ -211,6 +214,7 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
   // ── Stable refs ────────────────────────────────────────────────────
   const containerRef = useRef<HTMLDivElement | null>(null);
   const watermarkTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const recordingErrorTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const currentViewRef = useRef<ViewSplit | null>(null);
   const prefsRef = useRef(prefs);
   prefsRef.current = prefs;
@@ -627,6 +631,15 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
       thumberStreamRef.current?.send('newVirtualFolder');
     });
     actionListener.on('toggleRecording', () => {
+      // Show the reason on screen and clear it after a while. setRecordingError
+      // is stable, so this needs nothing from the render scope.
+      const reportRecordingError = (what: string, e: unknown): void => {
+        logger(what, e);
+        const detail = e instanceof Error ? e.message : String(e);
+        setRecordingError(`${what} ${detail}`);
+        clearTimeout(recordingErrorTimerRef.current);
+        recordingErrorTimerRef.current = setTimeout(() => setRecordingError(''), 8000);
+      };
       void (async () => {
         if (isRecording()) {
           try {
@@ -634,10 +647,11 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
             const bytes = new Uint8Array(await blob.arrayBuffer());
             await platform.saveRecording?.(bytes, `goon-recording-${Date.now()}.webm`);
           } catch (e) {
-            logger('stop recording failed:', e);
+            reportRecordingError('Could not save the recording:', e);
           }
         } else {
           try {
+            setRecordingError('');
             await startRecording(document.body);
             if (prefsRef.current.misc?.showCaptureWatermark) {
               // Flash the watermark into the recording: hold 1s, fade over 500ms.
@@ -646,7 +660,9 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
               watermarkTimerRef.current = setTimeout(() => setShowWatermark(false), 2500);
             }
           } catch (e) {
-            logger('start recording failed:', e);
+            // The usual cause is the OS refusing screen capture, which surfaces
+            // here as an opaque Electron error, so say what to go and check.
+            reportRecordingError('Could not start recording — check that screen recording is allowed for this app.', e);
           }
         }
       })();
@@ -831,6 +847,9 @@ function App({ options, startState, platform }: Props): React.ReactElement | nul
       </ToolbarHolder>
       {filterError && (
         <div className="toolbar-error"><div>{filterError}</div></div>
+      )}
+      {recordingError && (
+        <div className="toolbar-error"><div>{recordingError}</div></div>
       )}
       <div style={{ position: 'relative', flex: '1 1 0%', overflow: 'hidden' }}>
         <SplitPane
