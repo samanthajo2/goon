@@ -9,6 +9,7 @@
   <style>
     html {
       box-sizing: border-box;
+      scroll-behavior: smooth;
     }
     *, *:before, *:after {
       box-sizing: inherit;
@@ -107,9 +108,505 @@
     .dl-button .plat {
         font-size: small;
     }
+
+    /* "GET!" is just a signpost now -- the real downloads live at the bottom. */
+    .jump {
+      display: block;
+      background: #555;
+      color: #ffe14d;
+      border: 5px solid #000;
+      padding: 1em;
+      text-align: center;
+      line-height: 1.35;
+    }
+    a.jump:hover {
+      background: #08f;
+      color: #fff;
+    }
+    .jump .big {
+      display: block;
+      font-size: 1.9em;
+      margin-bottom: .25em;
+    }
+    .jump .sub {
+      display: block;
+      font-weight: normal;
+      font-size: .95em;
+    }
+    .dl-heading {
+      margin: 1.6em 0 .6em;
+      font-size: 1.2em;
+    }
+
+    /* ==================== READ THIS / install instructions ==================== */
+
+    .readthis {
+      display: block;
+      background: #ffe14d;
+      color: #000;
+      border: 5px solid #000;
+      padding: .9em 1em;
+      margin: 1em 0;
+      text-align: center;
+      font-size: 1.15em;
+      line-height: 1.45;
+    }
+    a.readthis:hover {
+      background: #fff35c;
+      color: #000;
+    }
+    .readthis .big {
+      display: block;
+      font-size: 1.5em;
+      letter-spacing: .02em;
+      margin-bottom: .3em;
+    }
+    .readthis .sub {
+      display: block;
+      font-weight: normal;
+      font-size: .85em;
+      margin-top: .4em;
+    }
+
+    #install h1 {
+      text-align: center;
+      font-size: 2.1em;
+      margin: 0 0 .3em;
+      line-height: 1.15;
+    }
+    #install .lede {
+      text-align: center;
+      font-weight: normal;
+      line-height: 1.55;
+      max-width: 42em;
+      margin: 0 auto 1.6em;
+    }
+    #install .lede b {
+      color: #ffe14d;
+    }
+
+    .os-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 1.6em;
+    }
+    .os-tab {
+      font: inherit;
+      font-weight: bold;
+      cursor: pointer;
+      color: #fff;
+      background: #666;
+      border: 5px solid #000;
+      padding: .6em 1.3em;
+    }
+    .os-tab:hover {
+      background: #f00;
+    }
+    .os-tab[aria-selected="true"] {
+      background: #000;
+      color: #ffe14d;
+    }
+    .os-panel[hidden] {
+      display: none;
+    }
+
+    .warnbar {
+      background: #ffe14d;
+      color: #000;
+      border: 5px solid #000;
+      padding: .8em 1em;
+      margin-bottom: 1.6em;
+      line-height: 1.45;
+    }
+    .warnbar .hdr {
+      display: block;
+      font-size: 1.2em;
+      margin-bottom: .3em;
+    }
+
+    ol.steps {
+      counter-reset: step;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    ol.steps > li {
+      counter-increment: step;
+      position: relative;
+      padding-left: 3.2em;
+      margin-bottom: 2.2em;
+      line-height: 1.55;
+      font-weight: normal;
+    }
+    ol.steps > li::before {
+      content: counter(step);
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 2.1em;
+      height: 2.1em;
+      line-height: 2.1em;
+      text-align: center;
+      background: #000;
+      color: #ffe14d;
+      font-weight: bold;
+      font-size: 1.05em;
+    }
+    ol.steps .what {
+      display: block;
+      font-weight: bold;
+      margin-bottom: .3em;
+    }
+    ol.steps figure {
+      margin: .9em 0 0;
+    }
+    ol.steps figcaption {
+      font-size: .82em;
+      font-style: italic;
+      opacity: .9;
+      margin-top: .5em;
+      text-align: center;
+    }
+    #install strong {
+      color: #ffe14d;
+    }
+    #install code,
+    #install kbd {
+      background: rgba(0, 0, 0, .4);
+      padding: .1em .35em;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: .95em;
+      word-break: break-word;
+    }
+    #install pre {
+      background: #000;
+      color: #7dffa6;
+      border: 5px solid #000;
+      padding: 1em;
+      margin: .9em 0 0;
+      overflow-x: auto;
+      font-size: .95em;
+    }
+    #install pre code {
+      background: none;
+      padding: 0;
+      color: inherit;
+    }
+    .aside {
+      border-left: 8px solid #000;
+      background: rgba(0, 0, 0, .22);
+      padding: .8em 1em;
+      margin-top: 2em;
+      font-weight: normal;
+      line-height: 1.55;
+    }
+    .aside .hdr {
+      display: block;
+      font-weight: bold;
+      margin-bottom: .35em;
+    }
+
+    /* ---------- fake OS screenshots ---------- */
+
+    .shot {
+      border: 5px solid #000;
+      border-radius: 10px;
+      box-shadow: 0 12px 26px rgba(0, 0, 0, .45);
+      font-weight: normal;
+      margin: 0 auto;
+      max-width: 100%;
+      overflow: hidden;
+    }
+    .sections .shot img {
+      border: none;
+      margin: 0;
+    }
+    .hilite {
+      position: relative;
+      box-shadow: 0 0 0 4px #ff3b30, 0 0 0 8px #ffe14d;
+    }
+    .pointer {
+      display: block;
+      text-align: center;
+      color: #ffe14d;
+      font-size: .85em;
+      margin-top: .6em;
+      letter-spacing: .04em;
+    }
+
+    /* Windows 11 style dialog */
+    .win-dialog {
+      background: #f3f3f3;
+      color: #1b1b1b;
+      font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+      width: 440px;
+      padding: 24px 26px 18px;
+    }
+    .win-dialog .title {
+      font-size: 21px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    .win-dialog p {
+      margin: 0 0 10px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .win-dialog .link {
+      color: #0067c0;
+      text-decoration: underline;
+      font-size: 13px;
+      display: inline-block;
+      padding: 2px 4px;
+    }
+    .win-dialog .facts {
+      font-size: 13px;
+      line-height: 1.6;
+      margin: 12px 0 0;
+    }
+    .win-dialog .facts span {
+      color: #5c5c5c;
+    }
+    .win-buttons {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 22px;
+      flex-wrap: wrap;
+    }
+    .win-btn {
+      font: inherit;
+      font-size: 13px;
+      padding: 6px 20px;
+      border: 1px solid #d2d2d2;
+      border-bottom-color: #bdbdbd;
+      border-radius: 4px;
+      background: #fdfdfd;
+      color: #1b1b1b;
+    }
+
+    /* Windows / Chrome download shelf */
+    .win-download {
+      background: #fff;
+      color: #1b1b1b;
+      font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+      width: 400px;
+      padding: 14px 16px;
+    }
+    .win-download .dl-title {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    .win-download .dl-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .win-download .dl-icon {
+      flex: 0 0 auto;
+      width: 28px;
+      height: 28px;
+      border-radius: 4px;
+      background: #e6e6e6;
+      color: #666;
+      font-size: 9px;
+      line-height: 28px;
+      text-align: center;
+      font-weight: 700;
+    }
+    .win-download .dl-body {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .win-download .dl-name {
+      font-size: 12px;
+      font-weight: 600;
+      word-break: break-all;
+    }
+    .win-download .dl-msg {
+      font-size: 11px;
+      color: #d13438;
+      line-height: 1.4;
+      margin-top: 2px;
+    }
+    .win-download .dl-menu {
+      flex: 0 0 auto;
+      font-size: 15px;
+      color: #444;
+      padding: 0 5px;
+      letter-spacing: 1px;
+    }
+    .win-download .dl-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 12px;
+    }
+
+    /* Windows file Properties */
+    .win-props {
+      background: #f3f3f3;
+      color: #1b1b1b;
+      font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+      width: 360px;
+      padding: 16px 18px;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .win-props .tabs {
+      display: flex;
+      gap: 14px;
+      border-bottom: 1px solid #dcdcdc;
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+      font-size: 12px;
+      color: #666;
+    }
+    .win-props .tabs b {
+      color: #1b1b1b;
+      border-bottom: 2px solid #0067c0;
+      padding-bottom: 6px;
+    }
+    .win-props .sec {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      margin-top: 10px;
+    }
+    .win-props .chk {
+      flex: 0 0 auto;
+      width: 15px;
+      height: 15px;
+      border: 1px solid #8a8a8a;
+      border-radius: 3px;
+      background: #fff;
+      margin-top: 2px;
+    }
+
+    /* macOS alert */
+    .mac-alert {
+      background: #f2f2f2;
+      color: #000;
+      font-family: -apple-system, "SF Pro Text", "Helvetica Neue", Helvetica, sans-serif;
+      width: 300px;
+      padding: 20px 18px 16px;
+      text-align: center;
+    }
+    .sections .mac-alert img {
+      width: 60px;
+      height: 60px;
+      margin: 0 auto 12px;
+      display: block;
+    }
+    .mac-alert .t {
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.4;
+      margin-bottom: 6px;
+    }
+    .mac-alert .m {
+      font-size: 11px;
+      line-height: 1.45;
+      color: #1d1d1d;
+      margin-bottom: 16px;
+    }
+    .mac-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .mac-btn {
+      font: inherit;
+      font-size: 13px;
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: 1px solid #c8c8c8;
+      background: #fff;
+      color: #000;
+    }
+    .mac-btn.default {
+      background: #0a84ff;
+      border-color: #0a84ff;
+      color: #fff;
+    }
+
+    /* macOS System Settings pane */
+    .mac-settings {
+      background: #fff;
+      color: #000;
+      font-family: -apple-system, "SF Pro Text", "Helvetica Neue", Helvetica, sans-serif;
+      width: 480px;
+      overflow: hidden;
+    }
+    .mac-settings .bar {
+      background: #ececec;
+      padding: 9px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      border-bottom: 1px solid #dcdcdc;
+      color: #333;
+    }
+    .mac-settings .grp {
+      padding: 12px 14px 4px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #6b6b6b;
+      text-transform: none;
+    }
+    .mac-settings .row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      font-size: 12px;
+      border-top: 1px solid #ededed;
+      line-height: 1.4;
+    }
+    .mac-settings .row .txt {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .mac-settings .row .mac-btn {
+      flex: 0 0 auto;
+      white-space: nowrap;
+      padding: 4px 14px;
+      font-size: 12px;
+    }
+    .mac-settings .row .sub {
+      color: #6b6b6b;
+      font-size: 11px;
+      margin-top: 2px;
+    }
+
     @media screen and (max-width: 600px) {
       .logo {
         font-size: 15vw;
+      }
+      .win-dialog,
+      .win-download,
+      .win-props,
+      .mac-settings,
+      .mac-alert {
+        width: 100%;
+      }
+      ol.steps > li {
+        padding-left: 2.6em;
+      }
+      /* let long commands wrap instead of hiding in a scroll box on a phone */
+      #install pre {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      .mac-settings .row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+      }
+      .mac-settings .row .mac-btn {
+        align-self: flex-start;
       }
     }
   </style>
@@ -127,18 +624,10 @@
       </div></div>
       <div><div>
         <h1>GET!</h1>
-        <div id="dl-main">
-
-        </div>
-        <div><a href="#download">Click for other platforms.</a></div>
-        <div><div class="note">Note: On MacOS: The app is neither signed nor notarized.<br><br>
-        To run it, double click the <code>Goon.&lt;version&gt;.dmg</code> and drag the app somewhere.
-        Then open a terminal and type<br><br>
-        <pre><code>
-          xattr -d -r com.apple.quarantine path/to/Goon.app
-        </code></pre>
-        You should now be able to run it.
-        </div></div>
+        <a class="jump" href="#download">
+          <span class="big">Download Goon &#8595;</span>
+          <span class="sub">Free &amp; <a href="https://github.com/samanthajo2/goon">open source</a> - macOS, Windows, Linux</span>
+        </a>
       </div></div>
       <div><div>
         <h1>Split Screen</h1>
@@ -156,7 +645,7 @@
       </div></div>
       <div><div>
         <h1>Portrait View</h1>
-        <div class="caption">Some photos look better in portrait!</div>
+        <div class="caption">Some media looks better in portrait!</div>
         <div>
           <img src="images/portrait.gif" />
         </div>
@@ -170,9 +659,274 @@
       </div></div>
       <div><div id="download">
         <h1>Download</h1>
-        <div id="dl-other">
+        <a class="readthis" href="#install">
+          <span class="big">&#9888;&#65039; READ THIS FIRST!!</span>
+          Goon is <u>not signed</u>. Your OS <u>will</u> block it the first time you open it.
+          <span class="sub">It takes about 20 seconds to get past - the steps are right below. &#8595;</span>
+        </a>
+        <div id="dl-main"></div>
+        <div class="dl-heading">All platforms</div>
+        <div id="dl-other"></div>
+      </div></div>
+
+      <div id="install"><div>
+        <h1>&#9888;&#65039; READ THIS!! - How to actually open Goon</h1>
+        <p class="lede">
+          Goon is free and open source, and it is <b>not code&#8209;signed or notarized</b>
+          (Apple and Microsoft both charge money for that). So the very first time you open it,
+          your operating system will refuse and show a scary warning. <b>Nothing is wrong with the app</b> -
+          you just have to tell your OS you meant to run it. Here is exactly how.
+        </p>
+
+        <div class="os-tabs" role="tablist" aria-label="Choose your operating system">
+          <button class="os-tab" type="button" role="tab" data-os="mac" aria-selected="false" aria-controls="panel-mac" id="tab-mac">&#63743; macOS</button>
+          <button class="os-tab" type="button" role="tab" data-os="win" aria-selected="false" aria-controls="panel-win" id="tab-win">&#9776; Windows</button>
+          <button class="os-tab" type="button" role="tab" data-os="linux" aria-selected="false" aria-controls="panel-linux" id="tab-linux">&#128039; Linux</button>
+        </div>
+
+        <!-- ============================= macOS ============================= -->
+        <div class="os-panel" data-os="mac" id="panel-mac" role="tabpanel" aria-labelledby="tab-mac" hidden>
+          <div class="warnbar">
+            <span class="hdr">macOS will lie to you.</span>
+            It will say Goon is <b>&ldquo;damaged and can&rsquo;t be opened&rdquo;</b> or that it
+            <b>&ldquo;cannot be opened because Apple cannot check it for malicious software&rdquo;</b>.
+            It is not damaged. It is just unsigned. <b>Do not click &ldquo;Move to Trash&rdquo;.</b>
+          </div>
+
+          <ol class="steps">
+            <li>
+              <span class="what">Install it normally.</span>
+              Double&#8209;click the downloaded <code class="fname" data-plat="mac">Goon&#8209;&lt;version&gt;.dmg</code>,
+              then drag the <b>Goon</b> icon onto the <b>Applications</b> folder. Eject the disk image when it&rsquo;s done.
+            </li>
+
+            <li>
+              <span class="what">Double&#8209;click Goon. macOS blocks it.</span>
+              You&rsquo;ll get one of these. Click <b>Done</b> or <b>Cancel</b> -
+              <strong>never</strong> &ldquo;Move to Trash&rdquo;.
+              <figure>
+                <div class="shot mac-alert">
+                  <img src="images/logo.png" alt="">
+                  <div class="t">&ldquo;Goon&rdquo; is damaged and can&rsquo;t be opened. You should move it to the Trash.</div>
+                  <div class="m">This file was downloaded on an unknown date.</div>
+                  <div class="mac-buttons">
+                    <div class="mac-btn default">Move to Trash</div>
+                    <div class="mac-btn hilite">Cancel</div>
+                  </div>
+                </div>
+                <span class="pointer">&#9650; Click <b>Cancel</b>. Do not trash it.</span>
+                <figcaption>Apple Silicon Macs usually show this one. Intel Macs more often show
+                &ldquo;&hellip;can&rsquo;t be opened because Apple cannot check it for malicious software.&rdquo;
+                Either way, keep going.</figcaption>
+              </figure>
+            </li>
+
+            <li>
+              <span class="what">Open Terminal and remove the quarantine flag.</span>
+              Press <kbd>&#8984;</kbd>&#8202;+&#8202;<kbd>Space</kbd>, type <code>Terminal</code>, press <kbd>Return</kbd>.
+              Then paste this line exactly and press <kbd>Return</kbd>:
+<pre><code>xattr -d -r com.apple.quarantine /Applications/Goon.app</code></pre>
+              <div class="aside">
+                <span class="hdr">Put Goon somewhere other than /Applications?</span>
+                Type <code>xattr -d -r com.apple.quarantine </code> (with a trailing space), then
+                <b>drag Goon.app from the Finder onto the Terminal window</b> - it fills in the path for you.
+                Then press <kbd>Return</kbd>.
+              </div>
+            </li>
+
+            <li>
+              <span class="what">Double&#8209;click Goon again. It opens.</span>
+              You only have to do this once. macOS remembers.
+            </li>
+          </ol>
+
+          <div class="aside">
+            <span class="hdr">Prefer not to touch the Terminal?</span>
+            On <b>macOS 15 Sequoia and macOS 26 Tahoe</b> you can sometimes use the click&#8209;through route instead:
+            open <b>System Settings &rarr; Privacy &amp; Security</b>, scroll down to <b>Security</b>, and within about an
+            hour of the block you&rsquo;ll see a row offering <b>Open Anyway</b>.
+            <figure>
+              <div class="shot mac-settings">
+                <div class="bar">Privacy &amp; Security</div>
+                <div class="grp">Security</div>
+                <div class="row">
+                  <div class="txt">
+                    &ldquo;Goon&rdquo; was blocked to protect your Mac.
+                    <div class="sub">This app was blocked from use because it is not from an identified developer.</div>
+                  </div>
+                  <div class="mac-btn hilite">Open Anyway</div>
+                </div>
+              </div>
+              <figcaption>System Settings &rarr; Privacy &amp; Security &rarr; Security. You&rsquo;ll be asked for your
+              password or Touch ID, then click <b>Open Anyway</b> once more to confirm.</figcaption>
+            </figure>
+            <b>Heads up:</b> if you got the &ldquo;damaged&rdquo; message (common on Apple Silicon), this row usually
+            never appears - use the Terminal command in step 3, it always works.
+            On <b>macOS 14 Sonoma and earlier</b> you can also just Control&#8209;click (right&#8209;click) Goon in the
+            Finder and choose <b>Open</b>, then <b>Open</b> again.
+          </div>
+        </div>
+
+        <!-- ============================ Windows ============================ -->
+        <div class="os-panel" data-os="win" id="panel-win" role="tabpanel" aria-labelledby="tab-win" hidden>
+          <div class="warnbar">
+            <span class="hdr">The Windows warning has no &ldquo;yes&rdquo; button&hellip; at first.</span>
+            SmartScreen shows a big blue box whose only button is <b>Don&rsquo;t run</b>.
+            The <b>Run anyway</b> button is hidden until you click the small <b>More info</b> link.
+            That&rsquo;s the whole trick.
+          </div>
+
+          <ol class="steps">
+            <li>
+              <span class="what">Download the installer - and tell your browser to keep it.</span>
+              Chrome and Edge often block unsigned installers on sight. Open the browser&rsquo;s
+              <b>Downloads</b> list, click the <b>&hellip;</b> (or the arrow) next to
+              <code class="fname" data-plat="win">Goon.Setup.&lt;version&gt;.exe</code>, and choose
+              <b>Keep</b> - then <b>Keep anyway</b> if it asks a second time.
+              <figure>
+                <div class="shot win-download">
+                  <div class="dl-title">Downloads</div>
+                  <div class="dl-row">
+                    <div class="dl-icon">EXE</div>
+                    <div class="dl-body">
+                      <div class="dl-name fname" data-plat="win">Goon.Setup.&lt;version&gt;.exe</div>
+                      <div class="dl-msg">This file isn&rsquo;t commonly downloaded. Make sure you trust it before you open it.</div>
+                    </div>
+                    <div class="dl-menu hilite">&#8943;</div>
+                  </div>
+                  <div class="dl-actions">
+                    <div class="win-btn">Delete</div>
+                    <div class="win-btn hilite">Keep</div>
+                  </div>
+                </div>
+                <figcaption>Wording differs slightly between Chrome, Edge and Firefox - look for
+                <b>Keep</b>, <b>Keep anyway</b>, or <b>Download unsafe file</b>.</figcaption>
+              </figure>
+            </li>
+
+            <li>
+              <span class="what">Run the installer. SmartScreen appears - click <u>More info</u>.</span>
+              This screen looks like a dead end. It isn&rsquo;t. The <b>More info</b> link is small and easy to miss.
+              <figure>
+                <div class="shot win-dialog">
+                  <div class="title">Windows protected your PC</div>
+                  <p>Microsoft Defender SmartScreen prevented an unrecognized app from starting.
+                     Running this app might put your PC at risk.</p>
+                  <span class="link hilite">More info</span>
+                  <div class="win-buttons">
+                    <div class="win-btn">Don&rsquo;t run</div>
+                  </div>
+                </div>
+                <span class="pointer">&#9650; Click <b>More info</b>, <em>not</em> &ldquo;Don&rsquo;t run&rdquo;.</span>
+                <figcaption>Microsoft Defender SmartScreen, step 1 of 2.</figcaption>
+              </figure>
+            </li>
+
+            <li>
+              <span class="what">Now click <u>Run anyway</u>.</span>
+              The same box grows two extra lines and a new button. &ldquo;Unknown publisher&rdquo; is expected -
+              that&rsquo;s just what &ldquo;not code&#8209;signed&rdquo; looks like.
+              <figure>
+                <div class="shot win-dialog">
+                  <div class="title">Windows protected your PC</div>
+                  <p>Microsoft Defender SmartScreen prevented an unrecognized app from starting.
+                     Running this app might put your PC at risk.</p>
+                  <div class="facts">
+                    <span>App:</span> <b class="fname" data-plat="win">Goon.Setup.&lt;version&gt;.exe</b><br>
+                    <span>Publisher:</span> Unknown publisher
+                  </div>
+                  <div class="win-buttons">
+                    <div class="win-btn hilite">Run anyway</div>
+                    <div class="win-btn">Don&rsquo;t run</div>
+                  </div>
+                </div>
+                <span class="pointer">&#9650; Click <b>Run anyway</b>.</span>
+                <figcaption>Microsoft Defender SmartScreen, step 2 of 2 - after clicking &ldquo;More info&rdquo;.</figcaption>
+              </figure>
+            </li>
+
+            <li>
+              <span class="what">Let the installer finish.</span>
+              Goon installs and launches. Windows will not ask again.
+            </li>
+          </ol>
+
+          <div class="aside">
+            <span class="hdr">No &ldquo;Run anyway&rdquo; button at all?</span>
+            Some machines hide it by policy. Right&#8209;click the downloaded
+            <code class="fname" data-plat="win">Goon.Setup.&lt;version&gt;.exe</code> &rarr; <b>Properties</b> &rarr;
+            <b>General</b> tab, tick <b>Unblock</b> at the bottom, click <b>OK</b>, then run it again.
+            <figure>
+              <div class="shot win-props">
+                <div class="tabs"><b>General</b><span>Compatibility</span><span>Digital Signatures</span><span>Details</span></div>
+                <div class="fname" data-plat="win" style="font-weight:600">Goon.Setup.&lt;version&gt;.exe</div>
+                <div class="sec">
+                  <div>Security:</div>
+                  <div>This file came from another computer and might be blocked to help protect this computer.</div>
+                </div>
+                <div class="sec">
+                  <div class="chk hilite"></div>
+                  <div><b>Unblock</b></div>
+                </div>
+                <div class="win-buttons">
+                  <div class="win-btn">OK</div>
+                  <div class="win-btn">Cancel</div>
+                </div>
+              </div>
+              <figcaption>File &rarr; Properties &rarr; General. Ticking <b>Unblock</b> removes the
+              &ldquo;downloaded from the internet&rdquo; mark that triggers SmartScreen.</figcaption>
+            </figure>
+          </div>
+        </div>
+
+        <!-- ============================= Linux ============================= -->
+        <div class="os-panel" data-os="linux" id="panel-linux" role="tabpanel" aria-labelledby="tab-linux" hidden>
+          <div class="warnbar">
+            <span class="hdr">Linux mostly just works.</span>
+            The AppImage only needs to be marked executable.
+          </div>
+
+          <ol class="steps">
+            <li>
+              <span class="what">Download the AppImage.</span>
+              You&rsquo;ll get <code class="fname" data-plat="linux">Goon&#8209;&lt;version&gt;.AppImage</code>.
+            </li>
+            <li>
+              <span class="what">Mark it executable.</span>
+              In a terminal:
+<pre><code>chmod +x Goon-*.AppImage</code></pre>
+              Or in your file manager: right&#8209;click &rarr; <b>Properties</b> &rarr; <b>Permissions</b> &rarr;
+              tick <b>Allow executing file as program</b>.
+            </li>
+            <li>
+              <span class="what">Run it.</span>
+<pre><code>./Goon-*.AppImage</code></pre>
+            </li>
+          </ol>
+
+          <div class="aside">
+            <span class="hdr">Error about FUSE or <code>libfuse.so.2</code>?</span>
+            Either install the old FUSE library (<code>sudo apt install libfuse2</code>, or
+            <code>libfuse2t64</code> on newer Ubuntu/Debian), or skip FUSE entirely:
+<pre><code>./Goon-*.AppImage --appimage-extract-and-run</code></pre>
+          </div>
         </div>
       </div></div>
+
+      <div><div id="privacy">
+        <h1>Privacy Policy</h1>
+        <p>
+          This app does not collect any data. It does not do any network communication
+          except for checking for updates by pinging github. You can turn this feature
+          off in preferences if you prefer.
+        </p>
+      </div></div>
+
+      <div><div id="license">
+        <h1>License</h1>
+        <p><a href="https://github.com/samanthajo2/goon/blob/main/LICENSE.md">MIT</a></p>
+      </div></div>
+
     </div>
     <style>
 #fixongithub a {
