@@ -30,10 +30,15 @@ const HEADER = 30;
 type ThumbDim = { w: number; h: number };
 
 // Build the `folders` array shape expected by findAnchorThumbnail / computeThumbScrollTop.
-function makeFolder(thumbs: ThumbDim[]) {
+function makeFolder(thumbs: ThumbDim[], name = 'folder') {
   return {
     folder: {
-      files: thumbs.map(({ w, h }) => ({ info: { thumbnail: { width: w, height: h } } })),
+      // findAnchorThumbnail records these on the anchor so it survives files
+      // being added or removed, so the fixtures have to carry them.
+      filename: name,
+      files: thumbs.map(({ w, h }, i) => ({
+        info: { filename: `${name}/file-${i}`, thumbnail: { width: w, height: h } },
+      })),
     },
   };
 }
@@ -54,6 +59,26 @@ function twoColOpts(width: number) {
 const GRID_MODE: GridMode = 'columns';
 
 describe('findAnchorThumbnail', () => {
+  it('records the folder and file names, not just their indices', () => {
+    // Indices shift when files are added or deleted; names are what let a saved
+    // anchor still be found afterwards. A nameless anchor silently downgrades
+    // the restore to the index path, which is the bug this guards.
+    const folders = [
+      makeFolder([{ w: 196, h: 100 }], 'alpha'),
+      makeFolder([{ w: 196, h: 100 }, { w: 196, h: 100 }], 'beta'),
+    ];
+    const anchor = findAnchorThumbnail(
+      folders as Parameters<typeof findAnchorThumbnail>[0],
+      GRID_MODE, 200, identity, singleColOpts(200), HEADER + 100 + HEADER + 104,
+    );
+    assert.deepEqual(anchor, {
+      folderIndex: 1,
+      fileIndex: 1,
+      folderName: 'beta',
+      fileName: 'beta/file-1',
+    });
+  });
+
   it('returns null when folders array is empty', () => {
     const anchor = findAnchorThumbnail([], GRID_MODE, 200, identity, singleColOpts(200), 100);
     assert.isNull(anchor);
@@ -69,20 +94,20 @@ describe('findAnchorThumbnail', () => {
   it('anchors to the first file when scrollTop=0', () => {
     const folders = [makeFolder([{ w: 196, h: 100 }, { w: 196, h: 100 }])];
     const anchor = findAnchorThumbnail(folders as Parameters<typeof findAnchorThumbnail>[0], GRID_MODE, 200, identity, singleColOpts(200), 0);
-    assert.deepEqual(anchor, { folderIndex: 0, fileIndex: 0 });
+    assert.deepInclude(anchor, { folderIndex: 0, fileIndex: 0 });
   });
 
   it('anchors to the first file when scrollTop equals the header height (top of grid)', () => {
     const folders = [makeFolder([{ w: 196, h: 100 }, { w: 196, h: 100 }, { w: 196, h: 100 }])];
     const anchor = findAnchorThumbnail(folders as Parameters<typeof findAnchorThumbnail>[0], GRID_MODE, 200, identity, singleColOpts(200), HEADER);
-    assert.deepEqual(anchor, { folderIndex: 0, fileIndex: 0 });
+    assert.deepInclude(anchor, { folderIndex: 0, fileIndex: 0 });
   });
 
   it('anchors to the second file when scrollTop is exactly at its top edge', () => {
     const folders = [makeFolder([{ w: 196, h: 100 }, { w: 196, h: 100 }, { w: 196, h: 100 }])];
     const scrollTop = HEADER + 104;
     const anchor = findAnchorThumbnail(folders as Parameters<typeof findAnchorThumbnail>[0], GRID_MODE, 200, identity, singleColOpts(200), scrollTop);
-    assert.deepEqual(anchor, { folderIndex: 0, fileIndex: 1 });
+    assert.deepInclude(anchor, { folderIndex: 0, fileIndex: 1 });
   });
 
   it('anchors into the correct folder in a multi-folder layout', () => {
@@ -93,7 +118,7 @@ describe('findAnchorThumbnail', () => {
     const folder0Height = 204;
     const scrollTop = HEADER + folder0Height + HEADER;
     const anchor = findAnchorThumbnail(folders as Parameters<typeof findAnchorThumbnail>[0], GRID_MODE, 200, identity, singleColOpts(200), scrollTop);
-    assert.deepEqual(anchor, { folderIndex: 1, fileIndex: 0 });
+    assert.deepInclude(anchor, { folderIndex: 1, fileIndex: 0 });
   });
 
   it('handles non-monotonic y-values in a two-column layout', () => {
@@ -101,7 +126,7 @@ describe('findAnchorThumbnail', () => {
     const folders = [makeFolder([{ w: 196, h: 100 }, { w: 196, h: 100 }, { w: 196, h: 100 }])];
     const scrollTop = HEADER;
     const anchor = findAnchorThumbnail(folders as Parameters<typeof findAnchorThumbnail>[0], GRID_MODE, width, identity, twoColOpts(width), scrollTop);
-    assert.deepEqual(anchor, { folderIndex: 0, fileIndex: 0 });
+    assert.deepInclude(anchor, { folderIndex: 0, fileIndex: 0 });
   });
 
   it('skips file 1 in second column when scrollTop is past the first row in a two-column layout', () => {
@@ -109,14 +134,14 @@ describe('findAnchorThumbnail', () => {
     const folders = [makeFolder([{ w: 196, h: 100 }, { w: 196, h: 100 }, { w: 196, h: 100 }])];
     const scrollTop = HEADER + 104;
     const anchor = findAnchorThumbnail(folders as Parameters<typeof findAnchorThumbnail>[0], GRID_MODE, width, identity, twoColOpts(width), scrollTop);
-    assert.deepEqual(anchor, { folderIndex: 0, fileIndex: 2 });
+    assert.deepInclude(anchor, { folderIndex: 0, fileIndex: 2 });
   });
 
   it('uses 1px snap tolerance to tolerate browser scrollTop rounding', () => {
     const folders = [makeFolder([{ w: 196, h: 100.5 }, { w: 196, h: 100.5 }, { w: 196, h: 100.5 }])];
     const scrollTopRoundedUp = HEADER + 105.07;
     const anchor = findAnchorThumbnail(folders as Parameters<typeof findAnchorThumbnail>[0], GRID_MODE, 200, identity, singleColOpts(200), scrollTopRoundedUp);
-    assert.deepEqual(anchor, { folderIndex: 0, fileIndex: 1 });
+    assert.deepInclude(anchor, { folderIndex: 0, fileIndex: 1 });
   });
 });
 
@@ -159,7 +184,7 @@ describe('findAnchorThumbnail / computeThumbScrollTop round-trip', () => {
     for (let fileIndex = 0; fileIndex < 3; fileIndex++) {
       const scrollTop = computeThumbScrollTop(folders as Parameters<typeof computeThumbScrollTop>[0], GRID_MODE, 200, identity, opts, 0, fileIndex);
       const anchor = findAnchorThumbnail(folders as Parameters<typeof findAnchorThumbnail>[0], GRID_MODE, 200, identity, opts, scrollTop);
-      assert.deepEqual(anchor, { folderIndex: 0, fileIndex }, `round-trip for fileIndex ${fileIndex}`);
+      assert.deepInclude(anchor, { folderIndex: 0, fileIndex }, `round-trip for fileIndex ${fileIndex}`);
     }
   });
 
@@ -175,7 +200,7 @@ describe('findAnchorThumbnail / computeThumbScrollTop round-trip', () => {
       for (let fileIndex = 0; fileIndex < 2; fileIndex++) {
         const scrollTop = computeThumbScrollTop(folders as Parameters<typeof computeThumbScrollTop>[0], GRID_MODE, 200, identity, opts, folderIndex, fileIndex);
         const anchor = findAnchorThumbnail(folders as Parameters<typeof findAnchorThumbnail>[0], GRID_MODE, 200, identity, opts, scrollTop);
-        assert.deepEqual(anchor, { folderIndex, fileIndex },
+        assert.deepInclude(anchor, { folderIndex, fileIndex },
           `round-trip failed for folder ${folderIndex}, file ${fileIndex}`);
       }
     }
@@ -192,11 +217,11 @@ describe('findAnchorThumbnail / computeThumbScrollTop round-trip', () => {
     const top0 = computeThumbScrollTop(folders as Parameters<typeof computeThumbScrollTop>[0], GRID_MODE, width, identity, opts, 0, 0);
     assert.strictEqual(top0, HEADER + 0);
     const anchor0 = findAnchorThumbnail(folders as Parameters<typeof findAnchorThumbnail>[0], GRID_MODE, width, identity, opts, top0);
-    assert.deepEqual(anchor0, { folderIndex: 0, fileIndex: 0 });
+    assert.deepInclude(anchor0, { folderIndex: 0, fileIndex: 0 });
 
     const top2 = computeThumbScrollTop(folders as Parameters<typeof computeThumbScrollTop>[0], GRID_MODE, width, identity, opts, 0, 2);
     assert.strictEqual(top2, HEADER + 104);
     const anchor2 = findAnchorThumbnail(folders as Parameters<typeof findAnchorThumbnail>[0], GRID_MODE, width, identity, opts, top2);
-    assert.deepEqual(anchor2, { folderIndex: 0, fileIndex: 2 });
+    assert.deepInclude(anchor2, { folderIndex: 0, fileIndex: 2 });
   });
 });

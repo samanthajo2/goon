@@ -141,7 +141,16 @@ export function findAnchorThumbnail(
         }
       }
       if (bestTi >= 0) {
-        return { folderIndex: fi, fileIndex: bestTi };
+        return {
+          folderIndex: fi,
+          fileIndex: bestTi,
+          // Names are what let an anchor survive files being added or removed:
+          // indices shift, names don't. Populated here so every caller gets
+          // them -- one caller used to persist a nameless anchor, which
+          // silently downgraded restore to the index-based path.
+          folderName: folder.filename,
+          fileName: (files[bestTi] as SortInfo).info.filename,
+        };
       }
     }
 
@@ -492,19 +501,39 @@ export default class ImageGrids extends React.Component<Props, State> {
     let folderIndex = -1;
     let fileIndex = -1;
     for (let fi = 0; fi < this._folders.length; fi++) {
-      if (this._folders[fi].folder.filename === anchor.folderName) {
-        const files = this._folders[fi].folder.files as SortInfo[];
-        for (let ti = 0; ti < files.length; ti++) {
-          if (files[ti].info.filename === anchor.fileName) {
-            folderIndex = fi;
-            fileIndex = ti;
-            break;
-          }
-        }
-        if (folderIndex >= 0) break;
+      if (this._folders[fi].folder.filename !== anchor.folderName) {
+        continue;
       }
+      folderIndex = fi;
+      const files = this._folders[fi].folder.files as SortInfo[];
+      for (let ti = 0; ti < files.length; ti++) {
+        if (files[ti].info.filename === anchor.fileName) {
+          fileIndex = ti;
+          break;
+        }
+      }
+      break;
     }
-    if (folderIndex < 0) return;
+
+    if (folderIndex < 0) {
+      // The anchor's folder is gone entirely. Nothing better to aim at, so keep
+      // the raw pixel offset -- still wrong, but closer than the top.
+      this._programmaticScroll = true;
+      this._imagegrids.scrollTop = this.props.scrollTop;
+      return;
+    }
+    if (fileIndex < 0) {
+      // The anchored file itself was deleted. This used to `return` without
+      // scrolling at all, which left a freshly mounted grid pinned at the top --
+      // exactly what happened after viewing an image, selecting it, leaving the
+      // viewer and deleting it. Aim at whatever now occupies that slot in the
+      // same folder instead, clamped for files removed after it. -1 is fine:
+      // computeThumbScrollTop reads it as "the folder's top".
+      const files = this._folders[folderIndex].folder.files as SortInfo[];
+      fileIndex = files.length === 0
+        ? -1
+        : Math.min(Math.max(anchor.fileIndex, 0), files.length - 1);
+    }
 
     const zoom = this._zoom;
     const options = {
@@ -717,9 +746,6 @@ export default class ImageGrids extends React.Component<Props, State> {
         anchor.folderIndex, anchor.fileIndex,
       );
       anchor.offset = anchorAbsoluteY - scrollTop;
-      const folder = this._folders![anchor.folderIndex];
-      anchor.folderName = folder.folder.filename;
-      anchor.fileName = (folder.folder.files[anchor.fileIndex] as SortInfo).info.filename;
     }
     this.props.saveScrollTop(scrollTop, anchor);
   };
